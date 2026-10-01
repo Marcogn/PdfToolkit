@@ -6,6 +6,21 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Edit pages.** An **Edit** button in the viewer (it hides while you scroll down) opens the edit
+  hub, and "Remove pages" and "Reorder pages" on Home pick a PDF and open straight on the tool.
+  Remove pages by tapping them (press and hold one, then tap another for a range) with an undo
+  from the snackbar; reorder by pressing and holding a page and dragging, or from the menu on each
+  page (move to start/end, one step, rotate 90°). Undo and redo for every operation.
+- **Save.** Save as a copy (default, suggests `<name>_modificato.pdf`) or overwrite the original when
+  the file allows it, after a confirmation. The new file is built in a temporary location and only
+  copied over the destination when complete, so a failure leaves the original untouched. The save
+  keeps running if you leave the app, with a progress bar that doesn't block the screen; after a
+  copy the snackbar offers **Open** and **Share**. Leaving with unsaved changes asks Save / Discard /
+  Cancel.
+- **Limits.** Password-protected PDFs can't be edited yet. A removed page can still be present in
+  the file's data if a bookmark or link points to it: don't use it to hide sensitive content.
+- **Permissions.** The app now declares `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_DATA_SYNC` for
+  the background save; still no `INTERNET`.
 - **Complete viewer.** Besides continuous scrolling there is now a single-page mode (swipe to turn
   the page, each page zooms on its own); the choice is remembered and can also be set in Settings.
   The top bar shows "page X of N" and a menu with reading mode, go to page, share and document

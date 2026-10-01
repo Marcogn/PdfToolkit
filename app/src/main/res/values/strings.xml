@@ -125,4 +125,67 @@
     <string name="settings_clear_thumbnails">Svuota cache miniature</string>
     <string name="settings_clear_thumbnails_summary">Elimina le anteprime dei file recenti; tornano quando riapri i documenti.</string>
     <string name="settings_thumbnails_cleared">Cache svuotata</string>
+
+    <!-- Edit (phase 2) -->
+    <string name="edit_fab">Modifica</string>
+    <plurals name="edit_hub_subtitle">
+        <item quantity="one">%1$d pagina</item>
+        <item quantity="other">%1$d pagine</item>
+    </plurals>
+    <string name="edit_tool_unavailable">%1$s sarà disponibile in una prossima versione.</string>
+    <string name="edit_error_title">Impossibile modificare il file</string>
+    <string name="edit_error_protected">I PDF protetti da password non si possono ancora modificare.</string>
+    <string name="edit_error_back">Indietro</string>
+    <string name="edit_undo">Annulla</string>
+    <string name="edit_redo">Ripeti</string>
+    <string name="edit_save">Salva</string>
+    <string name="edit_select_all">Seleziona tutto</string>
+    <plurals name="edit_selected_count">
+        <item quantity="one">%1$d selezionata</item>
+        <item quantity="other">%1$d selezionate</item>
+    </plurals>
+    <string name="edit_remove_hint">Tocca le pagine da rimuovere. Tieni premuto su una pagina e tocca un\'altra per selezionare un intervallo.</string>
+    <string name="edit_reorder_hint">Tieni premuta una pagina e trascinala. Il menu su ogni pagina offre alternative.</string>
+    <string name="edit_remove">Rimuovi</string>
+    <string name="edit_rotate">Ruota di 90°</string>
+    <string name="edit_clear_selection">Deseleziona</string>
+    <plurals name="edit_pages_removed">
+        <item quantity="one">%1$d pagina rimossa</item>
+        <item quantity="other">%1$d pagine rimosse</item>
+    </plurals>
+    <string name="edit_cannot_remove_all">Non puoi rimuovere tutte le pagine.</string>
+    <string name="edit_move_to_start">Sposta in testa</string>
+    <string name="edit_move_to_end">Sposta in coda</string>
+    <string name="edit_move_earlier">Sposta indietro di una</string>
+    <string name="edit_move_later">Sposta avanti di una</string>
+    <string name="cd_edit_page_menu">Azioni sulla pagina %1$d</string>
+    <string name="cd_edit_page">Pagina %1$d, ruotata di %2$d gradi</string>
+    <string name="edit_unsaved_title">Modifiche non salvate</string>
+    <string name="edit_unsaved_message">Vuoi salvare le modifiche prima di uscire?</string>
+    <string name="edit_unsaved_save">Salva</string>
+    <string name="edit_unsaved_discard">Scarta</string>
+    <string name="edit_unsaved_cancel">Annulla</string>
+    <string name="save_title">Salva PDF</string>
+    <string name="save_as_copy">Salva come copia</string>
+    <string name="save_as_copy_hint">Crea un nuovo file; l\'originale resta com\'è.</string>
+    <string name="save_overwrite">Sovrascrivi</string>
+    <string name="save_overwrite_hint">Sostituisce il file originale.</string>
+    <string name="save_overwrite_unavailable">Non disponibile: il file non permette la scrittura.</string>
+    <string name="save_confirm">Salva</string>
+    <string name="save_cancel">Annulla</string>
+    <string name="save_overwrite_confirm_title">Sovrascrivere l\'originale?</string>
+    <string name="save_overwrite_confirm_message">Il file originale sarà sostituito e non si potrà recuperare.</string>
+    <string name="save_done">PDF salvato</string>
+    <string name="save_open">Apri</string>
+    <string name="save_share">Condividi</string>
+    <string name="save_copy_suffix">_modificato</string>
+    <string name="save_error_title">Salvataggio non riuscito</string>
+    <string name="save_error_source">Il file originale non è più leggibile.</string>
+    <string name="save_error_protected">I PDF protetti da password non si possono ancora modificare.</string>
+    <string name="save_error_destination">Non è stato possibile scrivere nella destinazione. L\'originale non è stato toccato.</string>
+    <string name="save_error_memory">Memoria insufficiente per questo documento.</string>
+    <string name="save_error_generic">Il PDF non è stato salvato. L\'originale non è stato toccato.</string>
+    <string name="save_error_ok">Ho capito</string>
+    <string name="save_channel_name">Salvataggio PDF</string>
+    <string name="save_notification_title">Salvataggio del PDF</string>
 </resources>

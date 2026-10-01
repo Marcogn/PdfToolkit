@@ -17,14 +17,21 @@ fun Intent.pdfUri(): Uri? = when (action) {
 }
 
 /**
- * Keeps read access to [uri] across restarts, so recents can reopen it. Providers that only grant
- * temporary access (most `VIEW`/`SEND` intents) refuse: the file still opens now, it just may not
- * be available from recents later.
+ * Keeps access to [uri] across restarts, so recents can reopen it, and write access too when the
+ * provider gave it, so "overwrite" can be offered (spec §6.7). Providers that only grant temporary
+ * access (most `VIEW`/`SEND` intents) refuse: the file still opens now, it just may not be
+ * available from recents later.
  */
-fun Context.takePersistableReadPermission(uri: Uri) {
+fun Context.takePersistableAccess(uri: Uri) {
+    val read = Intent.FLAG_GRANT_READ_URI_PERMISSION
     try {
-        contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        contentResolver.takePersistableUriPermission(uri, read or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
     } catch (e: SecurityException) {
-        // Not persistable: see above.
+        // No write grant: read only.
+        try {
+            contentResolver.takePersistableUriPermission(uri, read)
+        } catch (e: SecurityException) {
+            // Not persistable: see above.
+        }
     }
 }

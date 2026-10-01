@@ -121,4 +121,67 @@
     <string name="settings_clear_thumbnails">Clear thumbnail cache</string>
     <string name="settings_clear_thumbnails_summary">Deletes the previews of recent files; they come back when you reopen the documents.</string>
     <string name="settings_thumbnails_cleared">Cache cleared</string>
+
+    <!-- Edit (phase 2) -->
+    <string name="edit_fab">Edit</string>
+    <plurals name="edit_hub_subtitle">
+        <item quantity="one">%1$d page</item>
+        <item quantity="other">%1$d pages</item>
+    </plurals>
+    <string name="edit_tool_unavailable">%1$s will be available in a future version.</string>
+    <string name="edit_error_title">Can\'t edit this file</string>
+    <string name="edit_error_protected">Password-protected PDFs can\'t be edited yet.</string>
+    <string name="edit_error_back">Back</string>
+    <string name="edit_undo">Undo</string>
+    <string name="edit_redo">Redo</string>
+    <string name="edit_save">Save</string>
+    <string name="edit_select_all">Select all</string>
+    <plurals name="edit_selected_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+    <string name="edit_remove_hint">Tap the pages to remove. Press and hold a page, then tap another to select a range.</string>
+    <string name="edit_reorder_hint">Press and hold a page and drag it. The menu on each page offers alternatives.</string>
+    <string name="edit_remove">Remove</string>
+    <string name="edit_rotate">Rotate 90°</string>
+    <string name="edit_clear_selection">Clear selection</string>
+    <plurals name="edit_pages_removed">
+        <item quantity="one">%1$d page removed</item>
+        <item quantity="other">%1$d pages removed</item>
+    </plurals>
+    <string name="edit_cannot_remove_all">You can\'t remove every page.</string>
+    <string name="edit_move_to_start">Move to start</string>
+    <string name="edit_move_to_end">Move to end</string>
+    <string name="edit_move_earlier">Move one earlier</string>
+    <string name="edit_move_later">Move one later</string>
+    <string name="cd_edit_page_menu">Actions for page %1$d</string>
+    <string name="cd_edit_page">Page %1$d, rotated %2$d degrees</string>
+    <string name="edit_unsaved_title">Unsaved changes</string>
+    <string name="edit_unsaved_message">Do you want to save your changes before leaving?</string>
+    <string name="edit_unsaved_save">Save</string>
+    <string name="edit_unsaved_discard">Discard</string>
+    <string name="edit_unsaved_cancel">Cancel</string>
+    <string name="save_title">Save PDF</string>
+    <string name="save_as_copy">Save as copy</string>
+    <string name="save_as_copy_hint">Creates a new file; the original stays as it is.</string>
+    <string name="save_overwrite">Overwrite</string>
+    <string name="save_overwrite_hint">Replaces the original file.</string>
+    <string name="save_overwrite_unavailable">Not available: the file doesn\'t allow writing.</string>
+    <string name="save_confirm">Save</string>
+    <string name="save_cancel">Cancel</string>
+    <string name="save_overwrite_confirm_title">Overwrite the original?</string>
+    <string name="save_overwrite_confirm_message">The original file will be replaced and can\'t be recovered.</string>
+    <string name="save_done">PDF saved</string>
+    <string name="save_open">Open</string>
+    <string name="save_share">Share</string>
+    <string name="save_copy_suffix">_edited</string>
+    <string name="save_error_title">Save failed</string>
+    <string name="save_error_source">The original file can\'t be read any more.</string>
+    <string name="save_error_protected">Password-protected PDFs can\'t be edited yet.</string>
+    <string name="save_error_destination">Couldn\'t write to the destination. The original was not touched.</string>
+    <string name="save_error_memory">Not enough memory for this document.</string>
+    <string name="save_error_generic">The PDF was not saved. The original was not touched.</string>
+    <string name="save_error_ok">Got it</string>
+    <string name="save_channel_name">PDF saving</string>
+    <string name="save_notification_title">Saving the PDF</string>
 </resources>

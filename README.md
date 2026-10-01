@@ -11,8 +11,9 @@ no cloud, no network access.
 The viewer (phase 1 of the plan, `docs/spec.md` §13) is complete: PDFs open from the file picker,
 from a file manager ("Open with") and from the share sheet, in continuous or single-page mode,
 with zoom, scrubber, thumbnail bar, password support (Android 15+), recent files with the last page
-read, and the related settings. The editing tools come in later phases and for now open a
-placeholder screen.
+read, and the related settings. Page editing (phase 2) is in as well: remove, reorder and rotate
+pages with undo/redo, and save as a copy or overwrite, in the background. The other editing tools
+(add pages, merge, images, fill and sign) come in later phases and for now open a placeholder.
 
 ## Features
 
@@ -21,7 +22,7 @@ Planned for the first version:
 - reading with zoom, continuous or single-page scrolling, scrubber and thumbnails (done)
 - text search
 - merging several PDFs
-- adding pages (from another PDF, blank, from images), removing, reordering, rotating
+- removing, reordering and rotating pages (done); adding pages (from another PDF, blank, from images)
 - form filling and signing, with an archive of signatures saved on the phone
 
 Planned for later: document scanning with OCR, cloud upload (WebDAV), highlighting, freehand
@@ -56,8 +57,8 @@ secret lets "Release" commit the version bump to `main`.
 app/src/main/java/com/marcogn/pdftoolkit/
   ui/        Compose screens, navigation and theme
   domain/    models with no Android dependencies
-  data/      preferences (DataStore), recent documents (Room), later signatures and file access
-  pdf/       PDF rendering (render/), later editing, forms and text search
+  data/      preferences (DataStore), recent documents (Room), background save (save/), later signatures
+  pdf/       PDF rendering (render/) and editing (edit/), later forms and text search
   di/        Hilt modules
 docs/
   spec.md    functional and technical specification (Italian)
@@ -72,9 +73,17 @@ device. CI checks on every build that no dependency brings the permission back.
 
 ## Libraries and licences
 
-Kotlin, AndroidX, Jetpack Compose and Dagger Hilt, all under the Apache 2.0 licence. Later phases
-add PdfBox-Android (Apache 2.0) for editing; the viewer uses Android's `PdfRenderer`. The reasons
-are in [`docs/adr/`](docs/adr/).
+Kotlin, AndroidX (including WorkManager), Jetpack Compose and Dagger Hilt, PdfBox-Android (editing),
+and Reorderable (page drag and drop), all under the Apache 2.0 licence; the viewer uses Android's
+`PdfRenderer`. The reasons are in [`docs/adr/`](docs/adr/).
+
+## Known limits
+
+- Password-protected PDFs can be read (Android 15+) but not edited yet.
+- Removing a page doesn't guarantee its data leaves the file: if a bookmark or link still points to
+  it, the page's objects stay in the file (not shown by readers). Not a redaction tool.
+- Overwriting needs a file that grants write access (most local files do, some providers don't);
+  otherwise only "save as copy" is offered.
 
 ## Documentation
 

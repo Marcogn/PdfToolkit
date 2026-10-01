@@ -6,6 +6,10 @@ import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
@@ -19,9 +23,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.ViewCarousel
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,10 +56,13 @@ import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.model.ReadingMode
 import com.marcogn.pdftoolkit.pdf.render.RenderBudget
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.receiveAsFlow
 
 private const val MODE_CROSSFADE_MS = 200
 private const val PANEL_MS = 220
+private const val FAB_SCROLL_SLOP = 8f
+private const val FAB_REAPPEAR_MS = 1_500L
 
 /**
  * The open document (spec §4.2): top bar with page indicator and menu, the pages in the chosen
@@ -72,6 +81,7 @@ fun ReadyViewer(
     readingMode: ReadingMode,
     onReadingModeChange: (ReadingMode) -> Unit,
     onPageChanged: (Int) -> Unit,
+    onEdit: () -> Unit,
     onBack: () -> Unit,
 ) {
     val pageCount = state.pageSizes.size
@@ -80,6 +90,22 @@ fun ReadyViewer(
     var showGoTo by rememberSaveable { mutableStateOf(false) }
     var showInfo by rememberSaveable { mutableStateOf(false) }
     val jumps = remember { Channel<Int>(Channel.CONFLATED) }
+    // The Edit button hides while the reader scrolls down and comes back on scrolling up or after a
+    // pause (spec §4.2).
+    var fabHidden by remember { mutableStateOf(false) }
+    var scrollTick by remember { mutableIntStateOf(0) }
+    val onScroll: (Float) -> Unit = { delta ->
+        if (delta > FAB_SCROLL_SLOP) {
+            fabHidden = true
+            scrollTick++
+        } else if (delta < -FAB_SCROLL_SLOP) {
+            fabHidden = false
+        }
+    }
+    LaunchedEffect(scrollTick) {
+        delay(FAB_REAPPEAR_MS)
+        fabHidden = false
+    }
     val reportPage: (Int) -> Unit = { page ->
         if (page != currentPage) {
             currentPage = page
@@ -119,6 +145,21 @@ fun ReadyViewer(
                 },
             )
         },
+        floatingActionButton = {
+            AnimatedVisibility(
+                visible = !fabHidden && !showThumbnails,
+                enter = scaleIn(tween(PANEL_MS)) + fadeIn(tween(PANEL_MS)),
+                exit = scaleOut(tween(PANEL_MS)) + fadeOut(tween(PANEL_MS)),
+            ) {
+                ExtendedFloatingActionButton(
+                    onClick = onEdit,
+                    icon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                    text = { Text(stringResource(R.string.edit_fab)) },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                )
+            }
+        },
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
             Crossfade(
@@ -128,7 +169,7 @@ fun ReadyViewer(
                 modifier = Modifier.fillMaxSize(),
             ) { mode ->
                 when (mode) {
-                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reportPage)
+                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reportPage, onScroll)
                     ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reportPage)
                 }
             }
@@ -262,6 +303,7 @@ private fun ContinuousPages(
     startPage: Int,
     jumps: Channel<Int>,
     onPageChanged: (Int) -> Unit,
+    onScroll: (Float) -> Unit,
 ) {
     val viewportState = rememberSaveable(saver = PdfViewportState.Saver) {
         PdfViewportState(ViewportAnchor(startPage, pageFractionY = 0f, contentFractionX = 0.5f, zoom = 1f))
@@ -271,6 +313,13 @@ private fun ContinuousPages(
     }
     LaunchedEffect(viewportState, jumps) {
         jumps.receiveAsFlow().collect { viewportState.jumpToPage(it) }
+    }
+    LaunchedEffect(viewportState) {
+        var previous = viewportState.viewport.offset.y
+        snapshotFlow { viewportState.viewport.offset.y }.collect { y ->
+            onScroll(y - previous)
+            previous = y
+        }
     }
     PdfViewport(
         pageSizes = state.pageSizes,
