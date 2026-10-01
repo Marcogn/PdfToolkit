@@ -1,0 +1,45 @@
+package com.marcogn.pdftoolkit.data.settings
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import com.marcogn.pdftoolkit.domain.model.ThemeMode
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+
+private val Context.themeDataStore: DataStore<Preferences> by preferencesDataStore(name = "theme_prefs")
+private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
+private val DYNAMIC_COLOR_KEY = booleanPreferencesKey("dynamic_color")
+
+/**
+ * Tema e colore dinamico su Preferences DataStore, come ThemePreferences di ThePatientGamerHelper.
+ * Il colore dinamico è spento di default (SPEC §9).
+ */
+@Singleton
+class ThemePreferences @Inject constructor(@ApplicationContext private val context: Context) {
+
+    val themeMode: Flow<ThemeMode> = context.themeDataStore.data.map { preferences ->
+        preferences[THEME_MODE_KEY]?.let { stored ->
+            runCatching { ThemeMode.valueOf(stored) }.getOrNull()
+        } ?: ThemeMode.SISTEMA
+    }
+
+    val dynamicColor: Flow<Boolean> = context.themeDataStore.data.map { preferences ->
+        preferences[DYNAMIC_COLOR_KEY] ?: false
+    }
+
+    suspend fun setThemeMode(mode: ThemeMode) {
+        context.themeDataStore.edit { preferences -> preferences[THEME_MODE_KEY] = mode.name }
+    }
+
+    suspend fun setDynamicColor(enabled: Boolean) {
+        context.themeDataStore.edit { preferences -> preferences[DYNAMIC_COLOR_KEY] = enabled }
+    }
+}

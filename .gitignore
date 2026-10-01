@@ -1,0 +1,23 @@
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+*.apk
+*.ap_
+*.dex
+/app/build/
+# app/schemas/ (export dello schema Room) va versionata quando arriverà il primo database:
+# vedi la decisione equivalente in KartLog (MigrationTest su checkout pulito).
+
+# Signing (never commit a release keystore or its credentials)
+*.jks
+*.keystore
+key.properties
+keystore.properties
+/release-secrets/

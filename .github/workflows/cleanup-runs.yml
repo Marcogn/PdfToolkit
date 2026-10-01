@@ -1,0 +1,31 @@
+# .github/workflows/cleanup-runs.yml
+#
+# Pulizia manuale della cronologia di GitHub Actions: cancella tutte le esecuzioni concluse
+# tranne la più recente di ogni workflow (con i loro log e artifact). Le release e i loro APK
+# non sono toccati: sono asset delle GitHub Release, non artifact delle esecuzioni.
+# Irreversibile, per questo solo manuale (Actions → Pulizia esecuzioni → Run workflow).
+name: Pulizia esecuzioni
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Cancella le esecuzioni vecchie
+        run: |
+          # L'API elenca le esecuzioni dalla più recente: la prima di ogni workflow si tiene,
+          # tutte le altre si cancellano. Solo quelle concluse, così questa resta intatta.
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs?status=completed&per_page=100" \
+            --jq '.workflow_runs[] | "\(.workflow_id) \(.id)"' \
+            | awk 'seen[$1]++ { print $2 }' > to_delete.txt
+          echo "Esecuzioni da cancellare: $(wc -l < to_delete.txt)"
+          while read -r id; do
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${id}" && echo "cancellata ${id}"
+          done < to_delete.txt

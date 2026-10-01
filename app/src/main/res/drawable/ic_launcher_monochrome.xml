@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icona tematica di Android 13+: stesse forme di ic_launcher_foreground in un solo tracciato
+     evenOdd, così righe, angolo piegato e la parte di penna sopra il foglio restano scavate. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M38,28 L60,28 L72,40 L72,78 Q72,80 70,80 L38,80 Q36,80 36,78 L36,30 Q36,28 38,28 Z
+            M60,28 L60,38 Q60,40 62,40 L72,40 Z
+            M42,47 L64,47 L64,50 L42,50 Z M42,54 L64,54 L64,57 L42,57 Z M42,61 L56,61 L56,64 L42,64 Z
+            M73,55 L80,62 L64,78 L57,71 Z
+            M57,71 L64,78 L54,81 Z
+            M73,55 L76,52 Q78,50 80,52 L83,55 Q85,57 83,59 L80,62 Z" />
+</vector>
