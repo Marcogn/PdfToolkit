@@ -154,8 +154,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   system back no longer shrinks the screen (predictive pop transitions).
 - **1b Viewer complete done (2026-10-01)**, PR #5; lint, 63 unit tests and `assembleDebug` green;
   device checks passed (author).
-- **Phase 2 Edit session and pages done (2026-10-01)**, awaiting device checks; lint (0 errors), 95
-  unit tests and `assembleDebug` green. **Next: phase 3 Add pages and merge (Sonnet).**
+- **Phase 2 Edit session and pages done (2026-10-01)**, PR #6; lint (0 errors), 95 unit tests and
+  `assembleDebug` green; device checks passed (author). Follow-up fix: page thumbnails with no added
+  rotation were laid out with zero height (blank cells). **Next: phase 3 Add pages and merge (Sonnet).**
 - The author still has to add the signing secrets to the repository.
 
 ### Notes for phase 3 onwards
