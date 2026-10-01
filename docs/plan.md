@@ -140,7 +140,7 @@ date. What each phase contains is in spec §13; here only operational notes.
 | Phase | Content | Notes |
 |---|---|---|
 | 0 | Skeleton: Gradle, Hilt, theme, languages, navigation, drawer, Home, signing, CI, docs, ADR 0001–0002 | Done |
-| 1 | Viewer, opening from SAF and intents, recents (Room), passwords | Room comes in with `RecentDocument`; `app/schemas/` committed as in KartLog. Settings: reading mode, clear recents, clear thumbnail cache |
+| 1 | Viewer, opening from SAF and intents, recents (Room), passwords | 1a done (render core, zoom/pan, continuous mode). Room comes in with `RecentDocument`; `app/schemas/` committed as in KartLog. Settings: reading mode, clear recents, clear thumbnail cache |
 | 2 | `EditSession` with undo/redo, edit hub, removal, reordering, rotation, saving | PdfBox-Android comes in (ADR 0002) with `PDFBoxResourceLoader.init`. Reasoned choice between WorkManager and a foreground service for saving (spec §6.7). Evaluate Reorderable (licence and compatibility with the Compose version in use) |
 | 3 | Adding pages (PDF, blank, images) and Merge PDFs | Unit tests on page sizes |
 | 4 | Fill and sign, signature archive | Noto Sans font (OFL) bundled; verify the backup rules already in place |

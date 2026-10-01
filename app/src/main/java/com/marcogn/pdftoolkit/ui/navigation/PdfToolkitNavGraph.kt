@@ -33,6 +33,8 @@ import com.marcogn.pdftoolkit.ui.common.PlaceholderScreen
 import com.marcogn.pdftoolkit.ui.home.HomeScreen
 import com.marcogn.pdftoolkit.ui.home.labelRes
 import com.marcogn.pdftoolkit.ui.settings.SettingsScreen
+import com.marcogn.pdftoolkit.ui.viewer.ViewerScreen
+import com.marcogn.pdftoolkit.ui.viewer.rememberOpenPdfLauncher
 import kotlinx.coroutines.launch
 
 // A NavBackStackEntry reaches RESUMED only once its transition has finished: every
@@ -88,6 +90,8 @@ fun PdfToolkitNavGraph(navController: NavHostController = rememberNavController(
     val scope = rememberCoroutineScope()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDrawerDestination = backStackEntry?.destination?.asDrawerDestination()
+    // In the viewer a horizontal drag pans the page: the drawer opens only from its button.
+    val drawerGesturesEnabled = backStackEntry?.destination?.hasRoute<Destination.Viewer>() != true
 
     val openDrawer: () -> Unit = { scope.launch { drawerState.open() } }
     val navigateFromDrawer: (Destination) -> Unit = { destination ->
@@ -112,6 +116,7 @@ fun PdfToolkitNavGraph(navController: NavHostController = rememberNavController(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = drawerGesturesEnabled,
         drawerContent = { AppDrawerSheet(current = currentDrawerDestination, onNavigate = navigateFromDrawer) },
     ) {
         NavHost(
@@ -123,9 +128,13 @@ fun PdfToolkitNavGraph(navController: NavHostController = rememberNavController(
             popExitTransition = navPopExitTransition,
         ) {
             composable<Destination.Home> { entry ->
+                // The picker result arrives before the entry is RESUMED again, so this navigate()
+                // can't go through the guard; it isn't a tap, so no double-tap risk. The tap that
+                // opens the picker is guarded.
+                val openPdf = rememberOpenPdfLauncher { uri -> navController.navigate(Destination.Viewer(uri.toString())) }
                 HomeScreen(
                     onMenuClick = openDrawer,
-                    onOpenPdfClick = { if (entry.lifecycleIsResumed()) navController.navigate(Destination.Viewer) },
+                    onOpenPdfClick = { if (entry.lifecycleIsResumed()) openPdf() },
                     onToolClick = { tool ->
                         if (tool == PdfTool.MY_SIGNATURES) {
                             // Same screen as the drawer entry, so same navigation: this way
@@ -138,10 +147,7 @@ fun PdfToolkitNavGraph(navController: NavHostController = rememberNavController(
                 )
             }
             composable<Destination.Viewer> { entry ->
-                PlaceholderScreen(
-                    title = stringResource(R.string.viewer_title),
-                    onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
-                )
+                ViewerScreen(onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() })
             }
             composable<Destination.Tool> { entry ->
                 val tool = PdfTool.valueOf(entry.toRoute<Destination.Tool>().tool)
