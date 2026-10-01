@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">PdfToolkit</string>
+
+    <string name="cd_menu">Apri il menu</string>
+    <string name="cd_back">Indietro</string>
+
+    <!-- Drawer -->
+    <string name="drawer_home">Home</string>
+    <string name="drawer_recents">File recenti</string>
+    <string name="drawer_signatures">Le mie firme</string>
+    <string name="drawer_settings">Impostazioni</string>
+    <string name="drawer_about">Informazioni</string>
+
+    <!-- Home -->
+    <string name="home_open_pdf_title">Apri PDF</string>
+    <string name="home_open_pdf_subtitle">Scegli un documento dal telefono</string>
+    <string name="home_recents_title">Recenti</string>
+    <string name="home_recents_empty">I PDF che apri compariranno qui.</string>
+    <string name="home_tools_title">Strumenti</string>
+    <string name="home_upcoming_title">In arrivo</string>
+    <string name="home_coming_soon_badge">Presto</string>
+    <string name="home_coming_soon_message">%1$s arriverà in una prossima versione.</string>
+
+    <!-- Tools -->
+    <string name="tool_merge">Unisci PDF</string>
+    <string name="tool_add_pages">Aggiungi pagine</string>
+    <string name="tool_insert_images">Inserisci immagini</string>
+    <string name="tool_remove_pages">Rimuovi pagine</string>
+    <string name="tool_reorder_pages">Riordina pagine</string>
+    <string name="tool_fill_and_sign">Compila e firma</string>
+    <string name="tool_my_signatures">Le mie firme</string>
+    <string name="tool_scan">Scansiona</string>
+    <string name="tool_cloud_upload">Carica su cloud</string>
+    <string name="tool_highlight">Evidenzia</string>
+    <string name="tool_draw">Disegna</string>
+    <string name="tool_export_odf">Esporta in ODF</string>
+
+    <!-- Placeholder -->
+    <string name="viewer_title">Viewer</string>
+    <string name="placeholder_message">Questa schermata non è ancora disponibile.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Impostazioni</string>
+    <string name="settings_appearance_section">Aspetto</string>
+    <string name="settings_theme_label">Tema</string>
+    <string name="theme_system">Sistema</string>
+    <string name="theme_light">Chiaro</string>
+    <string name="theme_dark">Scuro</string>
+    <string name="settings_dynamic_color">Colori dello sfondo</string>
+    <string name="settings_dynamic_color_summary">Usa i colori del sistema al posto di quelli dell\'app.</string>
+    <string name="settings_dynamic_color_unsupported">Richiede Android 12 o successivo.</string>
+    <string name="settings_language_label">Lingua</string>
+    <string name="language_system">Sistema</string>
+    <string name="language_italian" translatable="false">Italiano</string>
+    <string name="language_english" translatable="false">English</string>
+
+    <!-- About -->
+    <string name="about_title">Informazioni</string>
+    <string name="about_version">Versione %1$s</string>
+    <string name="about_privacy_title">Privacy</string>
+    <string name="about_privacy_body">PdfToolkit non usa la rete e non ha account. I documenti restano sul telefono.</string>
+    <string name="about_signature_title">Firma</string>
+    <string name="about_signature_body">La firma inserita è un\'immagine apposta sul documento. Non è una firma digitale con certificato e non ha il valore legale di una firma elettronica qualificata.</string>
+    <string name="about_ai_title">Sviluppo</string>
+    <string name="about_ai_body">L\'app è stata sviluppata con l\'aiuto di strumenti di intelligenza artificiale (Claude Code), con revisione e test dell\'autore.</string>
+    <string name="about_licenses_title">Licenze</string>
+    <string name="about_licenses_body">PdfToolkit è distribuita con licenza MIT. Usa Kotlin, AndroidX, Jetpack Compose e Dagger Hilt, con licenza Apache 2.0.</string>
+</resources>

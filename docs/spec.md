@@ -469,8 +469,9 @@ app/
     text/        # estrazione testo con posizioni, indice di ricerca, normalizzazione
   di/            # moduli Hilt
 docs/
+  spec.md  plan.md
   adr/
-SPEC.md  README.md  CLAUDE.md  CHANGELOG.md
+README.md  CLAUDE.md  CHANGELOG.md
 ```
 
 Punti da curare:
