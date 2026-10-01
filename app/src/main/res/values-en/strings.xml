@@ -241,4 +241,10 @@
     <string name="merge_move_up">Move up</string>
     <string name="merge_move_down">Move down</string>
     <string name="merge_remove">Remove from the list</string>
+    <string name="add_from_pdf_hint">Choose the pages to copy into this document</string>
+    <string name="add_blank_hint">Insert 1 to 50 blank pages</string>
+    <string name="images_from_photos_hint">Pick from the gallery</string>
+    <string name="images_from_files_hint">Choose from the phone\'s files</string>
+    <string name="add_new_badge">New</string>
+    <string name="add_review_hint">The new pages are highlighted. If they are not where you wanted, drag them into place.</string>
 </resources>

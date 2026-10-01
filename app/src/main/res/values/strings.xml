@@ -245,4 +245,10 @@
     <string name="merge_move_up">Sposta su</string>
     <string name="merge_move_down">Sposta giù</string>
     <string name="merge_remove">Rimuovi dalla lista</string>
+    <string name="add_from_pdf_hint">Scegli le pagine da copiare in questo documento</string>
+    <string name="add_blank_hint">Inserisci da 1 a 50 pagine bianche</string>
+    <string name="images_from_photos_hint">Seleziona dalla galleria</string>
+    <string name="images_from_files_hint">Scegli dai file del telefono</string>
+    <string name="add_new_badge">Nuova</string>
+    <string name="add_review_hint">Le pagine nuove sono evidenziate. Se non sono dove volevi, trascinale nella posizione giusta.</string>
 </resources>

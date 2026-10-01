@@ -20,6 +20,13 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
   from the open file), reorder them by dragging, swipe to remove one, "+" to add more. **Merge** asks
   where to save the new file (`<first name>_unito.pdf`); **Merge and edit** opens the edit hub on the
   merged pages first. Files with form fields get a warning.
+- **Where did it go?** After adding pages or images the page grid opens with the new pages
+  highlighted ("New" badge) and scrolled into view, so you see which they are and where they went,
+  and can drag them if the spot is wrong. The image dialog shows a preview strip of the picked
+  images and the blank-pages dialog a preview of the page; the source dialogs are now two clear rows
+  with icon and description.
+- **Fix.** Merge crashed right after picking the files (a saved-state key clashed with the route
+  argument of the same name).
 - **Limits.** PDFs added to another one can't be password-protected yet. Bookmarks of merged files
   are not kept and their form fields may stop working.
 - **Edit pages.** An **Edit** button in the viewer (it hides while you scroll down) opens the edit

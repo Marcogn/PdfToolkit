@@ -281,11 +281,11 @@ class EditViewModel @Inject constructor(
         _pendingPdf.value = null
     }
 
-    /** Adds the pages [pageIndices] (in the order given) of the pending PDF at [point]. Returns how many were added. */
-    fun insertPendingPdfPages(pageIndices: List<Int>, point: InsertionPoint): Int {
-        val pending = _pendingPdf.value ?: return 0
-        val renderer = pendingRenderer ?: return 0
-        if (pageIndices.isEmpty()) return 0
+    /** Adds the pages [pageIndices] (in the order given) of the pending PDF at [point]. Returns the ids of the new pages. */
+    fun insertPendingPdfPages(pageIndices: List<Int>, point: InsertionPoint): List<String> {
+        val pending = _pendingPdf.value ?: return emptyList()
+        val renderer = pendingRenderer ?: return emptyList()
+        if (pageIndices.isEmpty()) return emptyList()
         val index = insertionIndex(point)
         registerExtra(pending.docRef, pending.uri, pending.source, renderer)
         // Registered: the renderer now belongs to the session, not to the pending pick.
@@ -293,16 +293,16 @@ class EditViewModel @Inject constructor(
         _pendingPdf.value = null
         val items = pageIndices.map { PageItem.FromPdf(newId(), pending.docRef, it) }
         apply { it.insert(index, items) }
-        return items.size
+        return items.map { it.id }
     }
 
     /** Adds [count] blank pages (spec §6.2: 1 to 50) at [point], sized like the neighbouring page. */
-    fun insertBlankPages(count: Int, point: InsertionPoint): Int {
+    fun insertBlankPages(count: Int, point: InsertionPoint): List<String> {
         val amount = count.coerceIn(PageSizing.MIN_BLANK_PAGES, PageSizing.MAX_BLANK_PAGES)
         val size = referenceSize(point)
         val items = List(amount) { PageItem.Blank(newId(), size.width, size.height) }
         val index = insertionIndex(point)
-        return if (apply { it.insert(index, items) }) amount else 0
+        return if (apply { it.insert(index, items) }) items.map { it.id } else emptyList()
     }
 
     /** Copies and measures the picked images; those that can't be read are reported through [events]. */
@@ -330,10 +330,10 @@ class EditViewModel @Inject constructor(
         _pendingImages.value = emptyList()
     }
 
-    /** Turns the picked images into pages at [point]; the page size follows [mode] (spec §6.2). Returns how many were added. */
-    fun insertPendingImages(mode: ImageFit, point: InsertionPoint): Int {
+    /** Turns the picked images into pages at [point]; the page size follows [mode] (spec §6.2). Returns the ids of the new pages. */
+    fun insertPendingImages(mode: ImageFit, point: InsertionPoint): List<String> {
         val images = _pendingImages.value
-        if (images.isEmpty()) return 0
+        if (images.isEmpty()) return emptyList()
         val reference = referenceSize(point)
         val items = images.map { image ->
             val size = PageSizing.pageSizeFor(image.dimensions, mode, reference)
@@ -341,7 +341,7 @@ class EditViewModel @Inject constructor(
         }
         val index = insertionIndex(point)
         _pendingImages.value = emptyList()
-        return if (apply { it.insert(index, items) }) items.size else 0
+        return if (apply { it.insert(index, items) }) items.map { it.id } else emptyList()
     }
 
     fun imageThumbnail(uri: String, maxSidePx: Int) = imageLoader.thumbnail(uri, maxSidePx)

@@ -1,5 +1,32 @@
 package com.marcogn.pdftoolkit.ui.edit
 
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.NoteAdd
+import androidx.compose.material.icons.outlined.PhotoLibrary
+import androidx.compose.material.icons.outlined.PictureAsPdf
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -94,6 +121,26 @@ private fun InsertionPointSelector(pageCount: Int, point: InsertionPoint, onChan
 
 private const val MAX_DIGITS = 5
 
+/** One tappable row of a source dialog: icon, title and a line of explanation, on the full width. */
+@Composable
+private fun SourceRow(icon: ImageVector, title: String, hint: String, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Column {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
 /** First step of "Add pages": where the new pages come from. */
 @Composable
 fun AddPagesSourceDialog(onFromPdf: () -> Unit, onBlank: () -> Unit, onDismiss: () -> Unit) {
@@ -102,8 +149,8 @@ fun AddPagesSourceDialog(onFromPdf: () -> Unit, onBlank: () -> Unit, onDismiss: 
         title = { Text(stringResource(R.string.tool_add_pages)) },
         text = {
             Column {
-                TextButton(onClick = onFromPdf, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.add_from_pdf)) }
-                TextButton(onClick = onBlank, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.add_blank)) }
+                SourceRow(Icons.Outlined.PictureAsPdf, stringResource(R.string.add_from_pdf), stringResource(R.string.add_from_pdf_hint), onFromPdf)
+                SourceRow(Icons.Outlined.NoteAdd, stringResource(R.string.add_blank), stringResource(R.string.add_blank_hint), onBlank)
             }
         },
         confirmButton = {},
@@ -126,7 +173,7 @@ fun BlankPagesDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.add_blank)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.add_blank_count), modifier = Modifier.weight(1f))
                     IconButton(onClick = { count = (count - 1).coerceAtLeast(PageSizing.MIN_BLANK_PAGES) }, enabled = count > PageSizing.MIN_BLANK_PAGES) {
@@ -138,6 +185,7 @@ fun BlankPagesDialog(
                     }
                 }
                 InsertionPointSelector(pageCount, point) { point = it }
+                PagePreview(referenceSize(point))
                 Text(
                     stringResource(R.string.add_size_used, referenceSize(point).asMillimetres()) +
                         if (mixedSizes) " " + stringResource(R.string.add_size_mixed) else "",
@@ -159,8 +207,8 @@ fun ImageSourceDialog(onPhotos: () -> Unit, onFiles: () -> Unit, onDismiss: () -
         title = { Text(stringResource(R.string.tool_insert_images)) },
         text = {
             Column {
-                TextButton(onClick = onPhotos, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.images_from_photos)) }
-                TextButton(onClick = onFiles, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.images_from_files)) }
+                SourceRow(Icons.Outlined.PhotoLibrary, stringResource(R.string.images_from_photos), stringResource(R.string.images_from_photos_hint), onPhotos)
+                SourceRow(Icons.Outlined.Folder, stringResource(R.string.images_from_files), stringResource(R.string.images_from_files_hint), onFiles)
             }
         },
         confirmButton = {},
@@ -168,10 +216,53 @@ fun ImageSourceDialog(onPhotos: () -> Unit, onFiles: () -> Unit, onDismiss: () -
     )
 }
 
+/** A row of previews of the images about to become pages (the first few, with "+N" for the rest). */
+@Composable
+private fun ImageStrip(images: List<PickedImage>, thumbnail: (uri: String) -> Bitmap?) {
+    val shown = images.take(MAX_STRIP)
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        items(shown, key = { it.uri }) { image ->
+            val bitmap by produceState<ImageBitmap?>(initialValue = null, image.uri) {
+                value = withContext(Dispatchers.IO) { thumbnail(image.uri) }?.asImageBitmap()
+            }
+            Box(
+                Modifier.size(72.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                contentAlignment = Alignment.Center,
+            ) {
+                bitmap?.let { Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+            }
+        }
+        if (images.size > shown.size) {
+            item {
+                Box(Modifier.size(72.dp), contentAlignment = Alignment.Center) {
+                    Text("+${images.size - shown.size}", style = MaterialTheme.typography.titleMedium)
+                }
+            }
+        }
+    }
+}
+
+private const val MAX_STRIP = 8
+
+/** A white page of the proportions of [size], to see what the new blank pages will look like. */
+@Composable
+private fun PagePreview(size: SizePt) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .height(96.dp)
+                .aspectRatio((size.width / size.height).coerceIn(0.3f, 3f))
+                .background(Color.White)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        )
+    }
+}
+
 /** Images: fit to the page or original size (applies to all), and where the pages go. */
 @Composable
 fun ImagesDialog(
-    imageCount: Int,
+    images: List<PickedImage>,
+    thumbnail: (uri: String) -> Bitmap?,
     pageCount: Int,
     referenceSize: (InsertionPoint) -> SizePt,
     mixedSizes: Boolean,
@@ -182,9 +273,10 @@ fun ImagesDialog(
     var point by rememberSaveable(stateSaver = InsertionPointSaver) { mutableStateOf(InsertionPoint.END_OF_DOCUMENT) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(pluralStringResource(R.plurals.images_dialog_title, imageCount, imageCount)) },
+        title = { Text(pluralStringResource(R.plurals.images_dialog_title, images.size, images.size)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ImageStrip(images, thumbnail)
                 Column(Modifier.selectableGroup()) {
                     ImageFit.entries.forEach { option ->
                         val (label, hint) = when (option) {

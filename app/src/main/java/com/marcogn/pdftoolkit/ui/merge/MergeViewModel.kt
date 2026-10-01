@@ -139,7 +139,9 @@ class MergeViewModel @Inject constructor(
     }
 
     private companion object {
-        const val KEY_URIS = "uris"
+        // Not "uris": that is the name of the route argument, which Navigation also puts in this
+        // SavedStateHandle (as an array), so reading it back as an ArrayList crashed.
+        const val KEY_URIS = "merge_list_uris"
         const val THUMBNAIL_HEIGHT_PX = 192
     }
 }

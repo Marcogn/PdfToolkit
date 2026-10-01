@@ -103,6 +103,8 @@ fun PagesGrid(
     actions: PageActions,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
+    highlighted: Set<String> = emptySet(),
+    scrollToId: String? = null,
 ) {
     val haptics = LocalHapticFeedback.current
     var working by remember { mutableStateOf<List<PageItem>?>(null) }
@@ -112,6 +114,11 @@ fun PagesGrid(
     val shown = working ?: pages
 
     val gridState = rememberLazyGridState()
+    // Pages just added: bring the first one into view so it is clear where it went.
+    LaunchedEffect(scrollToId) {
+        val index = pages.indexOfFirst { it.id == scrollToId }
+        if (index >= 0) gridState.animateScrollToItem(index)
+    }
     val reorderState = rememberReorderableLazyGridState(gridState) { from, to ->
         val list = (working ?: pages).toMutableList()
         list.add(to.index, list.removeAt(from.index))
@@ -155,6 +162,7 @@ fun PagesGrid(
                     sources = sources,
                     imageThumbnail = imageThumbnail,
                     selected = page.id in selection,
+                    highlighted = page.id in highlighted,
                     mode = mode,
                     isDragging = isDragging,
                     isFirst = index == 0,
@@ -177,6 +185,7 @@ private fun PageCell(
     sources: Map<DocRef, PageSource>,
     imageThumbnail: (uri: String) -> Bitmap?,
     selected: Boolean,
+    highlighted: Boolean,
     mode: PagesMode,
     isDragging: Boolean,
     isFirst: Boolean,
@@ -230,7 +239,11 @@ private fun PageCell(
         Surface(
             shape = MaterialTheme.shapes.small,
             color = MaterialTheme.colorScheme.surfaceContainerHighest,
-            border = if (selected) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            border = when {
+                selected -> BorderStroke(3.dp, MaterialTheme.colorScheme.primary)
+                highlighted -> BorderStroke(3.dp, MaterialTheme.colorScheme.tertiary)
+                else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            },
             modifier = Modifier.fillMaxWidth(),
         ) {
             PageThumbnail(page, sources, imageThumbnail)
@@ -246,6 +259,19 @@ private fun PageCell(
                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
                 .padding(horizontal = 8.dp, vertical = 2.dp),
         )
+        if (highlighted && !selected) {
+            Text(
+                text = stringResource(R.string.add_new_badge),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onTertiary,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(4.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.tertiary)
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+            )
+        }
         if (selected) {
             Icon(
                 Icons.Filled.Check,

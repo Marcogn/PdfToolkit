@@ -139,6 +139,9 @@ fun EditScreen(
     var showImageSource by rememberSaveable { mutableStateOf(false) }
     var showPickedPagesDialog by rememberSaveable { mutableStateOf(false) }
     var startToolHandled by rememberSaveable { mutableStateOf(false) }
+    // Pages just added: shown highlighted, in the page grid, scrolled into view.
+    var highlighted by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf(emptySet<String>()) }
+    var scrollToId by rememberSaveable { mutableStateOf<String?>(null) }
     var autoSaveHandled by rememberSaveable { mutableStateOf(false) }
 
     val copyLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
@@ -184,6 +187,13 @@ fun EditScreen(
     val picking = pendingPdf != null
     // Tools of Home that are a dialog rather than a pane open it as soon as the document is ready;
     // a merge without editing asks where to save straight away.
+    // The marks belong to the review right after an addition: back at the hub they are gone.
+    LaunchedEffect(pane) {
+        if (pane == EditPane.HUB) {
+            highlighted = emptySet()
+            scrollToId = null
+        }
+    }
     LaunchedEffect(ready != null) {
         if (ready == null) return@LaunchedEffect
         if (!startToolHandled) {
@@ -249,7 +259,16 @@ fun EditScreen(
             if (result == SnackbarResult.ActionPerformed) viewModel.undo()
         }
     }
-    val showAdded: (Int) -> Unit = { count ->
+    // After an addition the page grid opens with the new pages marked, so it is clear which they
+    // are and where they went; they can be dragged right away if the spot is wrong.
+    val showAdded: (List<String>) -> Unit = showAdded@{ ids ->
+        if (ids.isEmpty()) return@showAdded
+        val count = ids.size
+        highlighted = ids.toSet()
+        scrollToId = ids.first()
+        selection = emptySet()
+        rangeAnchor = null
+        pane = EditPane.REORDER
         scope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
             val message = resources.getQuantityString(R.plurals.edit_pages_added, count, count)
@@ -451,6 +470,8 @@ fun EditScreen(
                 EditPane.REMOVE, EditPane.REORDER -> PagesPane(
                     state = state,
                     imageThumbnail = { uri -> viewModel.imageThumbnail(uri, THUMBNAIL_PX) },
+                    highlighted = highlighted,
+                    scrollToId = scrollToId,
                     mode = if (pane == EditPane.REMOVE) PagesMode.REMOVE else PagesMode.REORDER,
                     selection = selection,
                     onTap = { page ->
@@ -534,8 +555,7 @@ fun EditScreen(
             mixedSizes = viewModel.hasMixedSizes(),
             onConfirm = { count, point ->
                 showBlankDialog = false
-                val added = viewModel.insertBlankPages(count, point)
-                if (added > 0) showAdded(added)
+                showAdded(viewModel.insertBlankPages(count, point))
             },
             onDismiss = { showBlankDialog = false },
         )
@@ -555,13 +575,13 @@ fun EditScreen(
     }
     if (pendingImages.isNotEmpty() && ready != null) {
         ImagesDialog(
-            imageCount = pendingImages.size,
+            images = pendingImages,
+            thumbnail = { uri -> viewModel.imageThumbnail(uri, THUMBNAIL_PX) },
             pageCount = ready.session.pageCount,
             referenceSize = viewModel::referenceSize,
             mixedSizes = viewModel.hasMixedSizes(),
             onConfirm = { mode, point ->
-                val added = viewModel.insertPendingImages(mode, point)
-                if (added > 0) showAdded(added)
+                showAdded(viewModel.insertPendingImages(mode, point))
             },
             onDismiss = viewModel::dropPendingImages,
         )
@@ -575,8 +595,7 @@ fun EditScreen(
                 val indices = selection.mapNotNull { it.removePrefix(PICK_ID_PREFIX).toIntOrNull() }.sorted()
                 selection = emptySet()
                 rangeAnchor = null
-                val added = viewModel.insertPendingPdfPages(indices, point)
-                if (added > 0) showAdded(added)
+                showAdded(viewModel.insertPendingPdfPages(indices, point))
             },
             onDismiss = { showPickedPagesDialog = false },
         )
@@ -619,6 +638,8 @@ private fun EditHub(onToolClick: (PdfTool) -> Unit, modifier: Modifier = Modifie
 private fun PagesPane(
     state: EditUiState.Ready,
     imageThumbnail: (uri: String) -> android.graphics.Bitmap?,
+    highlighted: Set<String>,
+    scrollToId: String?,
     mode: PagesMode,
     selection: Set<String>,
     onTap: (PageItem) -> Unit,
@@ -629,7 +650,13 @@ private fun PagesPane(
 ) {
     Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
         Text(
-            stringResource(if (mode == PagesMode.REMOVE) R.string.edit_remove_hint else R.string.edit_reorder_hint),
+            stringResource(
+                when {
+                    highlighted.isNotEmpty() && mode == PagesMode.REORDER -> R.string.add_review_hint
+                    mode == PagesMode.REMOVE -> R.string.edit_remove_hint
+                    else -> R.string.edit_reorder_hint
+                },
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -646,6 +673,8 @@ private fun PagesPane(
             actions = actions,
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = padding.calculateBottomPadding() + 24.dp),
             modifier = Modifier.fillMaxSize(),
+            highlighted = highlighted,
+            scrollToId = scrollToId,
         )
     }
 }

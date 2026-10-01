@@ -189,6 +189,11 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   proposed by spec §6.6, waits for phase 4a's flatten); HEIC/HEIF need API 28+, AVIF is guaranteed only from Android 14;
   `AndroidPageImageLoader` (both decoding paths) has no unit tests: only on-device checks cover it;
   each image page probes the file twice at save time (size, then decode).
+- `SavedStateHandle` also receives the route arguments by name: never reuse an argument name
+  (`uri`, `tool`, `mergeWith`, `autoSave`, `uris`) as a state key, and its list arguments are arrays,
+  not `ArrayList` (the merge screen crashed on this).
+- After an addition the edit screen switches to the reorder pane with the new page ids highlighted
+  (`highlighted`/`scrollToId` in `EditScreen`, passed to `PagesGrid`); the marks clear at the hub.
 - The hub's "Merge" needs the session saved first (it merges the file on disk) and says so otherwise.
 
 ### Notes for phase 2 onwards (viewer, from 1b)
