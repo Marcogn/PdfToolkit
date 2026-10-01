@@ -16,6 +16,9 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -35,6 +38,7 @@ import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.model.PdfTool
 import com.marcogn.pdftoolkit.ui.about.AboutScreen
 import com.marcogn.pdftoolkit.ui.common.PlaceholderScreen
+import com.marcogn.pdftoolkit.ui.edit.EditScreen
 import com.marcogn.pdftoolkit.ui.home.HomeScreen
 import com.marcogn.pdftoolkit.ui.home.labelRes
 import com.marcogn.pdftoolkit.ui.recents.RecentsScreen
@@ -42,7 +46,7 @@ import com.marcogn.pdftoolkit.ui.recents.RecentsViewModel
 import com.marcogn.pdftoolkit.ui.settings.SettingsScreen
 import com.marcogn.pdftoolkit.ui.viewer.ViewerScreen
 import com.marcogn.pdftoolkit.ui.viewer.rememberOpenPdfLauncher
-import com.marcogn.pdftoolkit.ui.viewer.takePersistableReadPermission
+import com.marcogn.pdftoolkit.ui.viewer.takePersistableAccess
 import kotlinx.coroutines.launch
 
 // A NavBackStackEntry reaches RESUMED only once its transition has finished: every
@@ -129,7 +133,7 @@ fun PdfToolkitNavGraph(
     // PDF handed over by another app (VIEW / SEND): opened on top of Home, so back goes to Home.
     LaunchedEffect(startUri) {
         if (startUri != null) {
-            context.takePersistableReadPermission(startUri)
+            context.takePersistableAccess(startUri)
             navController.navigate(Destination.Viewer(startUri.toString()))
         }
     }
@@ -158,10 +162,23 @@ fun PdfToolkitNavGraph(
                 // The picker result arrives before the entry is RESUMED again, so this navigate()
                 // can't go through the guard; it isn't a tap, so no double-tap risk. The tap that
                 // opens the picker is guarded.
-                val openPdf = rememberOpenPdfLauncher { uri -> navController.navigate(Destination.Viewer(uri.toString())) }
+                // A page tool tapped on Home picks the file first and then opens straight on the tool (spec §4.1).
+                var pendingTool by rememberSaveable { mutableStateOf<String?>(null) }
+                val openPdf = rememberOpenPdfLauncher { uri ->
+                    val tool = pendingTool
+                    pendingTool = null
+                    navController.navigate(
+                        if (tool == null) Destination.Viewer(uri.toString()) else Destination.Edit(uri.toString(), tool),
+                    )
+                }
                 HomeScreen(
                     onMenuClick = openDrawer,
-                    onOpenPdfClick = { if (entry.lifecycleIsResumed()) openPdf() },
+                    onOpenPdfClick = {
+                        if (entry.lifecycleIsResumed()) {
+                            pendingTool = null
+                            openPdf()
+                        }
+                    },
                     recents = recents,
                     onRecentClick = { item ->
                         if (entry.lifecycleIsResumed()) navController.navigate(Destination.Viewer(item.document.uri))
@@ -172,6 +189,11 @@ fun PdfToolkitNavGraph(
                             // Same screen as the drawer entry, so same navigation: this way
                             // two copies never pile up on the back stack.
                             navigateFromDrawer(Destination.Signatures)
+                        } else if (tool == PdfTool.REMOVE_PAGES || tool == PdfTool.REORDER_PAGES) {
+                            if (entry.lifecycleIsResumed()) {
+                                pendingTool = tool.name
+                                openPdf()
+                            }
                         } else if (entry.lifecycleIsResumed()) {
                             navController.navigate(Destination.Tool(tool.name))
                         }
@@ -179,7 +201,25 @@ fun PdfToolkitNavGraph(
                 )
             }
             composable<Destination.Viewer> { entry ->
-                ViewerScreen(onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() })
+                ViewerScreen(
+                    onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
+                    onEdit = {
+                        if (entry.lifecycleIsResumed()) navController.navigate(Destination.Edit(entry.toRoute<Destination.Viewer>().uri))
+                    },
+                )
+            }
+            composable<Destination.Edit> { entry ->
+                // Both results replace everything above Home: after an overwrite the viewer below
+                // still holds the old file open, and a copy is shown on its own.
+                val showResult: (String) -> Unit = { uri ->
+                    navController.navigate(Destination.Viewer(uri)) { popUpTo<Destination.Home>() }
+                }
+                EditScreen(
+                    startTool = entry.toRoute<Destination.Edit>().tool?.let { PdfTool.valueOf(it) },
+                    onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
+                    onResultReady = showResult,
+                    onOpenCopy = { uri -> if (entry.lifecycleIsResumed()) showResult(uri) },
+                )
             }
             composable<Destination.Tool> { entry ->
                 val tool = PdfTool.valueOf(entry.toRoute<Destination.Tool>().tool)

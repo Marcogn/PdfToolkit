@@ -79,20 +79,29 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 `docs/plan.md`):
 - `ui/<feature>/` Compose screens and ViewModels; `ui/navigation/` `@Serializable` routes
   (`Destination`), NavHost and drawer; `ui/theme/` palette (`Color.kt`) and theme.
-- `domain/` models with no Android dependencies (`PdfTool`, `ThemeMode`; later `EditSession`,
-  `PageItem`).
+- `domain/` models with no Android dependencies (`PdfTool`, `ThemeMode`, `domain/edit/`:
+  `EditSession`, `PageItem`, `SaveFailure`).
 - `data/` DataStore (`data/settings/ThemePreferences`, `ReadingPreferences`), Room
   (`data/recents/`: `AppDatabase`, `RecentDocument`, `RecentsRepository`, `ThumbnailStore`),
-  later signatures and SAF writes. Room schemas are exported to `app/schemas/` and committed.
+  background save (`data/save/`: `SaveScheduler`, `SaveWorker`, `PdfSaver`), later signatures. Room schemas are exported to `app/schemas/` and committed.
 - `pdf/render` (phase 1): `PdfDocumentRenderer`, `RenderScheduler`/`RenderPlanner`, `PageThumbnails`, caches, and
   the geometry shared by all phases (`DocumentLayout`, `Viewport`, `PageCoordinateMapper`).
-  `pdf/edit`, `pdf/forms`, `pdf/text` from phases 2–5 (spec §12).
+  `pdf/edit` (phase 2: `PdfEditor`, `PdfBoxEditor`), `pdf/forms`, `pdf/text` from phases 4–5 (spec §12).
 - `di/` Hilt modules, when needed.
 
 ## Non-obvious rules
 - One page open at a time per `PdfRenderer` instance: one mutex per document, rendering on
   `Dispatchers.Default`, page always closed after rendering (ADR 0001).
-- All writes go through `PdfEditor`; the UI never touches PdfBox (ADR 0002).
+- All writes go through `PdfEditor`; the UI never touches PdfBox (ADR 0002). `PdfBoxEditor`
+  rearranges the open document in place (keeps fonts, annotations, forms) and materialises the
+  inheritable page attributes (`MediaBox`, `CropBox`, `Resources`, `Rotate`) before detaching pages.
+- Saving: source copy → result in `cacheDir/work/` → verified → copied over the destination with
+  mode `"wt"`; runs in `SaveWorker` (WorkManager, ADR 0003). The page list travels as
+  `EditSession.encode()` in a JSON file, not in WorkManager `Data`.
+- `PageItem.rotation` is the rotation the user *added*; the page's own `/Rotate` is added on write.
+  Grids draw the source thumbnail and turn it, so thumbnails are never re-rendered for a rotation.
+- After an *overwrite* nothing may keep the old file open: the nav graph opens the result with
+  `popUpTo<Home>`.
 - Signatures, text, check marks and dates are written into the page content stream, not as
   annotations.
 - Search highlights are overlay only, never written into the PDF.
@@ -102,6 +111,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   that owns the callback (double tap during a transition). Home from the drawer:
   `popUpTo<Home>{inclusive}`. Exception: navigation from an activity result (the SAF picker),
   which arrives before the entry is RESUMED again; the tap that launches the picker is guarded.
+- Edit hub, "Remove pages" and "Reorder pages" are panes of one `EditScreen` (`Destination.Edit(uri,
+  tool)`), sharing one `EditViewModel`; don't turn them into a nested nav graph (ADR 0003).
 - Single-page mode is a `HorizontalPager` of one-page layouts: each page has its own
   `PdfViewportState` and `PdfViewport(pageIndexOffset = page, requestSource = page)`, so keys carry
   the real page index and several viewports can share one `RenderScheduler` (it merges the lists
@@ -129,7 +140,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 ## References
 - Specification: `docs/spec.md`. Plan, alignment with the references, upgrade steps:
   `docs/plan.md`.
-- ADRs: `docs/adr/0001-viewer.md`, `docs/adr/0002-pdfbox-android.md`.
+- ADRs: `docs/adr/0001-viewer.md`, `docs/adr/0002-pdfbox-android.md`,
+  `docs/adr/0003-background-save-and-edit-session.md`.
 
 ## Current status
 <!-- Update at the end of every session. -->
@@ -141,10 +153,28 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - **1a Viewer core done (2026-10-01)**, PR #3 merged; device checks passed (author). Follow-up fix:
   system back no longer shrinks the screen (predictive pop transitions).
 - **1b Viewer complete done (2026-10-01)**, PR #5; lint, 63 unit tests and `assembleDebug` green;
-  device checks passed (author). **Next: phase 2 Edit session and pages (Sonnet).**
+  device checks passed (author).
+- **Phase 2 Edit session and pages done (2026-10-01)**, awaiting device checks; lint (0 errors), 95
+  unit tests and `assembleDebug` green. **Next: phase 3 Add pages and merge (Sonnet).**
 - The author still has to add the signing secrets to the repository.
 
-### Notes for phase 2 onwards
+### Notes for phase 3 onwards
+- Edit code: `domain/edit/` (`EditSession`: immutable, undo/redo by swapping lists, `isModified`
+  against the original; `PageItem.FromPdf` only, add `Blank`/`FromImage` and extra `DocRef`s in
+  phase 3), `pdf/edit/PdfBoxEditor.applySession(session, sources, output)` (supports only
+  `DocRef.MAIN` and throws otherwise: extend it with `importPage` for other documents and blanks),
+  `data/save/*`, `ui/edit/` (`EditScreen` with the hub grid and `PagesGrid`; the hub already lists
+  every tool and shows "coming up" for the ones not built, hook phase 3 tools in `EditScreen`'s
+  `onToolClick` and `implementedTools`). Merge from Home still opens the `Tool` placeholder.
+- `PdfEditor` doesn't take overlays yet (spec §12 has `applySession(session, overlays, destination)`):
+  add them in phase 4. Destination copy lives in `PdfSaver`, not in the editor.
+- Known limits: FAB → hub is the normal slide+fade, not a container transform (phase 6 polish);
+  password-protected PDFs show an error in the edit screen (PdfBox gets no password); a save can't
+  be cancelled; if the app is killed during a save the result of a *copy* isn't announced (the
+  work finishes anyway); removed pages can stay in the file as orphan objects if a bookmark/link
+  references them; the Edit button hides on scroll in continuous mode only.
+
+### Notes for phase 2 onwards (viewer, from 1b)
 - The viewer is `ViewerScreen` (states) → `ReadyViewer` (top bar, `ContinuousPages` / `SinglePages`,
   `PageScrubber`, `ThumbnailBar`). Jumps go through a `Channel<Int>`; `currentPage` is hoisted in
   `ReadyViewer`. The Edit FAB (phase 2) goes in its `Scaffold`; the Search icon (phase 5b) in its top bar.
@@ -156,6 +186,20 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-01 · Phase 2 saving runs in WorkManager (expedited, `dataSync` foreground fallback), not
+  a hand-written service; the page list goes through a JSON file; the worker reaches `PdfSaver`
+  through a Hilt `EntryPoint` (no `hilt-work`). Reasons in ADR 0003.
+- 2026-10-01 · Page drag & drop with Reorderable 3.1.0 (Apache 2.0 from the POM, builds on Compose
+  1.7+). One drag = one undo step (local copy while dragging, one `move` on release).
+- 2026-10-01 · The picker now requests write + persistable grants (`OpenPdfContract`) and
+  `takePersistableAccess` keeps write access when given: that is what makes "overwrite" possible
+  (a plain `OpenDocument` only yields read access). Overwrite is offered only if
+  `checkUriPermission(WRITE)` passes. `VIEW`/`SEND` files are usually copy-only.
+- 2026-10-01 · `cacheDir/work/` startup cleanup removes only files older than 1 hour (spec §8 says
+  "emptied at startup"): a save interrupted by the system is re-run by WorkManager and needs its
+  request file.
+- 2026-10-01 · Encrypted PDFs are not edited (PdfBox isn't given the password; spec §14 excludes
+  writing protected files).
 <!-- One line per decision: date, what, why. Append, don't rewrite. -->
 - 2026-10-01 · Product phase 2 tools in a separate "Coming up" section on
   Home, with a "Soon" badge; a tap shows a snackbar and doesn't navigate.

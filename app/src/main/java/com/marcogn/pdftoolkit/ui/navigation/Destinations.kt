@@ -12,6 +12,13 @@ sealed interface Destination {
     @Serializable
     data class Viewer(val uri: String) : Destination
 
+    /**
+     * Edit hub and page tools (spec §4.3, §6) on the document at [uri]. [tool] is the name of the
+     * [com.marcogn.pdftoolkit.domain.model.PdfTool] to open straight on (from Home), or null for the hub.
+     */
+    @Serializable
+    data class Edit(val uri: String, val tool: String? = null) : Destination
+
     /** Tool opened from Home; [tool] is the name of a [com.marcogn.pdftoolkit.domain.model.PdfTool]. */
     @Serializable
     data class Tool(val tool: String) : Destination

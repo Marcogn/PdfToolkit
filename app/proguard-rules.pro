@@ -1,3 +1,3 @@
 # Project-specific R8 rules.
-# The release build has minification disabled (app/build.gradle.kts); the PdfBox-Android rules
-# get added together with the library, and R8 is tested in phase 6.
+# The release build has minification disabled (app/build.gradle.kts). The PdfBox-Android rules
+# from the library README get added and tested when R8 is switched on (phase 6).

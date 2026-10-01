@@ -125,6 +125,11 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.appcompat)
 
+    // Writes (ADR 0002), page drag & drop (spec §6.4) and the background save (ADR 0003).
+    implementation(libs.pdfbox.android)
+    implementation(libs.reorderable)
+    implementation(libs.androidx.work.runtime.ktx)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
