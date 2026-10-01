@@ -8,6 +8,48 @@ At the end of every task, update `README.md`, `CLAUDE.md` and `CHANGELOG.md` if 
 Every user-visible change goes into `CHANGELOG.md` right away under `## [Unreleased]`, in the form
 `- **Summary.** detail` (`release.yml` reads it for the release notes).
 
+## Phase glossary
+"Phase" means two different things in `docs/spec.md`:
+- **Development phases 0–6** (spec §13): the order in which the code gets written. "Next phase"
+  always means the next development phase.
+- **Product phase 1 / product phase 2** (spec §1, §7, §14): product phase 1 is everything in
+  development phases 0–6; product phase 2 is the future features (scan, OCR, cloud, highlight,
+  draw, ODF export). Spec sentences like "in Fase 1 nessun permesso INTERNET" or "Fase 2
+  (pianificata, non implementare)" refer to the **product**.
+
+So development phase 2 (edit session and page management) has nothing to do with product
+phase 2. Never implement product phase 2 features; only the disabled "Soon" entries and the
+interfaces the spec asks for.
+
+## Session protocol
+When the author says "go on with the next phase" (or similar):
+1. Read **Current status** below to find the next development phase.
+2. Read that phase in spec §13 and the spec sections it points to, and its row in the table below.
+3. Check the prerequisites (previous phase merged, open questions answered) before writing code.
+   If something is missing or unclear, stop and ask.
+4. Do **only** that phase. Anything that belongs to a later phase goes into Current status as a
+   note, not into the code.
+5. Close with: phase acceptance criteria met, lint + unit tests + `assembleDebug` green, README,
+   CLAUDE.md (Current status, Decisions) and CHANGELOG updated, commit, PR.
+6. End by listing the **device checks** for the phase (table below): there is no emulator in the
+   cloud environment, so the author tests on a phone before merging.
+7. Don't start the following phase in the same session unless the author asks.
+
+## Phases: model and device checks
+Model choice to save tokens: Sonnet by default; Opus only for the parts where a wrong design is
+expensive to fix later. Split those phases into two sessions: an Opus session that builds the
+core with tests and writes a short handoff in Current status, then a Sonnet session for the rest.
+Haiku is not recommended for code in this project.
+
+| Phase | Model | What needs Opus | Check on the device |
+|---|---|---|---|
+| 1 Viewer | **Opus** for the core, then Sonnet | `pdf/render` (`PdfRenderer` + mutex, LRU cache, ±2 prefetch, two-level render, tiling) and zoom/pan state with gestures; first version of `PageCoordinateMapper` (page ↔ screen with zoom and pan) with tests. Sonnet: SAF, intents, Room recents, thumbnail bar, scrubber, last page, password, settings | 200-page PDF opens in < 1 s; smooth scroll; pinch, double tap, pan; continuous ↔ single page; open from file manager and from "share"; password PDF; resume last page; memory with a large PDF |
+| 2 Edit session and pages | Sonnet | Nothing, unless the background save choice (WorkManager vs service) gets stuck | Remove/reorder/rotate on a 100-page PDF, save as copy and overwrite, open the result in another reader; undo/redo; rotate the screen during editing |
+| 3 Add pages and merge | Sonnet | Nothing | Images in both modes (EXIF rotation, HEIC); mixed A4/Letter PDF; merge 3 PDFs with reordering, check in another reader |
+| 4 Fill and sign | **Opus** for the core, then Sonnet | AcroForm reading and field overlay alignment, writing text/signatures into the content stream at the right coordinates (extends `PageCoordinateMapper`), flatten. Sonnet: signature archive, drawing canvas, image import, free-fill UI, legal note | Signature and text land exactly where placed, visible in the app and in another reader; form with fields; backup exclusion of signatures |
+| 5 Text search | **Opus** for the core, then Sonnet | `pdf/text`: `PDFTextStripper` subclass with positions, NFD normalisation keeping the index mapping, line breaks as spaces, rotated pages through `PageCoordinateMapper`. Sonnet: search UI, progressive indexing, highlights | Results appear while indexing a 200-page PDF; "perche" finds "perché"; highlights in the right place on rotated pages; scanned PDF message |
+| 6 Polish | Sonnet | Nothing | Release build with R8 on the main flows; animations; TalkBack. The baseline profile needs a device or emulator to generate: run it locally |
+
 ## Commands
 ```bash
 ./gradlew assembleDebug        # debug APK
@@ -71,7 +113,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   CI, docs, ADR 0001–0002. Toolchain and libraries upgraded to the latest stable versions
   (`docs/plan.md`). Verified with lint, JVM/Robolectric tests, debug and release builds; the
   author installed the phase 0 APK (pre-upgrade build) and confirmed it works.
-- Next: phase 1 (viewer).
+- PR #1 merged. Next: development phase 1 (viewer), starting with an Opus session for the
+  renderer core (see "Phases: model and device checks").
 - The author still has to add the signing secrets to the repository.
 
 ## Decisions
@@ -97,3 +140,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   services.gradle.org, cross-checked with the downloaded file).
 - 2026-10-01 · Release keystore: dedicated to this app, generated once (RSA 2048, 10,000 days,
   alias `pdftoolkit`, PKCS12), handed to the author, never committed. Same scheme as TPGH.
+- 2026-10-01 · Model per phase and device checks added to this file (author's request, to save
+  tokens): Sonnet by default, Opus only for the cores of phases 1, 4 and 5. `PageCoordinateMapper`
+  starts in phase 1 (zoom and pan already need page ↔ screen conversion) and is extended in
+  phases 4 and 5 (rotation, PDF bottom-left origin); spec §12 wants a single class for all of it.
