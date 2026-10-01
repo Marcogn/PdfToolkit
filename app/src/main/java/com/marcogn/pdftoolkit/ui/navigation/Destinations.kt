@@ -2,17 +2,17 @@ package com.marcogn.pdftoolkit.ui.navigation
 
 import kotlinx.serialization.Serializable
 
-/** Rotte type-safe di Navigation Compose, come nei progetti di riferimento. */
+/** Type-safe Navigation Compose routes, as in the reference projects. */
 sealed interface Destination {
 
     @Serializable
     data object Home : Destination
 
-    /** Viewer (SPEC §4.2). In Fase 0 è un segnaposto. */
+    /** Viewer (spec §4.2). A placeholder in phase 0. */
     @Serializable
     data object Viewer : Destination
 
-    /** Strumento aperto dalla Home; [tool] è il nome di un [com.marcogn.pdftoolkit.domain.model.PdfTool]. */
+    /** Tool opened from Home; [tool] is the name of a [com.marcogn.pdftoolkit.domain.model.PdfTool]. */
     @Serializable
     data class Tool(val tool: String) : Destination
 

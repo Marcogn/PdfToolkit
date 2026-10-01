@@ -1,18 +1,19 @@
 # Changelog
 
-Tutte le modifiche rilevanti a PdfToolkit sono documentate in questo file.
-Il formato ricalca liberamente [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
-il versionamento segue il `versionName` dell'app in `app/build.gradle.kts`.
+All notable changes to PdfToolkit are documented in this file.
+The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
+versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
-- **Scheletro dell'app.** Home con la card "Apri PDF", la sezione Recenti e la griglia degli
-  strumenti; gli strumenti in arrivo sono visibili con l'etichetta "Presto". Menu laterale con
-  Home, File recenti, Le mie firme, Impostazioni e Informazioni. Viewer e strumenti per ora aprono
-  una schermata provvisoria.
-- **Tema e lingua.** Tema chiaro, scuro o di sistema, colori dello sfondo (Android 12+) attivabili
-  in Impostazioni, italiano e inglese con scelta per-app.
-- **Nessuna rete.** L'app non dichiara il permesso `INTERNET`; la CI controlla che nessuna
-  dipendenza lo reintroduca.
-- **Build e rilascio.** CI con lint, test e APK debug; workflow manuali per l'APK release firmato e
-  per la pubblicazione delle release, come nei progetti di riferimento.
+- **App skeleton.** Home with the "Open PDF" card, the Recents section and the tool grid; upcoming
+  tools are visible with a "Soon" badge. Side menu with Home, Recent files, My signatures,
+  Settings and About. Viewer and tools open a placeholder screen for now.
+- **Theme and language.** Light, dark or system theme, wallpaper colours (Android 12+) that can be
+  turned on in Settings, Italian and English with a per-app choice.
+- **No network.** The app does not declare the `INTERNET` permission; CI checks that no
+  dependency brings it back.
+- **Build and release.** CI with lint, tests and debug APK; manual workflows for the signed
+  release APK and for publishing releases, as in the reference projects.
+- **Up-to-date toolchain.** Gradle 9.8, Android Gradle Plugin 9.4, Kotlin 2.4, target Android 17
+  (API 37) and the latest stable libraries.

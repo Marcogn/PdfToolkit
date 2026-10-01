@@ -1,82 +1,99 @@
-# PdfToolkit — memoria di progetto
+# PdfToolkit — project memory
 
-App Android per leggere e modificare PDF in locale. La specifica completa è `SPEC-1.md`: questo file
-non la ripete, contiene comandi, regole non ovvie, stato e decisioni.
+Android app to read and edit PDFs locally. The full specification is `docs/spec.md` (in Italian):
+this file doesn't repeat it, it holds commands, non-obvious rules, status and decisions.
 
-## Regola fissa
-A fine di ogni attività aggiornare `README.md`, `CLAUDE.md` e `CHANGELOG.md` se qualcosa è cambiato.
-Ogni modifica visibile all'utente va subito in `CHANGELOG.md` sotto `## [Unreleased]`, con il
-formato `- **Sintesi.** dettaglio` (lo legge `release.yml` per le note di rilascio).
+## Fixed rule
+At the end of every task, update `README.md`, `CLAUDE.md` and `CHANGELOG.md` if something changed.
+Every user-visible change goes into `CHANGELOG.md` right away under `## [Unreleased]`, in the form
+`- **Summary.** detail` (`release.yml` reads it for the release notes).
 
-## Comandi
+## Commands
 ```bash
-./gradlew assembleDebug        # APK debug
-./gradlew testDebugUnitTest    # test JVM, Robolectric per la UI (sdk=34, vedi robolectric.properties)
+./gradlew assembleDebug        # debug APK
+./gradlew testDebugUnitTest    # JVM tests, Robolectric for UI (sdk=34, see robolectric.properties)
 ./gradlew lintDebug            # Android Lint
+./gradlew buildEnvironment     # check the resolved Kotlin/KSP plugin versions
 ```
-In questo ambiente cloud: Android SDK in `/opt/android-sdk` (installato con `sdkmanager`,
-`local.properties` è gitignorato), Gradle con `LC_ALL=C.UTF-8`. Maven Central può rispondere 429:
-basta ritentare, meglio con `--max-workers=2`.
+In this cloud environment: Android SDK in `/opt/android-sdk` (installed with `sdkmanager`,
+platform `android-37.0`; `local.properties` is gitignored), run Gradle with `LC_ALL=C.UTF-8`.
+Maven Central often answers 429 or fails to resolve: retry, preferably with `--max-workers=2`.
+Robolectric downloads `android-all-instrumented` at test time; if that gets a 429, download it
+with `curl` into `~/.m2/repository/org/robolectric/...` and rerun.
 
-## Architettura
-Package `com.marcogn.pdftoolkit`, stesso layering di ThePatientGamerHelper e KartLog (dettagli in
+## Architecture
+Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and KartLog (details in
 `docs/plan.md`):
-- `ui/<feature>/` schermate Compose e ViewModel; `ui/navigation/` rotte `@Serializable`
-  (`Destination`), NavHost e drawer; `ui/theme/` palette (`Color.kt`) e tema.
-- `domain/` modelli senza dipendenze Android (`PdfTool`, `ThemeMode`; poi `EditSession`, `PageItem`).
-- `data/` DataStore (`data/settings/ThemePreferences`), poi Room e SAF.
-- `pdf/render`, `pdf/edit`, `pdf/forms`, `pdf/text` dalle fasi 1–5 (SPEC §12).
-- `di/` moduli Hilt, quando servono.
+- `ui/<feature>/` Compose screens and ViewModels; `ui/navigation/` `@Serializable` routes
+  (`Destination`), NavHost and drawer; `ui/theme/` palette (`Color.kt`) and theme.
+- `domain/` models with no Android dependencies (`PdfTool`, `ThemeMode`; later `EditSession`,
+  `PageItem`).
+- `data/` DataStore (`data/settings/ThemePreferences`), later Room and SAF.
+- `pdf/render`, `pdf/edit`, `pdf/forms`, `pdf/text` from phases 1–5 (spec §12).
+- `di/` Hilt modules, when needed.
 
-## Regole non ovvie
-- Una sola pagina aperta per volta per istanza di `PdfRenderer`: mutex per documento, render su
-  `Dispatchers.Default`, pagina sempre chiusa dopo il render (ADR 0001).
-- Tutte le scritture passano da `PdfEditor`; la UI non tocca PdfBox (ADR 0002).
-- Firme, testo, spunte e date si scrivono nel content stream della pagina, non come annotazioni.
-- Le evidenziazioni della ricerca sono solo overlay, mai scritte nel PDF.
-- Nessun permesso `INTERNET` in Fase 1 del prodotto: il manifest lo toglie con `tools:node="remove"`
-  e la CI controlla il manifest impacchettato. Non aggiungere dipendenze che ne hanno bisogno.
-- Ogni `navigate()`/`popBackStack()` passa dalla guardia `lifecycleIsResumed()` dell'entry che
-  possiede la callback (doppio tap durante una transizione). Home dal drawer: `popUpTo<Home>{inclusive}`.
-- Transizioni di navigazione 200–250 ms, mai oltre 300 (SPEC §9).
-- `MainActivity` è un `AppCompatActivity`: serve a `setApplicationLocales()` per la lingua per-app.
-- Nessuna stringa hardcoded: `values/` (italiano) e `values-en/`.
+## Non-obvious rules
+- One page open at a time per `PdfRenderer` instance: one mutex per document, rendering on
+  `Dispatchers.Default`, page always closed after rendering (ADR 0001).
+- All writes go through `PdfEditor`; the UI never touches PdfBox (ADR 0002).
+- Signatures, text, check marks and dates are written into the page content stream, not as
+  annotations.
+- Search highlights are overlay only, never written into the PDF.
+- No `INTERNET` permission in product phase 1: the manifest removes it with `tools:node="remove"`
+  and CI checks the packaged manifest. Don't add dependencies that need it.
+- Every `navigate()`/`popBackStack()` goes through the `lifecycleIsResumed()` guard of the entry
+  that owns the callback (double tap during a transition). Home from the drawer:
+  `popUpTo<Home>{inclusive}`.
+- Navigation transitions 200–250 ms, never above 300 (spec §9).
+- `MainActivity` is an `AppCompatActivity`: `setApplicationLocales()` needs it for the per-app
+  language.
+- No hardcoded UI strings: `values/` (Italian, default) and `values-en/`.
+- AGP 9 built-in Kotlin: no `org.jetbrains.kotlin.android` plugin, compiler options in
+  `kotlin { compilerOptions { } }`. In composables read resources with `LocalResources.current`,
+  not `LocalContext.current` (lint error).
 
-## Convenzioni
-- UI e documentazione in italiano, identificatori in inglese.
-- Prefisso `PT` solo dove serve a evitare collisioni di nomi.
-- Scelte marcate **[ASSUNZIONE]** nella specifica: implementate come scritte, isolate (es. la
+## Conventions
+- Documentation and code comments in English. App UI in Italian with English translation.
+  Identifiers in English.
+- `PT` prefix only where needed to avoid name clashes.
+- Choices marked **[ASSUNZIONE]** in the spec: implemented as written and kept isolated (e.g. the
   palette in `ui/theme/Color.kt`).
-- Se un requisito non è chiaro o non è fattibile, fermarsi e chiedere.
+- If a requirement is unclear or not feasible, stop and ask.
 
-## Riferimenti
-- Specifica: `SPEC-1.md`. Piano e allineamento ai riferimenti: `docs/plan.md`.
-- ADR: `docs/adr/0001-viewer.md`, `docs/adr/0002-pdfbox-android.md`.
+## References
+- Specification: `docs/spec.md`. Plan, alignment with the references, upgrade steps:
+  `docs/plan.md`.
+- ADRs: `docs/adr/0001-viewer.md`, `docs/adr/0002-pdfbox-android.md`.
 
-## Stato attuale
-<!-- Aggiornare a ogni fine sessione. -->
-- **Fase 0 chiusa (2026-10-01)**: scheletro, tema, lingue, navigazione, drawer, Home, signing, CI,
-  documentazione, ADR 0001–0002. Verificato con build debug, lint e test JVM/Robolectric. **Non
-  verificato a schermo**: nessun emulatore in questo ambiente, va provato su un dispositivo.
-- Prossima: Fase 1 (viewer). Punti aperti da confermare con l'autore in `docs/plan.md`.
-- Segreti GitHub per `build-apk.yml`/`release.yml` da impostare nel repository.
+## Current status
+<!-- Update at the end of every session. -->
+- **Phase 0 done (2026-10-01)**: skeleton, theme, languages, navigation, drawer, Home, signing,
+  CI, docs, ADR 0001–0002. Toolchain and libraries upgraded to the latest stable versions
+  (`docs/plan.md`). Verified with lint, JVM/Robolectric tests, debug and release builds; the
+  author installed the phase 0 APK (pre-upgrade build) and confirmed it works.
+- Next: phase 1 (viewer).
+- The author still has to add the signing secrets to the repository.
 
-## Decisioni prese
-<!-- Una riga per decisione: data, cosa, perché. Aggiungere, non riscrivere. -->
-- 2026-10-01 · Versioni di toolchain e librerie identiche ai riferimenti (AGP 8.13.0, Kotlin 2.0.21,
-  Compose BOM 2024.12.01): aggiornarle è un lavoro a parte, non va mescolato alle fasi.
-- 2026-10-01 · README e CHANGELOG in italiano (TPGH è in inglese, KartLog in italiano; la specifica è
-  in italiano). Punto aperto in `docs/plan.md`.
-- 2026-10-01 · Strumenti di Fase 2 in una sezione "In arrivo" separata della Home, con badge "Presto";
-  il tap mostra uno snackbar e non naviga. Griglia `GridCells.Adaptive(100.dp)`.
-- 2026-10-01 · "Le mie firme" dalla Home usa la stessa navigazione della voce del drawer, per non
-  avere due copie della schermata nello stack.
-- 2026-10-01 · Regole di backup che escludono `filesDir/signatures/` già in Fase 0 (costo nullo).
-- 2026-10-01 · Room nel version catalog ma non fra le dipendenze finché non c'è un'entità (Fase 1).
-- 2026-10-01 · Test Compose con Robolectric: locale `it` esplicita in `@Config(qualifiers = "it-...")`,
-  altrimenti Robolectric parte in inglese e carica `values-en/`.
-- 2026-10-01 · Icona in `mipmap-anydpi-v26/` come nei riferimenti. Lint segnala `ObsoleteSdkInt`
-  (con minSdk 26 basterebbe `mipmap-anydpi/`), ma spostandola aapt2 non trova più `@mipmap/ic_launcher`:
-  avviso lasciato com'è.
-- 2026-10-01 · Gli altri avvisi di lint sono versioni più nuove delle dipendenze: restano allineate
-  ai riferimenti finché l'autore non decide un aggiornamento dedicato.
+## Decisions
+<!-- One line per decision: date, what, why. Append, don't rewrite. -->
+- 2026-10-01 · Product phase 2 tools in a separate "Coming up" section on
+  Home, with a "Soon" badge; a tap shows a snackbar and doesn't navigate.
+  `GridCells.Adaptive(100.dp)`.
+- 2026-10-01 · "My signatures" from Home uses the same navigation as the drawer entry, so the
+  screen never appears twice on the back stack.
+- 2026-10-01 · Backup rules excluding `filesDir/signatures/` already in phase 0 (no cost).
+- 2026-10-01 · Room in the version catalog but not a dependency until there is an entity (phase 1).
+- 2026-10-01 · Robolectric Compose tests: Italian locale set explicitly with
+  `@Config(qualifiers = "it-...")`, otherwise Robolectric starts in English and loads `values-en/`.
+- 2026-10-01 · Icon in `mipmap-anydpi-v26/` as in the references. Lint reports `ObsoleteSdkInt`,
+  but after moving it to `mipmap-anydpi/` aapt2 no longer found `@mipmap/ic_launcher`: left as is.
+- 2026-10-01 · Documentation and code comments in English (author's decision; overrides the
+  initial Italian choice).
+- 2026-10-01 · Spec moved to `docs/spec.md` (author's decision); spec §12 tree updated to match.
+- 2026-10-01 · Upgrade to the latest stable toolchain and libraries (author's request; the same
+  will be applied to TPGH and KartLog): steps and sources in `docs/plan.md`. Hilt ≥ 2.59 requires
+  AGP 9, so the two go together. `compileSdk`/`targetSdk` 37, the maximum for AGP 9.4.
+- 2026-10-01 · Gradle wrapper with `distributionSha256Sum` (official checksum from
+  services.gradle.org, cross-checked with the downloaded file).
+- 2026-10-01 · Release keystore: dedicated to this app, generated once (RSA 2048, 10,000 days,
+  alias `pdftoolkit`, PKCS12), handed to the author, never committed. Same scheme as TPGH.

@@ -3,88 +3,90 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![minSdk 26](https://img.shields.io/badge/minSdk-26-brightgreen.svg)](app/build.gradle.kts)
 
-App Android per leggere e modificare PDF sul telefono. Tutto gira sul dispositivo: niente account,
-niente cloud, nessuna connessione di rete.
+Android app to read and edit PDF files on the phone. Everything runs on the device: no account,
+no cloud, no network access.
 
-## Stato
+## Status
 
-Il progetto è alla Fase 0 del piano (`SPEC-1.md` §13): c'è lo scheletro dell'app con Home, menu
-laterale, tema chiaro/scuro e lingua italiana/inglese. Viewer e strumenti di modifica arrivano nelle
-fasi successive; per ora i pulsanti portano a una schermata provvisoria.
+The project is at phase 0 of the plan (`docs/spec.md` §13): the app skeleton is in place, with
+Home, side menu, light/dark theme and Italian/English language. The viewer and the editing tools
+come in the next phases; for now the buttons open a placeholder screen.
 
-## Funzioni
+## Features
 
-Previste per la prima versione:
+Planned for the first version:
 
-- lettura con zoom, scorrimento continuo o a pagina singola, scrubber e miniature
-- ricerca nel testo
-- unione di più PDF
-- aggiunta di pagine (da un altro PDF, vuote, da immagini), rimozione, riordino, rotazione
-- compilazione di moduli e firma, con un archivio di firme salvate sul telefono
+- reading with zoom, continuous or single-page scrolling, scrubber and thumbnails
+- text search
+- merging several PDFs
+- adding pages (from another PDF, blank, from images), removing, reordering, rotating
+- form filling and signing, with an archive of signatures saved on the phone
 
-Pianificate per dopo: scansione con OCR, caricamento su cloud (WebDAV), evidenziazione, disegno a
-mano libera, esportazione in formato OpenDocument. Compaiono già nella Home come "Presto".
+Planned for later: document scanning with OCR, cloud upload (WebDAV), highlighting, freehand
+drawing, export to OpenDocument. They already show up on Home as "Soon".
 
-## Requisiti
+## Requirements
 
-Android 8.0 (API 26) o successivo.
+Android 8.0 (API 26) or later.
 
-## Come compilare
+## Building
 
 ```bash
-./gradlew assembleDebug       # APK debug
-./gradlew testDebugUnitTest   # test unitari JVM (Robolectric per quelli di UI)
+./gradlew assembleDebug       # debug APK
+./gradlew testDebugUnitTest   # JVM unit tests (Robolectric for the UI ones)
 ./gradlew lintDebug           # Android Lint
-./gradlew assembleRelease     # APK release
+./gradlew assembleRelease     # release APK
 ```
 
-Serve l'Android SDK con `compileSdk 36` e JDK 17 o successivo.
+You need JDK 17 or later and the Android SDK with API 37. The Gradle wrapper (9.8.0) checks the
+SHA-256 of the distribution it downloads.
 
-La build release si firma solo se trova il keystore. Le credenziali non stanno nel repository:
-arrivano da quattro variabili d'ambiente, `RELEASE_KEYSTORE_PATH`, `RELEASE_KEYSTORE_PASSWORD`,
-`RELEASE_KEY_ALIAS` e `RELEASE_KEY_PASSWORD`. Senza, l'APK release esce non firmato. Su GitHub
-Actions il keystore è il secret `RELEASE_KEYSTORE_BASE64` (in base64), decodificato dai workflow
-"Build APK" e "Release"; il secret `RELEASE_PUSH_TOKEN` serve a "Release" per committare il cambio
-di versione su `main`.
+The release build is signed only when it finds the keystore. Credentials are not in the
+repository: they come from four environment variables, `RELEASE_KEYSTORE_PATH`,
+`RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD`. Without them the
+release APK is built unsigned. On GitHub Actions the keystore is the `RELEASE_KEYSTORE_BASE64`
+secret (base64), decoded by the "Build APK" and "Release" workflows; the `RELEASE_PUSH_TOKEN`
+secret lets "Release" commit the version bump to `main`.
 
-## Struttura del progetto
+## Project structure
 
 ```
 app/src/main/java/com/marcogn/pdftoolkit/
-  ui/        schermate Compose, navigazione e tema
-  domain/    modelli senza dipendenze Android
-  data/      preferenze (DataStore), più avanti Room e accesso ai file
-  pdf/       rendering e modifica dei PDF (dalle prossime fasi)
+  ui/        Compose screens, navigation and theme
+  domain/    models with no Android dependencies
+  data/      preferences (DataStore), later Room and file access
+  pdf/       PDF rendering and editing (from the next phases)
 docs/
-  plan.md    piano e allineamento ai progetti di riferimento
-  adr/       decisioni di architettura
-SPEC-1.md    specifica funzionale e tecnica
+  spec.md    functional and technical specification (Italian)
+  plan.md    plan, alignment with the reference projects, dependency upgrade notes
+  adr/       architecture decisions
 ```
 
 ## Privacy
 
-L'app non dichiara il permesso `INTERNET`: i file restano sul telefono e niente esce dal
-dispositivo. La CI controlla a ogni build che il permesso non rientri tramite una dipendenza.
+The app does not declare the `INTERNET` permission: files stay on the phone and nothing leaves the
+device. CI checks on every build that no dependency brings the permission back.
 
-## Librerie e licenze
+## Libraries and licences
 
-Kotlin, AndroidX, Jetpack Compose e Dagger Hilt, tutte con licenza Apache 2.0. Dalle prossime fasi
-si aggiunge PdfBox-Android (Apache 2.0) per le modifiche; il viewer usa `PdfRenderer` di Android.
-Le motivazioni sono in [`docs/adr/`](docs/adr/).
+Kotlin, AndroidX, Jetpack Compose and Dagger Hilt, all under the Apache 2.0 licence. Later phases
+add PdfBox-Android (Apache 2.0) for editing; the viewer uses Android's `PdfRenderer`. The reasons
+are in [`docs/adr/`](docs/adr/).
 
-## Documentazione
+## Documentation
 
-- [`SPEC-1.md`](SPEC-1.md): specifica e piano di sviluppo
-- [`docs/plan.md`](docs/plan.md): cosa si riprende da ThePatientGamerHelper e KartLog, e i punti aperti
-- [`docs/adr/`](docs/adr/): decisioni di architettura
-- [`CHANGELOG.md`](CHANGELOG.md): modifiche per versione
-- [`CLAUDE.md`](CLAUDE.md): note operative per chi sviluppa
+- [`docs/spec.md`](docs/spec.md): specification and development plan
+- [`docs/plan.md`](docs/plan.md): what comes from ThePatientGamerHelper and KartLog, and how the
+  dependencies were upgraded
+- [`docs/adr/`](docs/adr/): architecture decisions
+- [`CHANGELOG.md`](CHANGELOG.md): changes per version
+- [`CLAUDE.md`](CLAUDE.md): working notes for development
 
-## Sviluppo
+## Development
 
-L'app è sviluppata con l'aiuto di strumenti di intelligenza artificiale (Claude Code), con revisione
-e test dell'autore.
+The app is developed with the help of AI tools (Claude Code), with review and testing by the
+author.
 
-## Licenza
+## Licence
 
-MIT, vedi [`LICENSE`](LICENSE).
+MIT, see [`LICENSE`](LICENSE).

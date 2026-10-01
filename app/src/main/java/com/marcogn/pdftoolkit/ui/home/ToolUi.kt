@@ -49,6 +49,6 @@ fun PdfTool.icon(): ImageVector = when (this) {
     PdfTool.EXPORT_ODF -> Icons.Outlined.Description
 }
 
-/** Le azioni di firma usano l'accento ambra (colore terziario), SPEC §9. */
+/** Signature actions use the amber accent (tertiary colour), spec §9. */
 val PdfTool.isSignatureAction: Boolean
     get() = this == PdfTool.FILL_AND_SIGN || this == PdfTool.MY_SIGNATURES

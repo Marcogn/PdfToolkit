@@ -12,7 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
-/** Il colore dinamico esiste solo da Android 12 (API 31). */
+/** Dynamic colour exists only from Android 12 (API 31). */
 val isDynamicColorSupported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
 private val PdfToolkitShapes = Shapes(
@@ -22,8 +22,8 @@ private val PdfToolkitShapes = Shapes(
 )
 
 /**
- * Palette propria (Color.kt) di default; colore dinamico solo se attivato in Impostazioni
- * (SPEC §9). Un solo font, quello di sistema, con la tipografia standard di Material 3.
+ * Own palette (Color.kt) by default; dynamic colour only when enabled in Settings (spec §9).
+ * A single font, the system one, with the standard Material 3 typography.
  */
 @Composable
 fun PdfToolkitTheme(

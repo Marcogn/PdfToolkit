@@ -39,9 +39,9 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
-      # SPEC §1: in Fase 1 l'app non dichiara INTERNET. Il manifest lo toglie con tools:node="remove";
-      # qui si controlla il manifest unito davvero impacchettato, così una dipendenza nuova che lo
-      # reintroducesse fa fallire la CI invece di passare inosservata.
+      # Spec §1: in product phase 1 the app does not declare INTERNET. The manifest removes it with
+      # tools:node="remove"; this checks the merged manifest that actually gets packaged, so a new
+      # dependency bringing it back fails CI instead of going unnoticed.
       - name: Check that INTERNET is not declared
         run: |
           MANIFEST=$(find app/build/intermediates/packaged_manifests/debug -name AndroidManifest.xml | head -1)
@@ -55,10 +55,10 @@ jobs:
           fi
           echo "OK: no INTERNET permission in $MANIFEST"
 
-      # APK debug per provare una PR sul telefono. Firmato con la chiave debug effimera del runner
-      # (diversa a ogni run e diversa da quella di release): per installarlo va prima disinstallata
-      # l'app, perdendo i dati. Per provare sopra l'app installata usare il workflow "Build APK"
-      # (release firmato con la chiave persistente) sul branch della PR.
+      # Debug APK to try a PR on the phone. Signed with the runner's ephemeral debug key (different
+      # on every run and different from the release key): installing it requires uninstalling the
+      # app first, losing its data. To install over the existing app, run the "Build APK" workflow
+      # (release build signed with the persistent key) on the PR branch.
       - name: Upload debug APK
         uses: actions/upload-artifact@v7
         with:

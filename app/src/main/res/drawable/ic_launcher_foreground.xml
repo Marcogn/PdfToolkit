@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Foglio con l'angolo piegato e una penna (gli strumenti di modifica), SPEC §9.
-     Tutto dentro la safe zone di 66dp al centro del canvas adattivo da 108dp. -->
+<!-- Sheet with a folded corner and a pen (the editing tools), spec §9.
+     Everything stays inside the 66dp safe zone at the centre of the 108dp adaptive canvas. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Foglio -->
+    <!-- Sheet -->
     <path
         android:fillColor="#FFFFFF"
         android:pathData="M38,28 L60,28 L72,40 L72,78 Q72,80 70,80 L38,80 Q36,80 36,78 L36,30 Q36,28 38,28 Z" />
-    <!-- Angolo piegato -->
+    <!-- Folded corner -->
     <path
         android:fillColor="#B8D8DF"
         android:pathData="M60,28 L60,38 Q60,40 62,40 L72,40 Z" />
-    <!-- Righe di testo -->
+    <!-- Text lines -->
     <path
         android:fillColor="#6E9AA5"
         android:pathData="M42,47 L64,47 L64,50 L42,50 Z M42,54 L64,54 L64,57 L42,57 Z M42,61 L56,61 L56,64 L42,64 Z" />
-    <!-- Penna -->
+    <!-- Pen -->
     <path
         android:fillColor="#F2A93B"
         android:pathData="M73,55 L80,62 L64,78 L57,71 Z" />

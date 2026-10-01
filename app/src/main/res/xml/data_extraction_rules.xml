@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12+ (API 31). Le firme non vanno né nel backup cloud né nel trasferimento tra
-     dispositivi (SPEC §6.5). -->
+<!-- Android 12+ (API 31). Signatures go neither into cloud backup nor into device-to-device
+     transfer (spec §6.5). -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="file" path="signatures/" />

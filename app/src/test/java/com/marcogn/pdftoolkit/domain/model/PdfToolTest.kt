@@ -8,7 +8,7 @@ class PdfToolTest {
 
     @Test
     fun `Home shows the Phase 1 tools in spec order`() {
-        // SPEC §4.1, griglia strumenti.
+        // Spec §4.1, tool grid.
         assertEquals(
             listOf(
                 PdfTool.MERGE,
@@ -25,7 +25,7 @@ class PdfToolTest {
 
     @Test
     fun `Phase 2 tools are listed as coming soon`() {
-        // SPEC §4.1: Scansiona, Carica su cloud, Evidenzia, Disegna, Esporta in ODF.
+        // Spec §4.1: Scan, Upload to cloud, Highlight, Draw, Export to ODF.
         assertEquals(
             listOf(PdfTool.SCAN, PdfTool.CLOUD_UPLOAD, PdfTool.HIGHLIGHT, PdfTool.DRAW, PdfTool.EXPORT_ODF),
             PdfTool.upcoming,

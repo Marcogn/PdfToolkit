@@ -34,9 +34,9 @@ private const val PRESSED_SCALE = 0.96f
 private const val COMING_SOON_ALPHA = 0.5f
 
 /**
- * Pulsante quadrato della griglia strumenti (SPEC §9): angoli arrotondati, icona grande,
- * etichetta breve, leggera elevazione, scala 0,96 quando premuto. Gli strumenti "Presto" restano
- * cliccabili (mostrano lo snackbar) ma sono attenuati e con l'etichetta.
+ * Square button of the tool grid (spec §9): rounded corners, large icon, short label, light
+ * elevation, 0.96 scale while pressed. "Soon" tools stay clickable (they show the snackbar) but
+ * are dimmed and carry the badge.
  */
 @Composable
 fun ToolButton(tool: PdfTool, onClick: () -> Unit, modifier: Modifier = Modifier) {

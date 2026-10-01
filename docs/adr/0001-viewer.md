@@ -1,41 +1,41 @@
-# ADR 0001 — Viewer su PdfRenderer con UI Compose propria
+# ADR 0001 — Viewer on PdfRenderer with our own Compose UI
 
-Data: 2026-10-01. Stato: accettata.
+Date: 2026-10-01. Status: accepted.
 
-## Contesto
+## Context
 
-Il viewer è la parte più usata dell'app (SPEC §1, §5). Servono modalità continua e a pagina
-singola, zoom fino a 5x con re-render della porzione visibile, scrubber, miniature e, più avanti,
-overlay per ricerca, compilazione e firma.
+The viewer is the most used part of the app (spec §1, §5). It needs continuous and single-page
+modes, zoom up to 5x with a re-render of the visible area, a scrubber, thumbnails and, later,
+overlays for search, form filling and signatures.
 
-Le opzioni considerate sono due: la libreria Jetpack `androidx.pdf` oppure un viewer scritto da noi
-in Compose sopra `android.graphics.pdf.PdfRenderer`, che è un'API di piattaforma.
+Two options were considered: the Jetpack `androidx.pdf` library, or our own viewer written in
+Compose on top of `android.graphics.pdf.PdfRenderer`, which is a platform API.
 
-## Decisione
+## Decision
 
-Viewer proprio in Compose sopra `PdfRenderer`.
+Our own Compose viewer on top of `PdfRenderer`.
 
-`androidx.pdf` alla data di oggi è in beta: l'ultima versione è 1.0.0-beta01 del 26 agosto 2026,
-senza release stabile. Le note di rilascio di quella versione dicono che `PdfViewer`,
-`PdfViewerState`, `EditablePdfViewerFragment`, `AnnotationsView` e `OcrProvider` sono marcati
-`@ExperimentalPdfApi` (opt-in obbligatorio). Non offre una modalità a pagina singola paginata, che
-è un requisito, e ci toglierebbe il controllo su animazioni e transizioni.
+As of today `androidx.pdf` is in beta: the latest version is 1.0.0-beta01 from 26 August 2026,
+with no stable release. The release notes of that version say that `PdfViewer`, `PdfViewerState`,
+`EditablePdfViewerFragment`, `AnnotationsView` and `OcrProvider` are marked `@ExperimentalPdfApi`
+(opt-in required). It has no paged single-page mode, which is a requirement, and it would take
+away control over animations and transitions.
 
-## Conseguenze
+## Consequences
 
-- Il rendering è codice nostro: mutex per documento (una sola pagina aperta per volta per istanza
-  di `PdfRenderer`), render su `Dispatchers.Default`, cache LRU, tiling oltre una dimensione massima
-  di bitmap (SPEC §3.1, §5).
-- Sui dispositivi senza le API di Android 15 (o `PdfRendererPreV` via SDK extension) il renderer di
-  sistema non disegna annotazioni né valori dei campi modulo. Per questo tutto quello che l'utente
-  aggiunge si scrive nel contenuto della pagina (ADR 0002, SPEC §6.5).
-- Ricerca e selezione del testo non arrivano gratis: la ricerca passa da PdfBox (SPEC §5.1).
-- Da rivalutare quando `androidx.pdf` arriva a stable: potrebbe sostituire il viewer e dare ricerca
-  e selezione del testo.
+- Rendering is our code: one mutex per document (only one page open at a time per `PdfRenderer`
+  instance), rendering on `Dispatchers.Default`, an LRU cache, tiling above a maximum bitmap size
+  (spec §3.1, §5).
+- On devices without the Android 15 APIs (or `PdfRendererPreV` through the SDK extension) the
+  system renderer draws neither annotations nor form field values. That's why everything the user
+  adds is written into the page content (ADR 0002, spec §6.5).
+- Text search and selection don't come for free: search goes through PdfBox (spec §5.1).
+- To be reconsidered when `androidx.pdf` goes stable: it could replace the viewer and bring text
+  search and selection.
 
-## Fonti
+## Sources
 
-- Note di rilascio di `androidx.pdf`: https://developer.android.com/jetpack/androidx/releases/pdf
-  (consultata il 2026-10-01)
-- Viewer PDF su Android, `PdfRenderer` e `PdfRendererPreV`:
+- `androidx.pdf` release notes: https://developer.android.com/jetpack/androidx/releases/pdf
+  (checked on 2026-10-01)
+- PDF viewer on Android, `PdfRenderer` and `PdfRendererPreV`:
   https://developer.android.com/develop/ui/views/layout/pdf/pdf-viewer

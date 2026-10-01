@@ -31,7 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -40,12 +40,12 @@ import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.model.PdfTool
 import kotlinx.coroutines.launch
 
-/** Larghezza minima di un pulsante strumento: tre colonne su un telefono da 360 dp. */
+/** Minimum width of a tool button: three columns on a 360 dp wide phone. */
 private val ToolMinSize = 100.dp
 
 /**
- * Home senza documento aperto (SPEC §4.1): card "Apri PDF", recenti, griglia strumenti.
- * In Fase 0 i recenti mostrano solo lo stato vuoto e gli strumenti portano a un segnaposto.
+ * Home without an open document (spec §4.1): "Open PDF" card, recents, tool grid.
+ * In phase 0 recents only show the empty state and tools lead to a placeholder.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,12 +56,12 @@ fun HomeScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    val resources = LocalResources.current
 
     val onToolTap: (PdfTool) -> Unit = { tool ->
         if (tool.comingSoon) {
-            // Strumento di Fase 2: solo uno snackbar breve, nessuna navigazione (SPEC §4.1).
-            val message = context.getString(R.string.home_coming_soon_message, context.getString(tool.labelRes()))
+            // Product phase 2 tool: just a short snackbar, no navigation (spec §4.1).
+            val message = resources.getString(R.string.home_coming_soon_message, resources.getString(tool.labelRes()))
             scope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(message)

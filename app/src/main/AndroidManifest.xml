@@ -2,14 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Fase 1 del prodotto: nessuna connessione di rete (SPEC §1). Il permesso non è dichiarato
-         e, se una dipendenza provasse ad aggiungerlo tramite manifest merger, viene tolto qui.
-         La CI controlla il manifest unito (.github/workflows/android-ci.yml). -->
+    <!-- Product phase 1: no network access (spec §1). The permission is not declared, and if a
+         dependency tried to add it through the manifest merger it gets removed here (the merger
+         warns that there is nothing to remove: expected, this is a safeguard). CI checks the
+         packaged manifest (.github/workflows/android-ci.yml). -->
     <uses-permission
         android:name="android.permission.INTERNET"
         tools:node="remove" />
 
-    <!-- Backup automatico: le firme in filesDir/signatures/ sono escluse (SPEC §6.5). -->
+    <!-- Auto Backup: signatures in filesDir/signatures/ are excluded (spec §6.5). -->
     <application
         android:name=".PdfToolkitApplication"
         android:allowBackup="true"
@@ -23,8 +24,8 @@
         android:theme="@style/Theme.PdfToolkit"
         tools:targetApi="33">
 
-        <!-- Persistenza automatica della lingua scelta con AppCompatDelegate.setApplicationLocales()
-             (autoStoreLocales), come nei progetti di riferimento. -->
+        <!-- Automatic persistence of the language chosen with AppCompatDelegate.setApplicationLocales()
+             (autoStoreLocales), as in the reference projects. -->
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
             android:enabled="false"

@@ -4,8 +4,8 @@ import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
 
 /**
- * Punto d'ingresso Hilt. Qui arriveranno `PDFBoxResourceLoader.init(this)` (SPEC §3.2) e la
- * pulizia di `cacheDir/work/` all'avvio (SPEC §8), con le fasi che li introducono.
+ * Hilt entry point. `PDFBoxResourceLoader.init(this)` (spec §3.2) and the startup cleanup of
+ * `cacheDir/work/` (spec §8) go here, with the phases that introduce them.
  */
 @HiltAndroidApp
 class PdfToolkitApplication : Application()

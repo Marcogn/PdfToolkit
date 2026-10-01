@@ -1,11 +1,10 @@
 package com.marcogn.pdftoolkit.domain.model
 
 /**
- * Strumenti della Home e dell'Hub modifiche (SPEC §4.1, §4.3), nell'ordine in cui compaiono.
+ * Tools of Home and of the edit hub (spec §4.1, §4.3), in the order they appear.
  *
- * [comingSoon]: strumento di Fase 2 del prodotto (SPEC §7), mostrato disabilitato con l'etichetta
- * "Presto". [requiresDocument]: senza un documento aperto, il tap apre prima il selettore PDF
- * (SPEC §4.1).
+ * [comingSoon]: product phase 2 tool (spec §7), shown disabled with the "Soon" badge.
+ * [requiresDocument]: with no open document, a tap opens the PDF picker first (spec §4.1).
  */
 enum class PdfTool(
     val comingSoon: Boolean = false,

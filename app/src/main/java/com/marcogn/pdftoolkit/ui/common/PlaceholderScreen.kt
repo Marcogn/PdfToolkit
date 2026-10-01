@@ -25,8 +25,8 @@ import androidx.compose.ui.unit.dp
 import com.marcogn.pdftoolkit.R
 
 /**
- * Schermata provvisoria per le destinazioni non ancora implementate (Fase 0). Mostra la freccia
- * indietro se arriva dalla Home ([onBack]), l'hamburger se arriva dal drawer ([onMenuClick]).
+ * Temporary screen for destinations that are not implemented yet (phase 0). Shows the back arrow
+ * when reached from Home ([onBack]), the hamburger when reached from the drawer ([onMenuClick]).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

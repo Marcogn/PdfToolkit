@@ -44,7 +44,7 @@ private val secondaryEntries = listOf(
     DrawerEntry(Destination.About, R.string.drawer_about, Icons.Outlined.Info),
 )
 
-/** Voci del drawer, SPEC §4. [current] evidenzia la voce della schermata in primo piano. */
+/** Drawer entries, spec §4. [current] highlights the entry of the screen on top. */
 @Composable
 fun AppDrawerSheet(current: Destination?, onNavigate: (Destination) -> Unit) {
     ModalDrawerSheet {

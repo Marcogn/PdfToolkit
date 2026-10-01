@@ -22,7 +22,7 @@
     <string name="home_coming_soon_badge">Presto</string>
     <string name="home_coming_soon_message">%1$s arriverà in una prossima versione.</string>
 
-    <!-- Strumenti -->
+    <!-- Tools -->
     <string name="tool_merge">Unisci PDF</string>
     <string name="tool_add_pages">Aggiungi pagine</string>
     <string name="tool_insert_images">Inserisci immagini</string>
@@ -36,11 +36,11 @@
     <string name="tool_draw">Disegna</string>
     <string name="tool_export_odf">Esporta in ODF</string>
 
-    <!-- Segnaposto -->
+    <!-- Placeholder -->
     <string name="viewer_title">Viewer</string>
     <string name="placeholder_message">Questa schermata non è ancora disponibile.</string>
 
-    <!-- Impostazioni -->
+    <!-- Settings -->
     <string name="settings_title">Impostazioni</string>
     <string name="settings_appearance_section">Aspetto</string>
     <string name="settings_theme_label">Tema</string>
@@ -55,7 +55,7 @@
     <string name="language_italian" translatable="false">Italiano</string>
     <string name="language_english" translatable="false">English</string>
 
-    <!-- Informazioni -->
+    <!-- About -->
     <string name="about_title">Informazioni</string>
     <string name="about_version">Versione %1$s</string>
     <string name="about_privacy_title">Privacy</string>

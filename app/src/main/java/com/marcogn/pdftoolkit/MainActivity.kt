@@ -10,7 +10,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.domain.model.ThemeMode
 import com.marcogn.pdftoolkit.ui.navigation.PdfToolkitNavGraph
@@ -19,9 +19,9 @@ import com.marcogn.pdftoolkit.ui.theme.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
- * `AppCompatActivity` e non `ComponentActivity`: `AppCompatDelegate.setApplicationLocales()`
- * (lingua per-app in Impostazioni) richiede questa classe base, altrimenti il cambio di lingua
- * viene ignorato in silenzio. Stessa scelta dei progetti di riferimento; la UI resta tutta Compose.
+ * `AppCompatActivity`, not `ComponentActivity`: `AppCompatDelegate.setApplicationLocales()`
+ * (per-app language in Settings) requires this base class, otherwise the language change is
+ * silently ignored. Same choice as the reference projects; the UI is still all Compose.
  */
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {

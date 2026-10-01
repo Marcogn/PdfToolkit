@@ -4,9 +4,9 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
-// [ASSUNZIONE] SPEC §9: blu petrolio profondo come colore principale, ambra come terziario
-// (riservato alle azioni di firma). Toni scelti a mano sui ruoli di Material 3, non generati con
-// Material Theme Builder: per cambiare palette basta sostituire i due schemi qui sotto.
+// [ASSUMPTION] Spec §9: deep petrol blue as the primary colour, amber as tertiary (reserved for
+// signature actions). Tones picked by hand on the Material 3 roles, not generated with Material
+// Theme Builder: to change the palette, replace the two schemes below.
 
 internal val LightColors = lightColorScheme(
     primary = Color(0xFF0F5C6E),

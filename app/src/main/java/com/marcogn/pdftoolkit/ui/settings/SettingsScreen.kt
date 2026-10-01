@@ -36,7 +36,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.model.ThemeMode
@@ -44,8 +44,8 @@ import com.marcogn.pdftoolkit.ui.theme.ThemeViewModel
 import com.marcogn.pdftoolkit.ui.theme.isDynamicColorSupported
 
 /**
- * Impostazioni (SPEC §10). In Fase 0: tema, colore dinamico, lingua. Modalità di lettura
- * predefinita e pulizia di recenti e miniature arrivano con il viewer (Fase 1).
+ * Settings (spec §10). Phase 0: theme, dynamic colour, language. Default reading mode and
+ * clearing recents and thumbnails come with the viewer (phase 1).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,8 +96,8 @@ fun SettingsScreen(
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
             SectionHeader(stringResource(R.string.settings_language_label))
-            // Letta da AppCompatDelegate, non da un ViewModel: la fonte di verità è il sistema
-            // (autoStoreLocales), e l'activity si ricrea comunque al cambio.
+            // Read from AppCompatDelegate, not from a ViewModel: the system is the source of truth
+            // (autoStoreLocales), and the activity is recreated on change anyway.
             var selectedLanguage by remember { mutableStateOf(currentAppLanguage()) }
             Column(Modifier.selectableGroup()) {
                 AppLanguage.entries.forEach { language ->

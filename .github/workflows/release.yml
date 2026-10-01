@@ -134,8 +134,8 @@ jobs:
             exit 1
           fi
 
-      # Keystore di release persistente (mai il debug.keystore effimero) — stesso schema
-      # del progetto di riferimento, vedi CLAUDE.md.
+      # Persistent release keystore (never the ephemeral debug.keystore) — same scheme as
+      # the reference projects, see CLAUDE.md.
       - name: Decode release keystore
         run: echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
         env:

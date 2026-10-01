@@ -1,10 +1,10 @@
 # .github/workflows/cleanup-runs.yml
 #
-# Pulizia manuale della cronologia di GitHub Actions: cancella tutte le esecuzioni concluse
-# tranne la più recente di ogni workflow (con i loro log e artifact). Le release e i loro APK
-# non sono toccati: sono asset delle GitHub Release, non artifact delle esecuzioni.
-# Irreversibile, per questo solo manuale (Actions → Pulizia esecuzioni → Run workflow).
-name: Pulizia esecuzioni
+# Manual cleanup of the GitHub Actions history: deletes every completed run except the most
+# recent one of each workflow (with their logs and artifacts). Releases and their APKs are not
+# touched: they are GitHub Release assets, not run artifacts.
+# Irreversible, hence manual only (Actions → Clean up runs → Run workflow).
+name: Clean up runs
 
 on:
   workflow_dispatch:
@@ -18,14 +18,14 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Cancella le esecuzioni vecchie
+      - name: Delete old runs
         run: |
-          # L'API elenca le esecuzioni dalla più recente: la prima di ogni workflow si tiene,
-          # tutte le altre si cancellano. Solo quelle concluse, così questa resta intatta.
+          # The API lists runs newest first: the first one of each workflow is kept, all the
+          # others are deleted. Completed runs only, so this one is left alone.
           gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs?status=completed&per_page=100" \
             --jq '.workflow_runs[] | "\(.workflow_id) \(.id)"' \
             | awk 'seen[$1]++ { print $2 }' > to_delete.txt
-          echo "Esecuzioni da cancellare: $(wc -l < to_delete.txt)"
+          echo "Runs to delete: $(wc -l < to_delete.txt)"
           while read -r id; do
-            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${id}" && echo "cancellata ${id}"
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${id}" && echo "deleted ${id}"
           done < to_delete.txt

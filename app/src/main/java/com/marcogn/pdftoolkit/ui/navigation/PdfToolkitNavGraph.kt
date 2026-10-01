@@ -35,13 +35,14 @@ import com.marcogn.pdftoolkit.ui.home.labelRes
 import com.marcogn.pdftoolkit.ui.settings.SettingsScreen
 import kotlinx.coroutines.launch
 
-// Una NavBackStackEntry arriva a RESUMED solo a transizione finita: ogni navigate()/popBackStack()
-// passa da questo controllo sull'entry che possiede la callback, così un doppio tap rapido non
-// atterra su una schermata ancora a metà transizione. Stesso fix dei progetti di riferimento.
+// A NavBackStackEntry reaches RESUMED only once its transition has finished: every
+// navigate()/popBackStack() goes through this check on the entry that owns the callback, so a
+// fast double tap can't land on a screen that is still mid-transition. Same fix as the
+// reference projects.
 private fun NavBackStackEntry.lifecycleIsResumed() = lifecycle.currentState == Lifecycle.State.RESUMED
 
-// SPEC §9: transizioni di 200–250 ms, mai oltre 300. I riferimenti usano 300 ms con uno slide a
-// tutta larghezza; qui slide breve più dissolvenza, più leggero da percepire.
+// Spec §9: 200–250 ms transitions, never above 300. The reference projects use a 300 ms
+// full-width slide; here a short slide plus fade, which feels lighter.
 private const val NAV_ENTER_MS = 250
 private const val NAV_EXIT_MS = 200
 private const val SLIDE_FRACTION = 12
@@ -80,7 +81,7 @@ private fun NavDestination.asDrawerDestination(): Destination? = drawerDestinati
     }
 }
 
-/** Drawer sempre raggiungibile (hamburger a sinistra) attorno al grafo di navigazione, SPEC §4. */
+/** Navigation graph wrapped in a drawer that is always reachable (hamburger on the left), spec §4. */
 @Composable
 fun PdfToolkitNavGraph(navController: NavHostController = rememberNavController()) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -93,8 +94,8 @@ fun PdfToolkitNavGraph(navController: NavHostController = rememberNavController(
         if (navController.currentBackStackEntry?.lifecycleIsResumed() != false) {
             scope.launch { drawerState.close() }
             if (destination == Destination.Home) {
-                // Come KartLog: popUpTo(Home){saveState} + restoreState verso Home stessa non
-                // ripristina in modo affidabile; si torna sempre a una Home pulita.
+                // As in KartLog: popUpTo(Home){saveState} + restoreState towards Home itself
+                // doesn't restore reliably, so Home is always rebuilt from scratch.
                 navController.navigate(Destination.Home) {
                     popUpTo<Destination.Home> { inclusive = true }
                     launchSingleTop = true
@@ -127,8 +128,8 @@ fun PdfToolkitNavGraph(navController: NavHostController = rememberNavController(
                     onOpenPdfClick = { if (entry.lifecycleIsResumed()) navController.navigate(Destination.Viewer) },
                     onToolClick = { tool ->
                         if (tool == PdfTool.MY_SIGNATURES) {
-                            // Stessa schermata della voce del drawer: stessa navigazione, così
-                            // non si accumulano due copie nello stack.
+                            // Same screen as the drawer entry, so same navigation: this way
+                            // two copies never pile up on the back stack.
                             navigateFromDrawer(Destination.Signatures)
                         } else if (entry.lifecycleIsResumed()) {
                             navController.navigate(Destination.Tool(tool.name))

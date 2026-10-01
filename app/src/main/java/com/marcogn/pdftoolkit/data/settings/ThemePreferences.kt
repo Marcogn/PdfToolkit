@@ -19,8 +19,8 @@ private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
 private val DYNAMIC_COLOR_KEY = booleanPreferencesKey("dynamic_color")
 
 /**
- * Tema e colore dinamico su Preferences DataStore, come ThemePreferences di ThePatientGamerHelper.
- * Il colore dinamico è spento di default (SPEC §9).
+ * Theme and dynamic colour on Preferences DataStore, like ThemePreferences in ThePatientGamerHelper.
+ * Dynamic colour is off by default (spec §9).
  */
 @Singleton
 class ThemePreferences @Inject constructor(@ApplicationContext private val context: Context) {

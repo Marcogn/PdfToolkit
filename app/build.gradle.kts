@@ -1,6 +1,7 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.ksp)
     alias(libs.plugins.kotlin.serialization)
@@ -9,22 +10,23 @@ plugins {
 
 android {
     namespace = "com.marcogn.pdftoolkit"
-    compileSdk = 36
+    // Highest API level supported by AGP 9.4 (spec §3.3: latest stable supported by the AGP in use).
+    compileSdk = 37
 
     defaultConfig {
-        // Stesso prefisso dei progetti di riferimento (com.marcogn.*), SPEC §2.
+        // Same prefix as the reference projects (com.marcogn.*), spec §2.
         applicationId = "com.marcogn.pdftoolkit"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // Stesso schema di ThePatientGamerHelper e KartLog: keystore di release fisso (SHA1 stabile),
-    // segreti letti da variabili d'ambiente, mai nel repository. Debug usa il keystore effimero
-    // di default, nessun segreto richiesto.
+    // Same scheme as ThePatientGamerHelper and KartLog: a fixed release keystore (stable SHA-1),
+    // secrets read from environment variables, never stored in the repository. Debug builds use
+    // the default ephemeral debug keystore and need no secrets.
     signingConfigs {
         create("release") {
             val keystorePath = System.getenv("RELEASE_KEYSTORE_PATH")
@@ -39,15 +41,15 @@ android {
 
     buildTypes {
         release {
-            // R8 resta spento come nei riferimenti finché non arriva PdfBox-Android: la build
-            // release minificata va provata in Fase 6 (SPEC §3.2, §13).
+            // R8 stays off, as in the reference projects, until PdfBox-Android is added: the
+            // minified release build gets tested in phase 6 (spec §3.2, §13).
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Non firmata (default Android) se i segreti non ci sono, es. assembleRelease in
-            // locale: stesso comportamento dei riferimenti invece di far fallire la build.
+            // Left unsigned (Android's default) when the secrets are missing, e.g. a local
+            // assembleRelease: same behaviour as the reference projects instead of failing.
             if (!System.getenv("RELEASE_KEYSTORE_PATH").isNullOrBlank()) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -57,10 +59,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
     }
 
     buildFeatures {
@@ -78,6 +76,12 @@ android {
         unitTests {
             isIncludeAndroidResources = true
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
     }
 }
 
@@ -100,16 +104,16 @@ dependencies {
 
     implementation(libs.androidx.navigation.compose)
 
-    // Room è nel version catalog ma entra fra le dipendenze in Fase 1, con RecentDocument (SPEC §8).
+    // Room is in the version catalog but becomes a dependency in phase 1, with RecentDocument (spec §8).
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
 
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
 
-    // Tema (DataStore) e lingua per-app (AppCompatDelegate), come nei riferimenti.
+    // Theme (DataStore) and per-app language (AppCompatDelegate), as in the reference projects.
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.appcompat)
 

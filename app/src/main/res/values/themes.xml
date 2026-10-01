@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- La UI è Compose (PdfToolkitTheme, Material 3): questo tema serve solo alla finestra prima
-         della prima frame. AppCompat perché MainActivity è un AppCompatActivity, richiesto da
-         setApplicationLocales() per la lingua per-app. -->
+    <!-- The UI is Compose (PdfToolkitTheme, Material 3): this theme only covers the window before
+         the first frame. AppCompat because MainActivity is an AppCompatActivity, which
+         setApplicationLocales() needs for the per-app language. -->
     <style name="Theme.PdfToolkit" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowBackground">@color/window_background</item>
     </style>

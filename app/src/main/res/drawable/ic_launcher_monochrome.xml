@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Icona tematica di Android 13+: stesse forme di ic_launcher_foreground in un solo tracciato
-     evenOdd, così righe, angolo piegato e la parte di penna sopra il foglio restano scavate. -->
+<!-- Android 13+ themed icon: the shapes of ic_launcher_foreground in a single evenOdd path, so
+     the text lines, the folded corner and the part of the pen over the sheet are cut out. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
