@@ -9,23 +9,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,22 +33,56 @@ import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.model.OpenFailure
 
 /**
- * Viewer, phase 1a: continuous mode with zoom and pan. Page indicator, menu, single-page mode,
- * scrubber, thumbnails and the full error screen come in phase 1b.
+ * Viewer (spec §4.2): shows the loading, password, error and ready states of the document. The
+ * reading experience itself is in [ReadyViewer].
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ViewerScreen(onBack: () -> Unit, viewModel: ViewerViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val viewportState = rememberSaveable(saver = PdfViewportState.Saver) { PdfViewportState() }
+    val readingMode by viewModel.readingMode.collectAsStateWithLifecycle()
 
+    when (val state = uiState) {
+        is ViewerUiState.Ready -> ReadyViewer(
+            state = state,
+            budget = viewModel.budget,
+            readingMode = readingMode,
+            onReadingModeChange = viewModel::setReadingMode,
+            onPageChanged = viewModel::onPageChanged,
+            onBack = onBack,
+        )
+        ViewerUiState.Loading -> StatusScaffold(onBack) { CircularProgressIndicator() }
+        is ViewerUiState.PasswordRequired -> StatusScaffold(onBack) {
+            Icon(
+                Icons.Outlined.Lock,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(48.dp),
+            )
+            PasswordDialog(
+                wrongPassword = state.wrongPassword,
+                onSubmit = viewModel::submitPassword,
+                onCancel = onBack,
+            )
+        }
+        is ViewerUiState.Error -> StatusScaffold(onBack) {
+            OpenError(
+                failure = state.failure,
+                inRecents = state.inRecents,
+                onHome = onBack,
+                onRemoveFromRecents = { viewModel.removeFromRecents(onDone = onBack) },
+            )
+        }
+    }
+}
+
+/** Top bar with only the back arrow and [content] centred: the states before the document shows. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StatusScaffold(onBack: () -> Unit, content: @Composable () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    val name = (uiState as? ViewerUiState.Ready)?.displayName.orEmpty()
-                    Text(name, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
-                },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
@@ -57,25 +91,18 @@ fun ViewerScreen(onBack: () -> Unit, viewModel: ViewerViewModel = hiltViewModel(
             )
         },
     ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
-            when (val state = uiState) {
-                ViewerUiState.Loading -> CircularProgressIndicator()
-                is ViewerUiState.Ready -> PdfViewport(
-                    pageSizes = state.pageSizes,
-                    bitmaps = state.bitmaps,
-                    budget = viewModel.budget,
-                    state = viewportState,
-                    backgroundColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                is ViewerUiState.Error -> OpenError(state.failure, onBack)
-            }
-        }
+        Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) { content() }
     }
 }
 
+/** Spec §5: understandable message and a way back to Home. */
 @Composable
-private fun OpenError(failure: OpenFailure, onBack: () -> Unit) {
+private fun OpenError(
+    failure: OpenFailure,
+    inRecents: Boolean,
+    onHome: () -> Unit,
+    onRemoveFromRecents: () -> Unit,
+) {
     Column(
         modifier = Modifier.padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -88,16 +115,25 @@ private fun OpenError(failure: OpenFailure, onBack: () -> Unit) {
             modifier = Modifier.size(48.dp),
         )
         Text(
+            stringResource(R.string.viewer_error_title),
+            style = MaterialTheme.typography.titleLarge,
+            textAlign = TextAlign.Center,
+        )
+        Text(
             stringResource(failure.messageRes()),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
         )
-        Button(onClick = onBack) { Text(stringResource(R.string.viewer_error_back)) }
+        Button(onClick = onHome) { Text(stringResource(R.string.viewer_error_home)) }
+        if (failure == OpenFailure.NOT_FOUND && inRecents) {
+            OutlinedButton(onClick = onRemoveFromRecents) { Text(stringResource(R.string.viewer_error_remove_recent)) }
+        }
     }
 }
 
 private fun OpenFailure.messageRes(): Int = when (this) {
     OpenFailure.NOT_FOUND -> R.string.viewer_error_not_found
     OpenFailure.PASSWORD_PROTECTED -> R.string.viewer_error_password
+    OpenFailure.PASSWORD_UNSUPPORTED -> R.string.viewer_error_password_unsupported
     OpenFailure.UNREADABLE -> R.string.viewer_error_unreadable
 }

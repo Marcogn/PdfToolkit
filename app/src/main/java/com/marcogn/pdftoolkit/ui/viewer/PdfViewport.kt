@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -66,24 +67,35 @@ fun PdfViewport(
     state: PdfViewportState,
     backgroundColor: Color,
     modifier: Modifier = Modifier,
+    /** See [RenderPlanner.pageIndexOffset]: [pageSizes] is a slice of the document starting here. */
+    pageIndexOffset: Int = 0,
+    /** Identifies this viewport in [RenderScheduler.request] when several share the scheduler. */
+    requestSource: Any = Unit,
+    /**
+     * A one-finger horizontal drag that the page can't absorb (fit width, or already at its edge)
+     * is left unconsumed, so a parent pager can take it (single-page mode).
+     */
+    yieldHorizontalToParent: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
     val decay = rememberSplineBasedDecay<Float>()
     val gapPx = with(LocalDensity.current) { PageGap.toPx() }
     val revision by bitmaps.revision.collectAsStateWithLifecycle()
     val layout = state.layout
-    val planner = remember(layout, budget) { layout?.let { RenderPlanner(it, budget.maxPageBitmapBytes) } }
+    val planner = remember(layout, budget) { layout?.let { RenderPlanner(it, budget.maxPageBitmapBytes, pageIndexOffset = pageIndexOffset) } }
     // Tile levels drawn: the current one and the previous one, which stays visible (scaled)
     // until the new tiles arrive, so a zoom never flashes back to the blurry page bitmap.
     var tileLevel by remember(planner) { mutableIntStateOf(NO_LEVEL) }
     var previousTileLevel by remember(planner) { mutableIntStateOf(NO_LEVEL) }
+
+    DisposableEffect(bitmaps, requestSource) { onDispose { bitmaps.release(requestSource) } }
 
     LaunchedEffect(planner) {
         val planner = planner ?: return@LaunchedEffect
         snapshotFlow { Triple(state.viewport, state.viewportSize, state.isInteracting) }
             .collectLatest { (viewport, size, interacting) ->
                 // Page bitmaps right away (they are also what gets scaled while zooming)...
-                bitmaps.request(planner.plan(viewport, size, tileLevel = null))
+                bitmaps.request(planner.plan(viewport, size, tileLevel = null), requestSource)
                 if (interacting) return@collectLatest
                 // ...tiles only once everything has stood still for a moment.
                 delay(SETTLE_DELAY_MS)
@@ -92,7 +104,7 @@ fun PdfViewport(
                     previousTileLevel = tileLevel
                     tileLevel = level
                 }
-                bitmaps.request(planner.plan(viewport, size, tileLevel = level))
+                bitmaps.request(planner.plan(viewport, size, tileLevel = level), requestSource)
             }
     }
 
@@ -102,7 +114,7 @@ fun PdfViewport(
             .pointerInput(state) {
                 detectTapGestures(onDoubleTap = { tap -> state.launchAnimation(scope) { state.animateDoubleTap(tap) } })
             }
-            .pointerInput(state) { detectZoomPanFling(state, scope, decay) },
+            .pointerInput(state, yieldHorizontalToParent) { detectZoomPanFling(state, scope, decay, yieldHorizontalToParent) },
     ) {
         // Read so that a new bitmap triggers a redraw.
         @Suppress("UNUSED_EXPRESSION")
@@ -160,6 +172,7 @@ private suspend fun PointerInputScope.detectZoomPanFling(
     state: PdfViewportState,
     scope: CoroutineScope,
     decay: DecayAnimationSpec<Float>,
+    yieldHorizontalToParent: Boolean,
 ) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
@@ -189,8 +202,12 @@ private suspend fun PointerInputScope.detectZoomPanFling(
             }
             if (pastSlop) {
                 if (zoomChange != 1f) state.zoomBy(zoomChange, event.calculateCentroid(useCurrent = false))
+                val offsetBefore = state.viewport.offset
                 if (panChange != Offset.Zero) state.panBy(panChange)
-                event.changes.forEach { if (it.positionChanged()) it.consume() }
+                val absorbedX = state.viewport.offset.x != offsetBefore.x
+                val leaveToParent = yieldHorizontalToParent && pressed.size == 1 && zoomChange == 1f &&
+                    !absorbedX && abs(panChange.x) > abs(panChange.y)
+                if (!leaveToParent) event.changes.forEach { if (it.positionChanged()) it.consume() }
             }
 
             // Velocity of one finger; restarted when fingers are added or lifted, so a pinch

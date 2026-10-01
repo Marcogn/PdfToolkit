@@ -3,7 +3,9 @@ package com.marcogn.pdftoolkit.pdf.render
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.pdf.LoadParams
 import android.graphics.pdf.PdfRenderer
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.Dispatchers
@@ -84,16 +86,26 @@ class PdfDocumentRenderer private constructor(
     }
 
     companion object {
+        /** `PdfRenderer` can open password-protected files from Android 15 (API 35). */
+        val SUPPORTS_PASSWORD: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
+
         /**
          * Opens [fd], taking ownership of it (closed on failure too), and reads every page size.
-         * Throws what `PdfRenderer` throws: `SecurityException` for password-protected files,
-         * `IOException` for damaged or non-PDF files, `IllegalArgumentException` if [fd] is not
-         * seekable.
+         * Throws what `PdfRenderer` throws: `SecurityException` for password-protected files
+         * (also for a wrong [password]), `IOException` for damaged or non-PDF files,
+         * `IllegalArgumentException` if [fd] is not seekable.
+         *
+         * [password] needs [SUPPORTS_PASSWORD] (API 35: `PdfRenderer(fd, LoadParams)`); below that
+         * it is ignored and protected files fail with `SecurityException`.
          */
-        suspend fun open(fd: ParcelFileDescriptor, tempFile: File? = null): PdfDocumentRenderer =
+        suspend fun open(fd: ParcelFileDescriptor, tempFile: File? = null, password: String? = null): PdfDocumentRenderer =
             withContext(Dispatchers.IO) {
                 val renderer = try {
-                    PdfRenderer(fd)
+                    if (password != null && SUPPORTS_PASSWORD) {
+                        PdfRenderer(fd, LoadParams.Builder().setPassword(password).build())
+                    } else {
+                        PdfRenderer(fd)
+                    }
                 } catch (e: Throwable) {
                     // The constructor takes ownership only on success.
                     fd.close()

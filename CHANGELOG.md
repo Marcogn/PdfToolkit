@@ -6,6 +6,23 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Complete viewer.** Besides continuous scrolling there is now a single-page mode (swipe to turn
+  the page, each page zooms on its own); the choice is remembered and can also be set in Settings.
+  The top bar shows "page X of N" and a menu with reading mode, go to page, share and document
+  information. A draggable scrubber on the right edge jumps between pages, and a thumbnail bar
+  opens from the top bar. Switching mode keeps the page you are on.
+- **Recent files.** Opened PDFs appear on Home (up to 10, with a first-page preview and date) and
+  in the "Recent files" screen of the side menu. Press and hold to remove one; files that are no
+  longer readable are shown as unavailable. The last page read is saved per file and reopening
+  resumes from it. Settings can clear the list and the preview cache.
+- **Open from other apps.** PdfToolkit appears in "Open with" for PDFs in file managers, downloads
+  and mail, and as a target of the share sheet.
+- **Password-protected PDFs.** On Android 15 and later the app asks for the password; on earlier
+  versions it explains that the system can't open them.
+- **Clearer error screen.** When a file can't be opened the message says why, with a button back to
+  Home (and one to remove a missing file from recents).
+- **Backup.** The recents database is excluded from Android backup: it holds file addresses whose
+  permission doesn't survive a restore.
 - **Back without the shrinking effect.** System back (button or gesture) used Navigation's default
   animation, which shrinks the screen towards the centre; it now uses the same short slide and
   fade as the arrow in the top bar.

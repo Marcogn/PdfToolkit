@@ -19,7 +19,7 @@ import java.util.UUID
 import javax.inject.Inject
 
 /** An open document and the name to show for it. */
-class OpenedPdf(val displayName: String?, val renderer: PdfDocumentRenderer)
+class OpenedPdf(val displayName: String?, val sizeBytes: Long?, val renderer: PdfDocumentRenderer)
 
 /**
  * Opens a PDF from a `content://` (SAF) or `file://` URI.
@@ -30,9 +30,14 @@ class OpenedPdf(val displayName: String?, val renderer: PdfDocumentRenderer)
  */
 class PdfDocumentOpener @Inject constructor(@ApplicationContext private val context: Context) {
 
-    /** @throws PdfOpenException with the reason, never the raw platform exception. */
-    suspend fun open(uri: Uri): OpenedPdf = withContext(Dispatchers.IO) {
-        val name = displayName(uri)
+    /**
+     * @param password for a protected file (Android 15+); null for the first attempt.
+     * @throws PdfOpenException with the reason, never the raw platform exception. A protected file
+     * with no or a wrong [password] is [OpenFailure.PASSWORD_PROTECTED], or
+     * [OpenFailure.PASSWORD_UNSUPPORTED] where `PdfRenderer` can't take a password.
+     */
+    suspend fun open(uri: Uri, password: String? = null): OpenedPdf = withContext(Dispatchers.IO) {
+        val (name, size) = nameAndSize(uri)
         val fd = try {
             context.contentResolver.openFileDescriptor(uri, "r")
         } catch (e: FileNotFoundException) {
@@ -46,10 +51,13 @@ class PdfDocumentOpener @Inject constructor(@ApplicationContext private val cont
         val tempFile = if (isSeekable(fd)) null else copyToCache(fd)
         val seekableFd = if (tempFile == null) fd else ParcelFileDescriptor.open(tempFile, ParcelFileDescriptor.MODE_READ_ONLY)
         try {
-            OpenedPdf(name, PdfDocumentRenderer.open(seekableFd, tempFile))
+            OpenedPdf(name, size, PdfDocumentRenderer.open(seekableFd, tempFile, password))
         } catch (e: SecurityException) {
             tempFile?.delete()
-            throw PdfOpenException(OpenFailure.PASSWORD_PROTECTED, e)
+            throw PdfOpenException(
+                if (PdfDocumentRenderer.SUPPORTS_PASSWORD) OpenFailure.PASSWORD_PROTECTED else OpenFailure.PASSWORD_UNSUPPORTED,
+                e,
+            )
         } catch (e: IOException) {
             tempFile?.delete()
             throw PdfOpenException(OpenFailure.UNREADABLE, e)
@@ -59,13 +67,27 @@ class PdfDocumentOpener @Inject constructor(@ApplicationContext private val cont
         }
     }
 
-    private fun displayName(uri: Uri): String? = try {
-        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) cursor.getString(0) else null
+    private fun nameAndSize(uri: Uri): Pair<String?, Long?> {
+        var name: String? = null
+        var size: Long? = null
+        try {
+            context.contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    name = cursor.getString(0)
+                    size = if (cursor.isNull(1)) null else cursor.getLong(1)
+                }
+            }
+        } catch (e: RuntimeException) {
+            // Provider without the columns: fall back to the URI.
         }
-    } catch (e: RuntimeException) {
-        null
-    } ?: uri.lastPathSegment
+        return (name ?: uri.lastPathSegment) to size
+    }
 
     private fun isSeekable(fd: ParcelFileDescriptor): Boolean = try {
         Os.lseek(fd.fileDescriptor, 0, OsConstants.SEEK_SET)

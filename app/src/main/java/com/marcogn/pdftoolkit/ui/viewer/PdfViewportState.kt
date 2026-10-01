@@ -86,6 +86,34 @@ class PdfViewportState(initialAnchor: ViewportAnchor? = null) {
         pendingAnchor = null
     }
 
+    /**
+     * Page under the centre of the screen, or -1 before the first layout. Reads snapshot state, so
+     * `snapshotFlow { currentPage }` emits when the reader moves to another page.
+     */
+    val currentPage: Int
+        get() {
+            val layout = layout ?: return -1
+            val centre = Offset(viewportSize.width / 2f, viewportSize.height / 2f)
+            return layout.pageAt(PageCoordinateMapper(layout, viewport).screenToLayout(centre).y)
+        }
+
+    /**
+     * Brings the top of page [index] to the top of the screen, keeping the zoom and the horizontal
+     * position. Before the first layout it is remembered and applied then.
+     */
+    fun jumpToPage(index: Int) {
+        val layout = layout
+        val bounds = bounds
+        if (layout == null || bounds == null) {
+            pendingAnchor = ViewportAnchor(index, 0f, 0.5f, pendingAnchor?.zoom ?: 1f)
+            return
+        }
+        stopAnimation()
+        val page = layout.pageRects[index.coerceIn(0, layout.pageCount - 1)]
+        val zoom = viewport.zoom
+        viewport = bounds.clamp(Viewport(zoom, Offset(viewport.offset.x, (page.top - layout.gap) * zoom)))
+    }
+
     fun currentAnchor(): ViewportAnchor? {
         val layout = layout ?: return null
         val point = PageCoordinateMapper(layout, viewport).screenToLayout(Offset(viewportSize.width / 2f, 0f))

@@ -81,8 +81,10 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   (`Destination`), NavHost and drawer; `ui/theme/` palette (`Color.kt`) and theme.
 - `domain/` models with no Android dependencies (`PdfTool`, `ThemeMode`; later `EditSession`,
   `PageItem`).
-- `data/` DataStore (`data/settings/ThemePreferences`), later Room and SAF.
-- `pdf/render` (phase 1a): `PdfDocumentRenderer`, `RenderScheduler`/`RenderPlanner`, caches, and
+- `data/` DataStore (`data/settings/ThemePreferences`, `ReadingPreferences`), Room
+  (`data/recents/`: `AppDatabase`, `RecentDocument`, `RecentsRepository`, `ThumbnailStore`),
+  later signatures and SAF writes. Room schemas are exported to `app/schemas/` and committed.
+- `pdf/render` (phase 1): `PdfDocumentRenderer`, `RenderScheduler`/`RenderPlanner`, `PageThumbnails`, caches, and
   the geometry shared by all phases (`DocumentLayout`, `Viewport`, `PageCoordinateMapper`).
   `pdf/edit`, `pdf/forms`, `pdf/text` from phases 2–5 (spec §12).
 - `di/` Hilt modules, when needed.
@@ -100,6 +102,10 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   that owns the callback (double tap during a transition). Home from the drawer:
   `popUpTo<Home>{inclusive}`. Exception: navigation from an activity result (the SAF picker),
   which arrives before the entry is RESUMED again; the tap that launches the picker is guarded.
+- Single-page mode is a `HorizontalPager` of one-page layouts: each page has its own
+  `PdfViewportState` and `PdfViewport(pageIndexOffset = page, requestSource = page)`, so keys carry
+  the real page index and several viewports can share one `RenderScheduler` (it merges the lists
+  per source). A one-finger horizontal drag the page can't absorb is left unconsumed for the pager.
 - Viewer coordinates go only through `PageCoordinateMapper` (page points top-left ↔ layout px ↔
   screen px). Don't convert by hand in the UI.
 - Navigation transitions 200–250 ms, never above 300 (spec §9). `NavHost` needs both the pop and
@@ -133,28 +139,27 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   author installed the phase 0 APK (pre-upgrade build) and confirmed it works.
 - PR #1 merged.
 - **1a Viewer core done (2026-10-01)**, PR #3 merged; device checks passed (author). Follow-up fix:
-  system back no longer shrinks the screen (predictive pop transitions). **Next: 1b Viewer
-  complete (Sonnet).**
+  system back no longer shrinks the screen (predictive pop transitions).
+- **1b Viewer complete done (2026-10-01)**: lint, 63 unit tests and `assembleDebug` green; PR open,
+  **device checks pending** (see below). **Next: phase 2 Edit session and pages (Sonnet).**
 - The author still has to add the signing secrets to the repository.
 
-### Handoff 1a → 1b
-- Entry: Home "Open PDF" → `rememberOpenPdfLauncher` (SAF, takes the persistable permission) →
-  `Destination.Viewer(uri)` → `ViewerScreen` / `ViewerViewModel` (opens with `PdfDocumentOpener`,
-  typed `OpenFailure`, owns `PdfDocumentRenderer` and `RenderScheduler`).
-- `PdfDocumentRenderer.render(RenderKey)` is the only way to draw a page; reuse it for thumbnails
-  (a `PageKey` at thumbnail size; the mutex serialises it with the viewer). `pageSizes` known at open.
-- `PdfViewportState`: `viewport`, `layout`, `mapper`, `currentAnchor()` (page + fraction + zoom,
-  use it for "last page per file"), `panBy`/`zoomBy`/`launchAnimation`. Current page for the
-  "X of N" indicator: `layout.pageAt(...)` on the screen centre via `mapper.screenToLayout`.
-- Single-page mode: `DocumentLayout` has only `continuous()`. Suggested: a `HorizontalPager` of
-  one-page layouts (`DocumentLayout.continuous(listOf(size), ...)`, its own `PdfViewportState`),
-  pager swipe only when zoom ≤ 1 or at the horizontal edge; crossfade on mode change (spec §9).
-- Missing for 1b: top bar menu and page indicator, scrubber, thumbnails, full error screen (now a
-  minimal message + back), intents `VIEW`/`SEND`, Room recents, last page, password (API 35+
-  `LoadParams`; below it `PdfRenderer` throws `SecurityException` → `PASSWORD_PROTECTED`), settings.
-- Known limits: Canvas has no accessibility semantics yet (phase 6); `PdfRenderer` runs in the app
-  process (AOSP suggests an isolated process for untrusted files, not planned); a document opened
-  while the viewer is being closed may leak until GC.
+### Device checks 1b (not run: no emulator in the cloud environment)
+Continuous ↔ single page (page kept, crossfade); swipe between pages at fit width and at the edge of
+a zoomed page; scrubber and thumbnail bar; open from a file manager and from "Share"; recents
+(preview, unavailable file, long press to remove); resume last page; password PDF on Android 15+
+(and the message on older versions); rotate the screen in both modes.
+
+### Notes for phase 2 onwards
+- The viewer is `ViewerScreen` (states) → `ReadyViewer` (top bar, `ContinuousPages` / `SinglePages`,
+  `PageScrubber`, `ThumbnailBar`). Jumps go through a `Channel<Int>`; `currentPage` is hoisted in
+  `ReadyViewer`. The Edit FAB (phase 2) goes in its `Scaffold`; the Search icon (phase 5b) in its top bar.
+- `ViewerViewModel` records the opening in `RecentsRepository` and saves the last page (debounced,
+  and in `onCleared` through the repository's own scope). `PdfDocumentOpener.open(uri, password)`.
+- Known limits: files opened from `VIEW`/`SEND` usually carry only a temporary permission, so they
+  show as "unavailable" in recents after the grant expires (no copy into app storage); in single
+  page mode zoom 1 is fit width, not fit page (landscape phones scroll vertically); Canvas still has
+  no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
 <!-- One line per decision: date, what, why. Append, don't rewrite. -->
@@ -204,3 +209,17 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   deleted on close: `PdfRenderer` requires a seekable descriptor (AOSP source).
 - 2026-10-01 · Drawer swipe disabled in the viewer (it would fight horizontal pan); the drawer
   still opens from Home and the other drawer screens.
+- 2026-10-01 · Reading mode: one global preference (DataStore `reading_prefs`); the viewer menu and
+  the Settings default are the same value (spec §4.2 [ASSUNZIONE]).
+- 2026-10-01 · Passwords use `PdfRenderer(fd, LoadParams)`, available from API 35 (checked in the
+  SDK's `api-versions.xml`; it also exists with SDK extension 13 on API 31–34, not used). Below 35
+  the file fails with `PASSWORD_UNSUPPORTED` and a message. The password is kept only in memory
+  (`remember`, not saved instance state).
+- 2026-10-01 · Recents: Room table `recent_documents`, max 10 (older ones trimmed on insert, with
+  their thumbnails); accessibility checked by opening the descriptor; thumbnails are JPEGs in
+  `cacheDir/thumbnails/` named by SHA-256 of the URI. The database is excluded from backup.
+- 2026-10-01 · Intents: `VIEW` (content, file) and `SEND` for `application/pdf` on `MainActivity`
+  (standard launch mode); the URI opens the viewer on top of Home, only on a fresh launch
+  (`savedInstanceState == null`), so rotation doesn't reopen it.
+- 2026-10-01 · Scrubber: only the thumb takes touches (the rest of the edge keeps panning and
+  doesn't fight the system back gesture); linear page mapping.

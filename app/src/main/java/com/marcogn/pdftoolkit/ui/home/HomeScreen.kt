@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
@@ -38,6 +40,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.model.PdfTool
+import com.marcogn.pdftoolkit.ui.recents.RecentItem
 import kotlinx.coroutines.launch
 
 /** Minimum width of a tool button: three columns on a 360 dp wide phone. */
@@ -45,7 +48,7 @@ private val ToolMinSize = 100.dp
 
 /**
  * Home without an open document (spec §4.1): "Open PDF" card, recents, tool grid.
- * In phase 0 recents only show the empty state and tools lead to a placeholder.
+ * [recents] is null until the first load. Tools still lead to a placeholder.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +56,9 @@ fun HomeScreen(
     onMenuClick: () -> Unit,
     onOpenPdfClick: () -> Unit,
     onToolClick: (PdfTool) -> Unit,
+    recents: List<RecentItem>? = emptyList(),
+    onRecentClick: (RecentItem) -> Unit = {},
+    onRecentRemove: (RecentItem) -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -68,6 +74,18 @@ fun HomeScreen(
             }
         } else {
             onToolClick(tool)
+        }
+    }
+
+    val onRecentTap: (RecentItem) -> Unit = { item ->
+        if (item.accessible) {
+            onRecentClick(item)
+        } else {
+            val message = resources.getString(R.string.home_recent_unavailable_message)
+            scope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(message)
+            }
         }
     }
 
@@ -97,11 +115,26 @@ fun HomeScreen(
         ) {
             fullWidth { OpenPdfCard(onClick = onOpenPdfClick) }
             fullWidth { SectionTitle(stringResource(R.string.home_recents_title)) }
-            fullWidth { RecentsEmpty() }
+            if (recents != null) {
+                if (recents.isEmpty()) {
+                    fullWidth { RecentsEmpty() }
+                } else {
+                    fullWidth { RecentsRow(recents, onRecentTap, onRecentRemove) }
+                }
+            }
             fullWidth { SectionTitle(stringResource(R.string.home_tools_title)) }
             items(PdfTool.available, key = { it.name }) { tool -> ToolButton(tool, onClick = { onToolTap(tool) }) }
             fullWidth { SectionTitle(stringResource(R.string.home_upcoming_title)) }
             items(PdfTool.upcoming, key = { it.name }) { tool -> ToolButton(tool, onClick = { onToolTap(tool) }) }
+        }
+    }
+}
+
+@Composable
+private fun RecentsRow(recents: List<RecentItem>, onClick: (RecentItem) -> Unit, onRemove: (RecentItem) -> Unit) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+        lazyItems(recents, key = { it.document.uri }) { item ->
+            RecentCard(item, onClick = { onClick(item) }, onRemove = { onRemove(item) }, modifier = Modifier.animateItem())
         }
     }
 }
