@@ -6,6 +6,9 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Back without the shrinking effect.** System back (button or gesture) used Navigation's default
+  animation, which shrinks the screen towards the centre; it now uses the same short slide and
+  fade as the arrow in the top bar.
 - **PDF viewer, first part.** "Open PDF" on Home opens the system file picker and shows the
   document in continuous scrolling: pinch zoom up to 5x, double tap to switch between fit width
   and 2.5x, pan with fling. Pages stay sharp at any zoom (only the visible area is re-rendered),

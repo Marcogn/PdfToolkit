@@ -126,6 +126,11 @@ fun PdfToolkitNavGraph(navController: NavHostController = rememberNavController(
             exitTransition = navExitTransition,
             popEnterTransition = navPopEnterTransition,
             popExitTransition = navPopExitTransition,
+            // System back (button or gesture) uses these instead of the pop transitions above, and
+            // Navigation's defaults scale the screen down to 70% towards the centre: back would look
+            // different from the toolbar arrow. Same transitions for both, driven by the gesture.
+            predictivePopEnterTransition = { navPopEnterTransition() },
+            predictivePopExitTransition = { navPopExitTransition() },
         ) {
             composable<Destination.Home> { entry ->
                 // The picker result arrives before the entry is RESUMED again, so this navigate()

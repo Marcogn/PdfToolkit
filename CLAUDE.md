@@ -102,7 +102,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   which arrives before the entry is RESUMED again; the tap that launches the picker is guarded.
 - Viewer coordinates go only through `PageCoordinateMapper` (page points top-left ↔ layout px ↔
   screen px). Don't convert by hand in the UI.
-- Navigation transitions 200–250 ms, never above 300 (spec §9).
+- Navigation transitions 200–250 ms, never above 300 (spec §9). `NavHost` needs both the pop and
+  the `predictivePop*` transitions: system back uses the latter, and the library default is a
+  `scaleOut(0.7f)` towards the centre.
 - `MainActivity` is an `AppCompatActivity`: `setApplicationLocales()` needs it for the per-app
   language.
 - No hardcoded UI strings: `values/` (Italian, default) and `values-en/`.
@@ -130,8 +132,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   (`docs/plan.md`). Verified with lint, JVM/Robolectric tests, debug and release builds; the
   author installed the phase 0 APK (pre-upgrade build) and confirmed it works.
 - PR #1 merged.
-- **1a Viewer core done (2026-10-01)**, lint + unit tests + `assembleDebug` green; device checks
-  pending (the author tests before merging). **Next: 1b Viewer complete (Sonnet).**
+- **1a Viewer core done (2026-10-01)**, PR #3 merged; device checks passed (author). Follow-up fix:
+  system back no longer shrinks the screen (predictive pop transitions). **Next: 1b Viewer
+  complete (Sonnet).**
 - The author still has to add the signing secrets to the repository.
 
 ### Handoff 1a → 1b
