@@ -34,8 +34,13 @@
     <string name="tool_draw">Draw</string>
     <string name="tool_export_odf">Export to ODF</string>
 
+    <!-- Viewer -->
+    <string name="viewer_error_not_found">The file is no longer available or can no longer be read.</string>
+    <string name="viewer_error_password">The PDF is password protected. Opening protected files is coming soon.</string>
+    <string name="viewer_error_unreadable">The file is damaged or is not a readable PDF.</string>
+    <string name="viewer_error_back">Go back</string>
+
     <!-- Placeholder -->
-    <string name="viewer_title">Viewer</string>
     <string name="placeholder_message">This screen is not available yet.</string>
 
     <!-- Settings -->

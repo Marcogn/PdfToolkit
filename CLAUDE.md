@@ -82,7 +82,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - `domain/` models with no Android dependencies (`PdfTool`, `ThemeMode`; later `EditSession`,
   `PageItem`).
 - `data/` DataStore (`data/settings/ThemePreferences`), later Room and SAF.
-- `pdf/render`, `pdf/edit`, `pdf/forms`, `pdf/text` from phases 1–5 (spec §12).
+- `pdf/render` (phase 1a): `PdfDocumentRenderer`, `RenderScheduler`/`RenderPlanner`, caches, and
+  the geometry shared by all phases (`DocumentLayout`, `Viewport`, `PageCoordinateMapper`).
+  `pdf/edit`, `pdf/forms`, `pdf/text` from phases 2–5 (spec §12).
 - `di/` Hilt modules, when needed.
 
 ## Non-obvious rules
@@ -96,7 +98,10 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   and CI checks the packaged manifest. Don't add dependencies that need it.
 - Every `navigate()`/`popBackStack()` goes through the `lifecycleIsResumed()` guard of the entry
   that owns the callback (double tap during a transition). Home from the drawer:
-  `popUpTo<Home>{inclusive}`.
+  `popUpTo<Home>{inclusive}`. Exception: navigation from an activity result (the SAF picker),
+  which arrives before the entry is RESUMED again; the tap that launches the picker is guarded.
+- Viewer coordinates go only through `PageCoordinateMapper` (page points top-left ↔ layout px ↔
+  screen px). Don't convert by hand in the UI.
 - Navigation transitions 200–250 ms, never above 300 (spec §9).
 - `MainActivity` is an `AppCompatActivity`: `setApplicationLocales()` needs it for the per-app
   language.
@@ -124,8 +129,29 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   CI, docs, ADR 0001–0002. Toolchain and libraries upgraded to the latest stable versions
   (`docs/plan.md`). Verified with lint, JVM/Robolectric tests, debug and release builds; the
   author installed the phase 0 APK (pre-upgrade build) and confirmed it works.
-- PR #1 merged. **Next: 1a Viewer core (Opus).**
+- PR #1 merged.
+- **1a Viewer core done (2026-10-01)**, lint + unit tests + `assembleDebug` green; device checks
+  pending (the author tests before merging). **Next: 1b Viewer complete (Sonnet).**
 - The author still has to add the signing secrets to the repository.
+
+### Handoff 1a → 1b
+- Entry: Home "Open PDF" → `rememberOpenPdfLauncher` (SAF, takes the persistable permission) →
+  `Destination.Viewer(uri)` → `ViewerScreen` / `ViewerViewModel` (opens with `PdfDocumentOpener`,
+  typed `OpenFailure`, owns `PdfDocumentRenderer` and `RenderScheduler`).
+- `PdfDocumentRenderer.render(RenderKey)` is the only way to draw a page; reuse it for thumbnails
+  (a `PageKey` at thumbnail size; the mutex serialises it with the viewer). `pageSizes` known at open.
+- `PdfViewportState`: `viewport`, `layout`, `mapper`, `currentAnchor()` (page + fraction + zoom,
+  use it for "last page per file"), `panBy`/`zoomBy`/`launchAnimation`. Current page for the
+  "X of N" indicator: `layout.pageAt(...)` on the screen centre via `mapper.screenToLayout`.
+- Single-page mode: `DocumentLayout` has only `continuous()`. Suggested: a `HorizontalPager` of
+  one-page layouts (`DocumentLayout.continuous(listOf(size), ...)`, its own `PdfViewportState`),
+  pager swipe only when zoom ≤ 1 or at the horizontal edge; crossfade on mode change (spec §9).
+- Missing for 1b: top bar menu and page indicator, scrubber, thumbnails, full error screen (now a
+  minimal message + back), intents `VIEW`/`SEND`, Room recents, last page, password (API 35+
+  `LoadParams`; below it `PdfRenderer` throws `SecurityException` → `PASSWORD_PROTECTED`), settings.
+- Known limits: Canvas has no accessibility semantics yet (phase 6); `PdfRenderer` runs in the app
+  process (AOSP suggests an isolated process for untrusted files, not planned); a document opened
+  while the viewer is being closed may leak until GC.
 
 ## Decisions
 <!-- One line per decision: date, what, why. Append, don't rewrite. -->
@@ -156,3 +182,22 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   and stops in one line if it isn't its turn. `PageCoordinateMapper`
   starts in phase 1 (zoom and pan already need page ↔ screen conversion) and is extended in
   phases 4 and 5 (rotation, PDF bottom-left origin); spec §12 wants a single class for all of it.
+- 2026-10-01 · `PageCoordinateMapper`, `DocumentLayout` and `Viewport` live in `pdf/render`, not
+  `pdf/forms` as the spec §12 tree suggests: they start with the viewer and phases 4–5 extend them.
+- 2026-10-01 · Zoom 1 = fit width of the widest page (one scale per document, so mixed sizes keep
+  their proportions, narrower pages centred). Min zoom = fit page (< 1 only when the page is taller
+  than the screen, e.g. landscape), max 5x relative to fit width. Double tap: the tapped point
+  stays under the finger (reading of "centrato sul punto toccato", spec §4.2; easy to change in
+  `ViewportBounds.doubleTapTarget`).
+- 2026-10-01 · Render cache: half of `memoryClass`, 32–256 MB, 2/3 pages and 1/3 tiles in separate
+  LRUs; page bitmap capped at 1/4 of the page cache (max 32 MB), above it tiles take over. Tiles
+  512 px at zoom levels quantised to quarter octaves, rounded up. Since API 26 bitmap pixels are
+  in the native heap ([source](https://developer.android.com/topic/performance/graphics/manage-memory)),
+  so `memoryClass` is a measure of the device, not a hard limit.
+- 2026-10-01 · One render worker reading a "wanted list" (`RenderScheduler`) instead of a queue:
+  fast scrolling never piles up stale renders. `PdfRenderer` serialises pdfium globally anyway
+  (static `sPdfiumLock` in AOSP).
+- 2026-10-01 · Non-seekable sources (pipes from some providers) are copied to `cacheDir/open/`,
+  deleted on close: `PdfRenderer` requires a seekable descriptor (AOSP source).
+- 2026-10-01 · Drawer swipe disabled in the viewer (it would fight horizontal pan); the drawer
+  still opens from Home and the other drawer screens.

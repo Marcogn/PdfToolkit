@@ -36,8 +36,13 @@
     <string name="tool_draw">Disegna</string>
     <string name="tool_export_odf">Esporta in ODF</string>
 
+    <!-- Viewer -->
+    <string name="viewer_error_not_found">Il file non è più disponibile o non si ha più il permesso di leggerlo.</string>
+    <string name="viewer_error_password">Il PDF è protetto da password. L\'apertura dei file protetti arriverà presto.</string>
+    <string name="viewer_error_unreadable">Il file è danneggiato o non è un PDF leggibile.</string>
+    <string name="viewer_error_back">Torna indietro</string>
+
     <!-- Placeholder -->
-    <string name="viewer_title">Viewer</string>
     <string name="placeholder_message">Questa schermata non è ancora disponibile.</string>
 
     <!-- Settings -->

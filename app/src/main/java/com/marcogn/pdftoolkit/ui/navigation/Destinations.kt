@@ -8,9 +8,9 @@ sealed interface Destination {
     @Serializable
     data object Home : Destination
 
-    /** Viewer (spec §4.2). A placeholder in phase 0. */
+    /** Viewer (spec §4.2) on the document at [uri] (`content://` from SAF, or `file://`). */
     @Serializable
-    data object Viewer : Destination
+    data class Viewer(val uri: String) : Destination
 
     /** Tool opened from Home; [tool] is the name of a [com.marcogn.pdftoolkit.domain.model.PdfTool]. */
     @Serializable

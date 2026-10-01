@@ -8,9 +8,11 @@ no cloud, no network access.
 
 ## Status
 
-The project is at phase 0 of the plan (`docs/spec.md` §13): the app skeleton is in place, with
-Home, side menu, light/dark theme and Italian/English language. The viewer and the editing tools
-come in the next phases; for now the buttons open a placeholder screen.
+The project is in phase 1 of the plan (`docs/spec.md` §13). The app skeleton is in place (Home,
+side menu, light/dark theme, Italian/English) and the first part of the viewer works: "Open PDF"
+shows the document with continuous scrolling, zoom and pan. The rest of the viewer (single-page
+mode, scrubber, thumbnails, recents) comes next; the editing tools follow in later phases and for
+now open a placeholder screen.
 
 ## Features
 
@@ -55,7 +57,8 @@ app/src/main/java/com/marcogn/pdftoolkit/
   ui/        Compose screens, navigation and theme
   domain/    models with no Android dependencies
   data/      preferences (DataStore), later Room and file access
-  pdf/       PDF rendering and editing (from the next phases)
+  pdf/       PDF rendering (render/), later editing, forms and text search
+  di/        Hilt modules
 docs/
   spec.md    functional and technical specification (Italian)
   plan.md    plan, alignment with the reference projects, dependency upgrade notes

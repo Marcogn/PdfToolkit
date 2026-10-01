@@ -33,9 +33,21 @@ away control over animations and transitions.
 - To be reconsidered when `androidx.pdf` goes stable: it could replace the viewer and bring text
   search and selection.
 
+## Implementation notes (phase 1a)
+
+Checked against the AOSP source of `PdfRenderer` (android14-release): the constructor requires a
+seekable descriptor and throws `IllegalArgumentException` otherwise, `SecurityException` for a
+password or unsupported security; the class is not thread safe and allows one open page at a time;
+`Page.render` takes an affine matrix from page points to bitmap pixels, which is how tiles are
+rendered; the destination must be ARGB_8888 and initialising the bitmap is left to the caller (we
+erase it to white first). In that version pdfium calls are serialised process-wide by a static
+lock.
+
 ## Sources
 
 - `androidx.pdf` release notes: https://developer.android.com/jetpack/androidx/releases/pdf
   (checked on 2026-10-01)
 - PDF viewer on Android, `PdfRenderer` and `PdfRendererPreV`:
   https://developer.android.com/develop/ui/views/layout/pdf/pdf-viewer
+- `PdfRenderer` source:
+  https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android14-release/graphics/java/android/graphics/pdf/PdfRenderer.java
