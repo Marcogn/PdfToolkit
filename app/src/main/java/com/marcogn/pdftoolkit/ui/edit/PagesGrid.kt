@@ -65,10 +65,11 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 
 /**
- * What the page grid is for: pick pages to remove, drag them into a new order (spec §6.3, §6.4), or
- * pick pages of another PDF to add (spec §6.2). [REMOVE] and [PICK] behave the same: a tap selects.
+ * What the page grid is for: pick pages to remove, drag them into a new order (spec §6.3, §6.4),
+ * pick pages of another PDF to add (spec §6.2), or just show the document (the edit hub).
+ * [REMOVE] and [PICK] behave the same: a tap selects. [VIEW] takes no touches.
  */
-enum class PagesMode { REMOVE, REORDER, PICK }
+enum class PagesMode { REMOVE, REORDER, PICK, VIEW }
 
 /** What the cell menu of a page in reorder mode can do. */
 class PageActions(
@@ -218,7 +219,7 @@ private fun PageCell(
             }
         }
     }
-    val clickModifier = if (mode != PagesMode.REORDER) {
+    val clickModifier = if (mode == PagesMode.REMOVE || mode == PagesMode.PICK) {
         Modifier.combinedClickable(onClick = onTap, onLongClick = onLongPress)
     } else {
         Modifier

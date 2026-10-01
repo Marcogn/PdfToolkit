@@ -232,7 +232,7 @@
         <item quantity="other">%1$d immagini non sono leggibili e sono state saltate.</item>
     </plurals>
     <string name="save_merge_suffix">_unito</string>
-    <string name="merge_save_first">Salva le modifiche prima di unire: l\'unione parte dal file salvato.</string>
+    <string name="merge_save_first">L\'unione parte dal file aperto, senza le modifiche fatte qui. Per unire il risultato, salvalo e apri il file salvato.</string>
     <string name="merge_add">Aggiungi PDF</string>
     <string name="merge_empty">Scegli almeno due PDF da unire in un unico file.</string>
     <string name="merge_need_two">Servono almeno due file.</string>
@@ -250,5 +250,6 @@
     <string name="images_from_photos_hint">Seleziona dalla galleria</string>
     <string name="images_from_files_hint">Scegli dai file del telefono</string>
     <string name="add_new_badge">Nuova</string>
-    <string name="add_review_hint">Le pagine nuove sono evidenziate. Se non sono dove volevi, trascinale nella posizione giusta.</string>
+    <string name="add_review_hint">Le pagine nuove sono evidenziate: se non sono dove volevi, trascinale nella posizione giusta.</string>
+    <string name="add_review_hint_hub">Le pagine nuove sono evidenziate. Per spostarle usa \"Riordina pagine\".</string>
 </resources>

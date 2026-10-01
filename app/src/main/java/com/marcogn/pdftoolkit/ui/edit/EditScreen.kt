@@ -15,9 +15,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Redo
@@ -71,7 +76,8 @@ import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.edit.PageItem
 import com.marcogn.pdftoolkit.domain.model.OpenFailure
 import com.marcogn.pdftoolkit.domain.model.PdfTool
-import com.marcogn.pdftoolkit.ui.home.ToolButton
+import com.marcogn.pdftoolkit.ui.home.icon
+import com.marcogn.pdftoolkit.ui.home.isSignatureAction
 import com.marcogn.pdftoolkit.ui.home.labelRes
 import com.marcogn.pdftoolkit.ui.viewer.takePersistableAccess
 import kotlinx.coroutines.launch
@@ -185,15 +191,16 @@ fun EditScreen(
     val ready = uiState as? EditUiState.Ready
     val saving = saveState is SaveUiState.Saving
     val picking = pendingPdf != null
-    // Tools of Home that are a dialog rather than a pane open it as soon as the document is ready;
-    // a merge without editing asks where to save straight away.
-    // The marks belong to the review right after an addition: back at the hub they are gone.
-    LaunchedEffect(pane) {
-        if (pane == EditPane.HUB) {
+    // The "new" marks help find what was just added; picking pages to remove is a different
+    // question, and once saved there is nothing new any more.
+    LaunchedEffect(pane, saveState is SaveUiState.Saved) {
+        if (pane == EditPane.REMOVE || saveState is SaveUiState.Saved) {
             highlighted = emptySet()
             scrollToId = null
         }
     }
+    // Tools of Home that are a dialog rather than a pane open it as soon as the document is ready;
+    // a merge without editing asks where to save straight away.
     LaunchedEffect(ready != null) {
         if (ready == null) return@LaunchedEffect
         if (!startToolHandled) {
@@ -228,6 +235,7 @@ fun EditScreen(
         if (picking) return@LaunchedEffect
         val ids = ready?.session?.pages?.map { it.id }?.toSet() ?: return@LaunchedEffect
         if (!ids.containsAll(selection)) selection = selection intersect ids
+        if (!ids.containsAll(highlighted)) highlighted = highlighted intersect ids
         if (rangeAnchor !in ids) rangeAnchor = null
     }
 
@@ -259,8 +267,8 @@ fun EditScreen(
             if (result == SnackbarResult.ActionPerformed) viewModel.undo()
         }
     }
-    // After an addition the page grid opens with the new pages marked, so it is clear which they
-    // are and where they went; they can be dragged right away if the spot is wrong.
+    // After an addition the page grid shows the new pages marked and scrolls to them, so it is
+    // clear which they are and where they went.
     val showAdded: (List<String>) -> Unit = showAdded@{ ids ->
         if (ids.isEmpty()) return@showAdded
         val count = ids.size
@@ -268,7 +276,6 @@ fun EditScreen(
         scrollToId = ids.first()
         selection = emptySet()
         rangeAnchor = null
-        pane = EditPane.REORDER
         scope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
             val message = resources.getQuantityString(R.plurals.edit_pages_added, count, count)
@@ -364,6 +371,14 @@ fun EditScreen(
                         },
                         navigationIcon = { BackButton(handleBack) },
                         actions = {
+                            if (ready.session.canUndo || ready.session.canRedo) {
+                                IconButton(onClick = viewModel::undo, enabled = ready.session.canUndo) {
+                                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.edit_undo))
+                                }
+                                IconButton(onClick = viewModel::redo, enabled = ready.session.canRedo) {
+                                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.edit_redo))
+                                }
+                            }
                             if (ready.hasUnsavedChanges) SaveAction(enabled = !saving) { showSaveDialog = true }
                         },
                     )
@@ -449,6 +464,11 @@ fun EditScreen(
                 )
             } else when (pane) {
                 EditPane.HUB -> EditHub(
+                    state = state,
+                    imageThumbnail = { uri -> viewModel.imageThumbnail(uri, THUMBNAIL_PX) },
+                    highlighted = highlighted,
+                    scrollToId = scrollToId,
+                    padding = padding,
                     onToolClick = { tool ->
                         when (tool) {
                             PdfTool.REMOVE_PAGES -> pane = EditPane.REMOVE
@@ -456,8 +476,9 @@ fun EditScreen(
                             PdfTool.ADD_PAGES -> showAddSource = true
                             PdfTool.INSERT_IMAGES -> showImageSource = true
                             PdfTool.MERGE ->
-                                // The merge starts from the file on disk: unsaved edits would be left out.
-                                if (state.hasUnsavedChanges) {
+                                // The merge starts from the file this screen was opened on: edits made
+                                // here (even if already saved as a copy) would be left out.
+                                if (state.session.isModified) {
                                     showMessage(resources.getString(R.string.merge_save_first))
                                 } else {
                                     mergePicker.launch(arrayOf(PDF_MIME))
@@ -465,7 +486,6 @@ fun EditScreen(
                             else -> showMessage(resources.getString(R.string.edit_tool_unavailable, resources.getString(tool.labelRes())))
                         }
                     },
-                    modifier = Modifier.padding(padding),
                 )
                 EditPane.REMOVE, EditPane.REORDER -> PagesPane(
                     state = state,
@@ -619,18 +639,97 @@ private fun SaveAction(enabled: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** The tools of Home bound to the open document (spec §4.3). */
+/**
+ * The edit hub: the document as it is now (the session's pages, read-only) with the tools of Home
+ * bound to it in a bar at the bottom (spec §4.3, changed at the author's request: a grid of tools
+ * alone looked like Home and didn't show which document was being edited).
+ */
 @Composable
-private fun EditHub(onToolClick: (PdfTool) -> Unit, modifier: Modifier = Modifier) {
+private fun EditHub(
+    state: EditUiState.Ready,
+    imageThumbnail: (uri: String) -> android.graphics.Bitmap?,
+    highlighted: Set<String>,
+    scrollToId: String?,
+    padding: PaddingValues,
+    onToolClick: (PdfTool) -> Unit,
+) {
     val tools = remember { PdfTool.available.filter { it.requiresDocument } }
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(100.dp),
-        contentPadding = PaddingValues(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = modifier.fillMaxSize(),
+    Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+        if (highlighted.isNotEmpty()) {
+            Text(
+                stringResource(R.string.add_review_hint_hub),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+        PagesGrid(
+            pages = state.session.pages,
+            sources = state.sources,
+            imageThumbnail = imageThumbnail,
+            mode = PagesMode.VIEW,
+            selection = emptySet(),
+            onTap = {},
+            onLongPress = {},
+            onCommitMove = { _, _ -> },
+            actions = PageActions({}, {}, {}, {}, {}),
+            contentPadding = PaddingValues(16.dp),
+            modifier = Modifier.weight(1f),
+            highlighted = highlighted,
+            scrollToId = scrollToId,
+        )
+        HubToolBar(tools, onToolClick, Modifier.padding(bottom = padding.calculateBottomPadding()))
+    }
+}
+
+/** The document tools as a row of compact buttons, scrollable on narrow screens. */
+@Composable
+private fun HubToolBar(tools: List<PdfTool>, onToolClick: (PdfTool) -> Unit, modifier: Modifier = Modifier) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier.fillMaxWidth()) {
+        Row(
+            Modifier
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            tools.forEach { tool -> HubToolButton(tool, onClick = { onToolClick(tool) }) }
+        }
+    }
+}
+
+@Composable
+private fun HubToolButton(tool: PdfTool, onClick: () -> Unit) {
+    val accent = tool.isSignatureAction
+    Column(
+        Modifier
+            .width(76.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 6.dp, horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        items(tools, key = { it.name }) { tool -> ToolButton(tool, onClick = { onToolClick(tool) }) }
+        Surface(
+            shape = CircleShape,
+            color = if (accent) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.size(40.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    tool.icon(),
+                    contentDescription = null,
+                    tint = if (accent) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+        Text(
+            stringResource(tool.labelRes()),
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

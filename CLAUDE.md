@@ -192,9 +192,14 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - `SavedStateHandle` also receives the route arguments by name: never reuse an argument name
   (`uri`, `tool`, `mergeWith`, `autoSave`, `uris`) as a state key, and its list arguments are arrays,
   not `ArrayList` (the merge screen crashed on this).
-- After an addition the edit screen switches to the reorder pane with the new page ids highlighted
-  (`highlighted`/`scrollToId` in `EditScreen`, passed to `PagesGrid`); the marks clear at the hub.
-- The hub's "Merge" needs the session saved first (it merges the file on disk) and says so otherwise.
+- The hub is the session's pages (`PagesGrid` in `PagesMode.VIEW`, read-only) plus `HubToolBar` at
+  the bottom. After an addition the new page ids are highlighted and scrolled to (`highlighted` /
+  `scrollToId` in `EditScreen`); the marks clear on the remove pane and after a save.
+- The hub's "Merge" works only on an unmodified session: it merges the file the screen was opened
+  on, so edits (even saved as a copy) would be lost; the message says to open the saved file.
+- `importPage` keeps link annotations whose destinations point into the source PDF: those page
+  objects (and what they reach) are written as unreferenced objects, so a merged file with internal
+  links can be larger than the sum of its pages. Valid PDF, not addressed.
 
 ### Notes for phase 2 onwards (viewer, from 1b)
 - The viewer is `ViewerScreen` (states) → `ReadyViewer` (top bar, `ContinuousPages` / `SinglePages`,
@@ -208,6 +213,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-01 · Edit hub: page thumbnails of the session with the tools in a bottom bar, instead of
+  the tool grid of spec §4.3 (author's request after the phase 3 device test: the tool grid looked
+  like Home and didn't show the document being edited).
 - 2026-10-01 · Phase 3: images are copied to `cacheDir/images/` when picked (Photo Picker grants are
   temporary and a save resumed by the system must still read them); cleaned after 24 h at startup,
   not when the screen closes, because a background save may still need them. Added PDFs are read from

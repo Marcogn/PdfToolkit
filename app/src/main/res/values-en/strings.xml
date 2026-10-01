@@ -228,7 +228,7 @@
         <item quantity="other">%1$d images can\'t be read and were skipped.</item>
     </plurals>
     <string name="save_merge_suffix">_merged</string>
-    <string name="merge_save_first">Save your changes before merging: the merge starts from the saved file.</string>
+    <string name="merge_save_first">Merging starts from the opened file, without the changes made here. To merge the result, save it and open the saved file.</string>
     <string name="merge_add">Add PDFs</string>
     <string name="merge_empty">Choose at least two PDFs to merge into one file.</string>
     <string name="merge_need_two">At least two files are needed.</string>
@@ -246,5 +246,6 @@
     <string name="images_from_photos_hint">Pick from the gallery</string>
     <string name="images_from_files_hint">Choose from the phone\'s files</string>
     <string name="add_new_badge">New</string>
-    <string name="add_review_hint">The new pages are highlighted. If they are not where you wanted, drag them into place.</string>
+    <string name="add_review_hint">The new pages are highlighted: if they are not where you wanted, drag them into place.</string>
+    <string name="add_review_hint_hub">The new pages are highlighted. To move them, use \"Reorder pages\".</string>
 </resources>
