@@ -140,15 +140,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - PR #1 merged.
 - **1a Viewer core done (2026-10-01)**, PR #3 merged; device checks passed (author). Follow-up fix:
   system back no longer shrinks the screen (predictive pop transitions).
-- **1b Viewer complete done (2026-10-01)**: lint, 63 unit tests and `assembleDebug` green; PR open,
-  **device checks pending** (see below). **Next: phase 2 Edit session and pages (Sonnet).**
+- **1b Viewer complete done (2026-10-01)**, PR #5; lint, 63 unit tests and `assembleDebug` green;
+  device checks passed (author). **Next: phase 2 Edit session and pages (Sonnet).**
 - The author still has to add the signing secrets to the repository.
-
-### Device checks 1b (not run: no emulator in the cloud environment)
-Continuous ↔ single page (page kept, crossfade); swipe between pages at fit width and at the edge of
-a zoomed page; scrubber and thumbnail bar; open from a file manager and from "Share"; recents
-(preview, unavailable file, long press to remove); resume last page; password PDF on Android 15+
-(and the message on older versions); rotate the screen in both modes.
 
 ### Notes for phase 2 onwards
 - The viewer is `ViewerScreen` (states) → `ReadyViewer` (top bar, `ContinuousPages` / `SinglePages`,
