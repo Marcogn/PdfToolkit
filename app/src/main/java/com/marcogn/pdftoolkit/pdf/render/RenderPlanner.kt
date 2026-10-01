@@ -72,9 +72,15 @@ class RenderPlanner(
     val layout: DocumentLayout,
     maxPageBitmapBytes: Long,
     val tileSize: Int = DEFAULT_TILE_SIZE,
+    /**
+     * Added to the page index of every key. A layout of one page (single-page mode) is page 0 of
+     * its own layout but page [pageIndexOffset] of the document, which is what the renderer needs.
+     * Everything else here still takes layout indices.
+     */
+    val pageIndexOffset: Int = 0,
 ) {
     private val pageKeys: List<PageKey> = layout.pageRects.mapIndexed { index, rect ->
-        pageKeyFor(index, rect, layout.pageSizes[index], maxPageBitmapBytes)
+        pageKeyFor(index + pageIndexOffset, rect, layout.pageSizes[index], maxPageBitmapBytes)
     }
 
     fun pageKey(pageIndex: Int): PageKey = pageKeys[pageIndex]
@@ -119,7 +125,7 @@ class RenderPlanner(
         for (row in firstRow..endRow) {
             for (col in firstCol..endCol) {
                 tiles += TileKey(
-                    pageIndex = pageIndex,
+                    pageIndex = pageIndex + pageIndexOffset,
                     level = level,
                     col = col,
                     row = row,

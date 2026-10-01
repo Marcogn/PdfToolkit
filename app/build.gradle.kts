@@ -85,6 +85,11 @@ kotlin {
     }
 }
 
+// Room schema export: the JSON files in app/schemas/ are committed so that migrations can be tested.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -104,7 +109,10 @@ dependencies {
 
     implementation(libs.androidx.navigation.compose)
 
-    // Room is in the version catalog but becomes a dependency in phase 1, with RecentDocument (spec §8).
+    // Room for RecentDocument (spec §8); Signature joins it in phase 4.
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
@@ -121,6 +129,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.ext.junit)
+    testImplementation(libs.androidx.room.testing)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)
 

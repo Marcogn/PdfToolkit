@@ -1,5 +1,6 @@
 package com.marcogn.pdftoolkit.ui.navigation
 
+import android.net.Uri
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -13,9 +14,13 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination
@@ -32,9 +37,12 @@ import com.marcogn.pdftoolkit.ui.about.AboutScreen
 import com.marcogn.pdftoolkit.ui.common.PlaceholderScreen
 import com.marcogn.pdftoolkit.ui.home.HomeScreen
 import com.marcogn.pdftoolkit.ui.home.labelRes
+import com.marcogn.pdftoolkit.ui.recents.RecentsScreen
+import com.marcogn.pdftoolkit.ui.recents.RecentsViewModel
 import com.marcogn.pdftoolkit.ui.settings.SettingsScreen
 import com.marcogn.pdftoolkit.ui.viewer.ViewerScreen
 import com.marcogn.pdftoolkit.ui.viewer.rememberOpenPdfLauncher
+import com.marcogn.pdftoolkit.ui.viewer.takePersistableReadPermission
 import kotlinx.coroutines.launch
 
 // A NavBackStackEntry reaches RESUMED only once its transition has finished: every
@@ -85,7 +93,10 @@ private fun NavDestination.asDrawerDestination(): Destination? = drawerDestinati
 
 /** Navigation graph wrapped in a drawer that is always reachable (hamburger on the left), spec §4. */
 @Composable
-fun PdfToolkitNavGraph(navController: NavHostController = rememberNavController()) {
+fun PdfToolkitNavGraph(
+    startUri: Uri? = null,
+    navController: NavHostController = rememberNavController(),
+) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -114,6 +125,15 @@ fun PdfToolkitNavGraph(navController: NavHostController = rememberNavController(
         }
     }
 
+    val context = LocalContext.current
+    // PDF handed over by another app (VIEW / SEND): opened on top of Home, so back goes to Home.
+    LaunchedEffect(startUri) {
+        if (startUri != null) {
+            context.takePersistableReadPermission(startUri)
+            navController.navigate(Destination.Viewer(startUri.toString()))
+        }
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         gesturesEnabled = drawerGesturesEnabled,
@@ -133,6 +153,8 @@ fun PdfToolkitNavGraph(navController: NavHostController = rememberNavController(
             predictivePopExitTransition = { navPopExitTransition() },
         ) {
             composable<Destination.Home> { entry ->
+                val recentsViewModel: RecentsViewModel = hiltViewModel()
+                val recents by recentsViewModel.recents.collectAsStateWithLifecycle()
                 // The picker result arrives before the entry is RESUMED again, so this navigate()
                 // can't go through the guard; it isn't a tap, so no double-tap risk. The tap that
                 // opens the picker is guarded.
@@ -140,6 +162,11 @@ fun PdfToolkitNavGraph(navController: NavHostController = rememberNavController(
                 HomeScreen(
                     onMenuClick = openDrawer,
                     onOpenPdfClick = { if (entry.lifecycleIsResumed()) openPdf() },
+                    recents = recents,
+                    onRecentClick = { item ->
+                        if (entry.lifecycleIsResumed()) navController.navigate(Destination.Viewer(item.document.uri))
+                    },
+                    onRecentRemove = { recentsViewModel.remove(it.document.uri) },
                     onToolClick = { tool ->
                         if (tool == PdfTool.MY_SIGNATURES) {
                             // Same screen as the drawer entry, so same navigation: this way
@@ -161,8 +188,17 @@ fun PdfToolkitNavGraph(navController: NavHostController = rememberNavController(
                     onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
                 )
             }
-            composable<Destination.Recents> {
-                PlaceholderScreen(title = stringResource(R.string.drawer_recents), onMenuClick = openDrawer)
+            composable<Destination.Recents> { entry ->
+                val recentsViewModel: RecentsViewModel = hiltViewModel()
+                val recents by recentsViewModel.recents.collectAsStateWithLifecycle()
+                RecentsScreen(
+                    recents = recents,
+                    onMenuClick = openDrawer,
+                    onRecentClick = { item ->
+                        if (entry.lifecycleIsResumed()) navController.navigate(Destination.Viewer(item.document.uri))
+                    },
+                    onRecentRemove = { recentsViewModel.remove(it.document.uri) },
+                )
             }
             composable<Destination.Signatures> {
                 PlaceholderScreen(title = stringResource(R.string.drawer_signatures), onMenuClick = openDrawer)

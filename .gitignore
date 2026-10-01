@@ -12,8 +12,6 @@
 *.ap_
 *.dex
 /app/build/
-# app/schemas/ (Room schema export) must be committed once the first database exists:
-# see the equivalent decision in KartLog (MigrationTest on a clean checkout).
 
 # Signing (never commit a release keystore or its credentials)
 *.jks

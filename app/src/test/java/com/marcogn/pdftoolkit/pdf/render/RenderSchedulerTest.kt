@@ -80,4 +80,20 @@ class RenderSchedulerTest {
         assertNull(scheduler[page(1)])
         assertNotNull(scheduler[page(2)])
     }
+
+    @Test
+    fun sourcesAreMergedAndReleased() = runTest {
+        val scheduler = scheduler()
+        scheduler.request(listOf(page(1)), source = "a")
+        scheduler.request(listOf(page(2)), source = "b")
+        runCurrent()
+        assertEquals(listOf(page(1), page(2)), rendered)
+
+        // A source replacing its own list doesn't drop the other's, and release removes it.
+        rendered.clear()
+        scheduler.request(listOf(page(3)), source = "a")
+        scheduler.release("b")
+        runCurrent()
+        assertEquals(listOf(page(3)), rendered)
+    }
 }

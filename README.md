@@ -8,17 +8,17 @@ no cloud, no network access.
 
 ## Status
 
-The project is in phase 1 of the plan (`docs/spec.md` §13). The app skeleton is in place (Home,
-side menu, light/dark theme, Italian/English) and the first part of the viewer works: "Open PDF"
-shows the document with continuous scrolling, zoom and pan. The rest of the viewer (single-page
-mode, scrubber, thumbnails, recents) comes next; the editing tools follow in later phases and for
-now open a placeholder screen.
+The viewer (phase 1 of the plan, `docs/spec.md` §13) is complete: PDFs open from the file picker,
+from a file manager ("Open with") and from the share sheet, in continuous or single-page mode,
+with zoom, scrubber, thumbnail bar, password support (Android 15+), recent files with the last page
+read, and the related settings. The editing tools come in later phases and for now open a
+placeholder screen.
 
 ## Features
 
 Planned for the first version:
 
-- reading with zoom, continuous or single-page scrolling, scrubber and thumbnails
+- reading with zoom, continuous or single-page scrolling, scrubber and thumbnails (done)
 - text search
 - merging several PDFs
 - adding pages (from another PDF, blank, from images), removing, reordering, rotating
@@ -56,7 +56,7 @@ secret lets "Release" commit the version bump to `main`.
 app/src/main/java/com/marcogn/pdftoolkit/
   ui/        Compose screens, navigation and theme
   domain/    models with no Android dependencies
-  data/      preferences (DataStore), later Room and file access
+  data/      preferences (DataStore), recent documents (Room), later signatures and file access
   pdf/       PDF rendering (render/), later editing, forms and text search
   di/        Hilt modules
 docs/

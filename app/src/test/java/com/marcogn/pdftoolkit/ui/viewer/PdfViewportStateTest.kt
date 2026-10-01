@@ -49,4 +49,34 @@ class PdfViewportStateTest {
         assertEquals(state.viewport.offset.y, restored.viewport.offset.y, 0.5f)
         assertEquals(state.currentAnchor()!!.pageIndex, restored.currentAnchor()!!.pageIndex)
     }
+
+    @Test
+    fun currentPageIsTheOneUnderTheCentreOfTheScreen() {
+        val state = PdfViewportState()
+        assertEquals(-1, state.currentPage)
+        state.setContent(pages, Size(1080f, 2000f), gapPx = 20f)
+        assertEquals(0, state.currentPage)
+        state.jumpToPage(7)
+        // Page 7 starts at the top; the centre of the screen (1000 px down) is still inside it.
+        assertEquals(7, state.currentPage)
+    }
+
+    @Test
+    fun jumpToPageKeepsZoomAndPutsThePageAtTheTop() {
+        val state = PdfViewportState()
+        state.setContent(pages, Size(1080f, 2000f), gapPx = 20f)
+        state.zoomBy(2f, Offset(540f, 0f))
+        state.jumpToPage(5)
+        assertEquals(2f, state.viewport.zoom, 0f)
+        val top = state.mapper!!.pageBoundsOnScreen(5).top
+        assertEquals(20f * 2f, top, 1f) // one gap above the page, at zoom 2
+    }
+
+    @Test
+    fun jumpToPageBeforeTheFirstLayoutIsAppliedOnLayout() {
+        val state = PdfViewportState()
+        state.jumpToPage(12)
+        state.setContent(pages, Size(1080f, 2000f), gapPx = 20f)
+        assertEquals(12, state.currentAnchor()!!.pageIndex)
+    }
 }

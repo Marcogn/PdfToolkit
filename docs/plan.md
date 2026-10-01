@@ -14,7 +14,7 @@ specification (`docs/spec.md`) explicitly asks for something different, the spec
 | Gradle root | `settings.gradle.kts` with `FAIL_ON_PROJECT_REPOS`, `google()` + `mavenCentral()`; root `build.gradle.kts` with plugins `apply false` only (same in both) | Same, `rootProject.name = "PdfToolkit"`. No `kotlin-android` plugin: AGP 9 compiles Kotlin itself (see "Dependency upgrade") |
 | Gradle wrapper | Gradle 8.13 | Gradle 9.8.0, with `distributionSha256Sum` so the wrapper verifies the download |
 | `gradle.properties` | Same in both | Copied |
-| Version catalog | `gradle/libs.versions.toml` (same structure in both) | Same structure, latest stable versions (see "Dependency upgrade"). Libraries used only by the references are left out (WorkManager, Credential Manager, Play Services, Coil, Palette). Room is in the catalog but becomes a dependency in phase 1 |
+| Version catalog | `gradle/libs.versions.toml` (same structure in both) | Same structure, latest stable versions (see "Dependency upgrade"). Libraries used only by the references are left out (WorkManager, Credential Manager, Play Services, Coil, Palette). Room became a dependency in phase 1b (`RecentDocument`) |
 | Toolchain | `compileSdk`/`targetSdk` 36, `minSdk` 26, Java/Kotlin 17 | `compileSdk`/`targetSdk` 37, the highest API level supported by AGP 9.4 (spec §3.3). `minSdk` 26 (spec: as the reference, not below 26). Java/Kotlin bytecode 17 |
 | Signing | `signingConfigs.release` from the environment variables `RELEASE_KEYSTORE_PATH`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`; release left unsigned when missing | Same, same names. Dedicated keystore for this app, like TPGH (RSA 2048, 10,000 days, alias = app name), never committed |
 | Build types | `release` with `isMinifyEnabled = false` | Same for now. R8 gets enabled and tested in phase 6 with the PdfBox-Android rules (spec §3.2) |
@@ -140,7 +140,7 @@ date. What each phase contains is in spec §13; here only operational notes.
 | Phase | Content | Notes |
 |---|---|---|
 | 0 | Skeleton: Gradle, Hilt, theme, languages, navigation, drawer, Home, signing, CI, docs, ADR 0001–0002 | Done |
-| 1 | Viewer, opening from SAF and intents, recents (Room), passwords | 1a done (render core, zoom/pan, continuous mode). Room comes in with `RecentDocument`; `app/schemas/` committed as in KartLog. Settings: reading mode, clear recents, clear thumbnail cache |
+| 1 | Viewer, opening from SAF and intents, recents (Room), passwords | 1a done (render core, zoom/pan, continuous mode); 1b done (single page, scrubber, thumbnails, intents, Room recents, passwords, settings). `app/schemas/` committed as in KartLog |
 | 2 | `EditSession` with undo/redo, edit hub, removal, reordering, rotation, saving | PdfBox-Android comes in (ADR 0002) with `PDFBoxResourceLoader.init`. Reasoned choice between WorkManager and a foreground service for saving (spec §6.7). Evaluate Reorderable (licence and compatibility with the Compose version in use) |
 | 3 | Adding pages (PDF, blank, images) and Merge PDFs | Unit tests on page sizes |
 | 4 | Fill and sign, signature archive | Noto Sans font (OFL) bundled; verify the backup rules already in place |

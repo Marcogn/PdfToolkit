@@ -1,5 +1,6 @@
 package com.marcogn.pdftoolkit
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -16,6 +17,7 @@ import com.marcogn.pdftoolkit.domain.model.ThemeMode
 import com.marcogn.pdftoolkit.ui.navigation.PdfToolkitNavGraph
 import com.marcogn.pdftoolkit.ui.theme.PdfToolkitTheme
 import com.marcogn.pdftoolkit.ui.theme.ThemeViewModel
+import com.marcogn.pdftoolkit.ui.viewer.pdfUri
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -28,14 +30,17 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // A VIEW/SEND intent is handled once: after a recreation (rotation) the saved state
+        // already has the viewer on the back stack.
+        val startUri = if (savedInstanceState == null) intent.pdfUri() else null
         setContent {
-            PdfToolkitApp()
+            PdfToolkitApp(startUri)
         }
     }
 }
 
 @Composable
-private fun PdfToolkitApp(themeViewModel: ThemeViewModel = hiltViewModel()) {
+private fun PdfToolkitApp(startUri: Uri?, themeViewModel: ThemeViewModel = hiltViewModel()) {
     val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
     val dynamicColor by themeViewModel.dynamicColor.collectAsStateWithLifecycle()
     val darkTheme = when (themeMode) {
@@ -45,7 +50,7 @@ private fun PdfToolkitApp(themeViewModel: ThemeViewModel = hiltViewModel()) {
     }
     PdfToolkitTheme(darkTheme = darkTheme, dynamicColor = dynamicColor) {
         Surface(modifier = Modifier.fillMaxSize()) {
-            PdfToolkitNavGraph()
+            PdfToolkitNavGraph(startUri = startUri)
         }
     }
 }

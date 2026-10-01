@@ -38,9 +38,8 @@
 
     <!-- Viewer -->
     <string name="viewer_error_not_found">Il file non è più disponibile o non si ha più il permesso di leggerlo.</string>
-    <string name="viewer_error_password">Il PDF è protetto da password. L\'apertura dei file protetti arriverà presto.</string>
+    <string name="viewer_error_password">Il PDF è protetto da password.</string>
     <string name="viewer_error_unreadable">Il file è danneggiato o non è un PDF leggibile.</string>
-    <string name="viewer_error_back">Torna indietro</string>
 
     <!-- Placeholder -->
     <string name="placeholder_message">Questa schermata non è ancora disponibile.</string>
@@ -71,4 +70,59 @@
     <string name="about_ai_body">L\'app è stata sviluppata con l\'aiuto di strumenti di intelligenza artificiale (Claude Code), con revisione e test dell\'autore.</string>
     <string name="about_licenses_title">Licenze</string>
     <string name="about_licenses_body">PdfToolkit è distribuita con licenza MIT. Usa Kotlin, AndroidX, Jetpack Compose e Dagger Hilt, con licenza Apache 2.0.</string>
+    <!-- Common -->
+    <string name="common_cancel">Annulla</string>
+    <string name="common_close">Chiudi</string>
+    <string name="cd_more_actions">Altre azioni</string>
+
+    <!-- Recents -->
+    <string name="recent_unavailable">File non disponibile</string>
+    <string name="recent_remove">Rimuovi dalla lista</string>
+    <string name="cd_recent_remove">Rimuovi %1$s dai recenti</string>
+    <string name="home_recent_unavailable_message">Il file non è più disponibile. Tienilo premuto per toglierlo dalla lista.</string>
+
+    <!-- Viewer -->
+    <string name="viewer_page_indicator">Pagina %1$d di %2$d</string>
+    <string name="viewer_scrubber_bubble">%1$d / %2$d</string>
+    <string name="cd_scrubber">Scorrimento rapido tra le pagine</string>
+    <string name="cd_thumbnails">Miniature delle pagine</string>
+    <string name="cd_thumbnail_page">Pagina %1$d</string>
+    <string name="viewer_menu_mode_continuous">Scorrimento continuo</string>
+    <string name="viewer_menu_mode_single">Pagina singola</string>
+    <string name="viewer_menu_go_to_page">Vai a pagina…</string>
+    <string name="viewer_menu_share">Condividi</string>
+    <string name="viewer_menu_info">Informazioni documento</string>
+    <string name="viewer_share_title">Condividi PDF</string>
+    <string name="viewer_goto_title">Vai a pagina</string>
+    <string name="viewer_goto_label">Pagina (1–%1$d)</string>
+    <string name="viewer_goto_confirm">Vai</string>
+    <string name="viewer_info_title">Informazioni documento</string>
+    <string name="viewer_info_name">Nome</string>
+    <string name="viewer_info_pages">Pagine</string>
+    <string name="viewer_info_size">Dimensione</string>
+    <string name="viewer_password_title">PDF protetto</string>
+    <string name="viewer_password_message">Inserisci la password per aprire il documento.</string>
+    <string name="viewer_password_label">Password</string>
+    <string name="viewer_password_wrong">Password errata.</string>
+    <string name="viewer_password_confirm">Apri</string>
+    <string name="viewer_error_title">Impossibile aprire il file</string>
+    <string name="viewer_error_password_unsupported">Il PDF è protetto da password. Aprire i file protetti richiede Android 15 o successivo.</string>
+    <string name="viewer_error_home">Torna alla Home</string>
+    <string name="viewer_error_remove_recent">Rimuovi dai recenti</string>
+
+    <!-- Settings: reading and data -->
+    <string name="settings_reading_section">Lettura</string>
+    <string name="settings_reading_mode_label">Modalità di lettura</string>
+    <string name="reading_mode_continuous">Scorrimento continuo</string>
+    <string name="reading_mode_single">Pagina singola</string>
+    <string name="settings_data_section">Dati</string>
+    <string name="settings_clear_recents">Cancella cronologia recenti</string>
+    <string name="settings_clear_recents_summary">Svuota la lista dei file recenti e le pagine salvate. I documenti non vengono toccati.</string>
+    <string name="settings_clear_recents_confirm_title">Cancellare i recenti?</string>
+    <string name="settings_clear_recents_confirm_body">La lista dei file recenti e l\'ultima pagina letta di ciascuno verranno cancellate.</string>
+    <string name="settings_clear_recents_confirm">Cancella</string>
+    <string name="settings_recents_cleared">Cronologia cancellata</string>
+    <string name="settings_clear_thumbnails">Svuota cache miniature</string>
+    <string name="settings_clear_thumbnails_summary">Elimina le anteprime dei file recenti; tornano quando riapri i documenti.</string>
+    <string name="settings_thumbnails_cleared">Cache svuotata</string>
 </resources>

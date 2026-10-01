@@ -103,4 +103,14 @@ class RenderPlannerTest {
         assertEquals(listOf(0, 1, 2), plan.map { it.pageIndex })
         assertTrue(plan.all { it is PageKey })
     }
+
+    @Test
+    fun pageIndexOffsetMapsALayoutOfOnePageToItsDocumentPage() {
+        val planner = RenderPlanner(layout(1), noLimit, pageIndexOffset = 41)
+        assertEquals(PageKey(41, 600, 800, 1f), planner.pageKey(0))
+        val keys = planner.plan(Viewport(), viewportSize, tileLevel = null)
+        assertEquals(listOf<RenderKey>(PageKey(41, 600, 800, 1f)), keys)
+        val tiles = planner.visibleTiles(0, planner.tileLevelFor(3f), Viewport(zoom = 3f), viewportSize)
+        assertTrue(tiles.isNotEmpty() && tiles.all { it.pageIndex == 41 })
+    }
 }

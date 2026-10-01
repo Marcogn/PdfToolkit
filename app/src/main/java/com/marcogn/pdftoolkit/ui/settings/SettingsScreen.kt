@@ -1,6 +1,16 @@
 package com.marcogn.pdftoolkit.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalResources
+import com.marcogn.pdftoolkit.domain.model.ReadingMode
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,16 +53,23 @@ import com.marcogn.pdftoolkit.domain.model.ThemeMode
 import com.marcogn.pdftoolkit.ui.theme.ThemeViewModel
 import com.marcogn.pdftoolkit.ui.theme.isDynamicColorSupported
 
-/**
- * Settings (spec §10). Phase 0: theme, dynamic colour, language. Default reading mode and
- * clearing recents and thumbnails come with the viewer (phase 1).
- */
+/** Settings (spec §10): theme, dynamic colour, language, default reading mode, recents and thumbnail cache. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onMenuClick: () -> Unit,
     themeViewModel: ThemeViewModel = hiltViewModel(),
+    settingsViewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val readingMode by settingsViewModel.readingMode.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val resources = LocalResources.current
+    var confirmClearRecents by rememberSaveable { mutableStateOf(false) }
+    val showMessage: (Int) -> Unit = { messageRes ->
+        scope.launch { snackbarHostState.showSnackbar(resources.getString(messageRes)) }
+    }
+
     val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
     val dynamicColor by themeViewModel.dynamicColor.collectAsStateWithLifecycle()
 
@@ -67,6 +84,7 @@ fun SettingsScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -95,6 +113,34 @@ fun SettingsScreen(
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
+            SectionHeader(stringResource(R.string.settings_reading_section))
+            Text(stringResource(R.string.settings_reading_mode_label), style = MaterialTheme.typography.bodyLarge)
+            Column(Modifier.selectableGroup()) {
+                ReadingMode.entries.forEach { mode ->
+                    RadioOptionRow(
+                        label = stringResource(mode.labelRes()),
+                        selected = readingMode == mode,
+                        onClick = { settingsViewModel.onReadingModeSelected(mode) },
+                    )
+                }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+            SectionHeader(stringResource(R.string.settings_data_section))
+            ActionRow(
+                title = stringResource(R.string.settings_clear_recents),
+                summary = stringResource(R.string.settings_clear_recents_summary),
+                onClick = { confirmClearRecents = true },
+            )
+            ActionRow(
+                title = stringResource(R.string.settings_clear_thumbnails),
+                summary = stringResource(R.string.settings_clear_thumbnails_summary),
+                onClick = { settingsViewModel.clearThumbnails { showMessage(R.string.settings_thumbnails_cleared) } },
+            )
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
             SectionHeader(stringResource(R.string.settings_language_label))
             // Read from AppCompatDelegate, not from a ViewModel: the system is the source of truth
             // (autoStoreLocales), and the activity is recreated on change anyway.
@@ -112,6 +158,42 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (confirmClearRecents) {
+        ConfirmClearRecentsDialog(
+            onConfirm = {
+                confirmClearRecents = false
+                settingsViewModel.clearRecents { showMessage(R.string.settings_recents_cleared) }
+            },
+            onDismiss = { confirmClearRecents = false },
+        )
+    }
+}
+
+@Composable
+private fun ConfirmClearRecentsDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_clear_recents_confirm_title)) },
+        text = { Text(stringResource(R.string.settings_clear_recents_confirm_body)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.settings_clear_recents_confirm)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
+    )
+}
+
+@Composable
+private fun ActionRow(title: String, summary: String, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(title, style = MaterialTheme.typography.bodyLarge)
+        Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -161,6 +243,11 @@ private fun DynamicColorRow(checked: Boolean, enabled: Boolean, onCheckedChange:
         }
         Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
+}
+
+private fun ReadingMode.labelRes(): Int = when (this) {
+    ReadingMode.CONTINUOUS -> R.string.reading_mode_continuous
+    ReadingMode.SINGLE_PAGE -> R.string.reading_mode_single
 }
 
 private fun ThemeMode.labelRes(): Int = when (this) {

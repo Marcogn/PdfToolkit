@@ -36,9 +36,8 @@
 
     <!-- Viewer -->
     <string name="viewer_error_not_found">The file is no longer available or can no longer be read.</string>
-    <string name="viewer_error_password">The PDF is password protected. Opening protected files is coming soon.</string>
+    <string name="viewer_error_password">The PDF is password protected.</string>
     <string name="viewer_error_unreadable">The file is damaged or is not a readable PDF.</string>
-    <string name="viewer_error_back">Go back</string>
 
     <!-- Placeholder -->
     <string name="placeholder_message">This screen is not available yet.</string>
@@ -67,4 +66,59 @@
     <string name="about_ai_body">The app was developed with the help of AI tools (Claude Code), reviewed and tested by the author.</string>
     <string name="about_licenses_title">Licenses</string>
     <string name="about_licenses_body">PdfToolkit is released under the MIT license. It uses Kotlin, AndroidX, Jetpack Compose and Dagger Hilt, licensed under Apache 2.0.</string>
+    <!-- Common -->
+    <string name="common_cancel">Cancel</string>
+    <string name="common_close">Close</string>
+    <string name="cd_more_actions">More actions</string>
+
+    <!-- Recents -->
+    <string name="recent_unavailable">File unavailable</string>
+    <string name="recent_remove">Remove from list</string>
+    <string name="cd_recent_remove">Remove %1$s from recents</string>
+    <string name="home_recent_unavailable_message">The file is no longer available. Press and hold it to remove it from the list.</string>
+
+    <!-- Viewer -->
+    <string name="viewer_page_indicator">Page %1$d of %2$d</string>
+    <string name="viewer_scrubber_bubble">%1$d / %2$d</string>
+    <string name="cd_scrubber">Quick scroll between pages</string>
+    <string name="cd_thumbnails">Page thumbnails</string>
+    <string name="cd_thumbnail_page">Page %1$d</string>
+    <string name="viewer_menu_mode_continuous">Continuous scrolling</string>
+    <string name="viewer_menu_mode_single">Single page</string>
+    <string name="viewer_menu_go_to_page">Go to page…</string>
+    <string name="viewer_menu_share">Share</string>
+    <string name="viewer_menu_info">Document information</string>
+    <string name="viewer_share_title">Share PDF</string>
+    <string name="viewer_goto_title">Go to page</string>
+    <string name="viewer_goto_label">Page (1–%1$d)</string>
+    <string name="viewer_goto_confirm">Go</string>
+    <string name="viewer_info_title">Document information</string>
+    <string name="viewer_info_name">Name</string>
+    <string name="viewer_info_pages">Pages</string>
+    <string name="viewer_info_size">Size</string>
+    <string name="viewer_password_title">Protected PDF</string>
+    <string name="viewer_password_message">Enter the password to open the document.</string>
+    <string name="viewer_password_label">Password</string>
+    <string name="viewer_password_wrong">Wrong password.</string>
+    <string name="viewer_password_confirm">Open</string>
+    <string name="viewer_error_title">Can\'t open the file</string>
+    <string name="viewer_error_password_unsupported">The PDF is password protected. Opening protected files needs Android 15 or later.</string>
+    <string name="viewer_error_home">Back to Home</string>
+    <string name="viewer_error_remove_recent">Remove from recents</string>
+
+    <!-- Settings: reading and data -->
+    <string name="settings_reading_section">Reading</string>
+    <string name="settings_reading_mode_label">Reading mode</string>
+    <string name="reading_mode_continuous">Continuous scrolling</string>
+    <string name="reading_mode_single">Single page</string>
+    <string name="settings_data_section">Data</string>
+    <string name="settings_clear_recents">Clear recent files</string>
+    <string name="settings_clear_recents_summary">Empties the list of recent files and the saved pages. Your documents are not touched.</string>
+    <string name="settings_clear_recents_confirm_title">Clear recent files?</string>
+    <string name="settings_clear_recents_confirm_body">The list of recent files and the last page read of each will be deleted.</string>
+    <string name="settings_clear_recents_confirm">Clear</string>
+    <string name="settings_recents_cleared">Recent files cleared</string>
+    <string name="settings_clear_thumbnails">Clear thumbnail cache</string>
+    <string name="settings_clear_thumbnails_summary">Deletes the previews of recent files; they come back when you reopen the documents.</string>
+    <string name="settings_thumbnails_cleared">Cache cleared</string>
 </resources>
