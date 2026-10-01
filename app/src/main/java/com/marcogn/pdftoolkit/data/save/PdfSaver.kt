@@ -30,19 +30,26 @@ class PdfSaver @Inject constructor(
 
     /** @throws SaveException with the reason. */
     suspend fun save(request: SaveRequest, onProgress: (Float) -> Unit = {}) = withContext(Dispatchers.IO) {
-        val session = EditSession.decode(request.pages, request.sourcePageCount) ?: throw SaveException(SaveFailure.FAILED)
+        val counts = mapOf(DocRef.MAIN to request.sourcePageCount) + request.extraSources.associate { DocRef(it.docId) to it.pageCount }
+        val session = EditSession.decode(request.pages, counts) ?: throw SaveException(SaveFailure.FAILED)
         val dir = workDir(context)
         val id = UUID.randomUUID().toString()
         val sourceCopy = File(dir, "$id-source.pdf")
         val result = File(dir, "$id-result.pdf")
+        // Only the added PDFs the final page list still uses are copied.
+        val used = session.extraDocuments
+        val extraCopies = request.extraSources.filter { DocRef(it.docId) in used }.associate { DocRef(it.docId) to (File(dir, "$id-doc${it.docId}.pdf") to it.uri) }
         try {
             copyToFile(request.sourceUri.toUri(), sourceCopy)
+            extraCopies.values.forEach { (file, uri) -> copyToFile(uri.toUri(), file) }
             onProgress(COPIED_SOURCE)
-            editor.applySession(session, mapOf(DocRef.MAIN to sourceCopy), result) { onProgress(COPIED_SOURCE + it * (WRITTEN - COPIED_SOURCE)) }
+            val sources = mapOf(DocRef.MAIN to sourceCopy) + extraCopies.mapValues { it.value.first }
+            editor.applySession(session, sources, result) { onProgress(COPIED_SOURCE + it * (WRITTEN - COPIED_SOURCE)) }
             copyToDestination(result, request.destinationUri.toUri())
             onProgress(1f)
         } finally {
             sourceCopy.delete()
+            extraCopies.values.forEach { it.first.delete() }
             result.delete()
         }
     }

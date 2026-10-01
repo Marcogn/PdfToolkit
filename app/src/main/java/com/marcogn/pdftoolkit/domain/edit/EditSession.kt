@@ -1,5 +1,8 @@
 package com.marcogn.pdftoolkit.domain.edit
 
+import java.net.URLDecoder
+import java.net.URLEncoder
+
 /**
  * The page list being edited, kept in memory and never written until the user saves (spec §6.1).
  * Immutable: every operation returns a new session, with the previous page list pushed on the
@@ -57,10 +60,27 @@ class EditSession private constructor(
     private fun change(newPages: List<PageItem>) =
         EditSession(newPages, original, (undoStack + listOf(pages)).takeLast(MAX_HISTORY), emptyList())
 
-    /** The pages as a compact string, to survive process death through `SavedStateHandle`. History is not kept. */
+    /** Puts [items] at [index] (0..pageCount), keeping their order. */
+    fun insert(index: Int, items: List<PageItem>): EditSession {
+        if (items.isEmpty() || index !in 0..pages.size) return this
+        if (items.any { new -> pages.any { it.id == new.id } }) return this
+        return change(pages.subList(0, index) + items + pages.subList(index, pages.size))
+    }
+
+    /** Ids of the documents the pages come from, besides [DocRef.MAIN]. */
+    val extraDocuments: Set<DocRef>
+        get() = pages.filterIsInstance<PageItem.FromPdf>().map { it.docRef }.filter { it != DocRef.MAIN }.toSet()
+
+    /**
+     * The pages as a compact string, to survive process death through `SavedStateHandle` and to
+     * travel to the background save. History is not kept. Fields are URL-encoded, so a URI with
+     * `,` or `;` is safe.
+     */
     fun encode(): String = pages.joinToString(SEPARATOR) { page ->
         when (page) {
-            is PageItem.FromPdf -> listOf(page.id, page.docRef.id, page.pageIndex, page.rotation).joinToString(FIELD)
+            is PageItem.FromPdf -> fields(PDF, page.id, page.docRef.id, page.pageIndex, page.rotation)
+            is PageItem.Blank -> fields(BLANK, page.id, page.widthPt, page.heightPt, page.rotation)
+            is PageItem.FromImage -> fields(IMAGE, page.id, page.imageUri, page.mode.name, page.widthPt, page.heightPt, page.rotation)
         }
     }
 
@@ -68,6 +88,14 @@ class EditSession private constructor(
         private const val MAX_HISTORY = 100
         private const val SEPARATOR = ";"
         private const val FIELD = ","
+        private const val PDF = "P"
+        private const val BLANK = "B"
+        private const val IMAGE = "I"
+
+        // The charset-name overloads: the Charset ones need API 33 and the minimum here is 26.
+        private const val UTF_8 = "UTF-8"
+
+        private fun fields(vararg values: Any): String = values.joinToString(FIELD) { URLEncoder.encode(it.toString(), UTF_8) }
 
         /** Session over the [pageCount] pages of the document, in their original order. */
         fun of(pageCount: Int): EditSession {
@@ -76,23 +104,68 @@ class EditSession private constructor(
         }
 
         /**
-         * Restores what [encode] wrote, over the same document: [original] pages are rebuilt from
-         * [pageCount]. Null if the string doesn't match this document.
+         * Session over several documents, one after the other (merge, spec §6.6). [pageCounts] lists
+         * the main document first. What counts as unmodified is the main document alone, so a merge
+         * always has something to save.
          */
-        fun decode(encoded: String, pageCount: Int): EditSession? {
-            val base = of(pageCount)
+        fun ofDocuments(pageCounts: List<Int>): EditSession {
+            val original = of(pageCounts.firstOrNull() ?: 0).pages
+            val pages = pageCounts.flatMapIndexed { doc, count ->
+                if (doc == 0) original else List(count) { PageItem.FromPdf(id = "d${doc}p$it", docRef = DocRef(doc), pageIndex = it) }
+            }
+            return EditSession(pages, original, emptyList(), emptyList())
+        }
+
+        /** Same as the two-argument form, for a session with only the main document. */
+        fun decode(encoded: String, pageCount: Int): EditSession? = decode(encoded, mapOf(DocRef.MAIN to pageCount))
+
+        /**
+         * Restores what [encode] wrote. [pageCounts] gives the page count of every document the
+         * session may use, [DocRef.MAIN] included: the original pages are rebuilt from the main
+         * one. Null if the string doesn't match these documents.
+         */
+        fun decode(encoded: String, pageCounts: Map<DocRef, Int>): EditSession? {
+            val mainCount = pageCounts[DocRef.MAIN] ?: return null
             if (encoded.isEmpty()) return null
             val pages = encoded.split(SEPARATOR).map { entry ->
-                val fields = entry.split(FIELD)
-                if (fields.size != 4) return null
-                val pageIndex = fields[2].toIntOrNull() ?: return null
-                val rotation = fields[3].toIntOrNull() ?: return null
-                val doc = fields[1].toIntOrNull() ?: return null
-                if (doc != DocRef.MAIN.id || pageIndex !in 0 until pageCount || rotation % PageItem.QUARTER_TURN != 0) return null
-                PageItem.FromPdf(fields[0], DocRef(doc), pageIndex, Math.floorMod(rotation, PageItem.FULL_TURN))
+                decodePage(entry.split(FIELD).map { URLDecoder.decode(it, UTF_8) }, pageCounts) ?: return null
             }
             if (pages.map { it.id }.toSet().size != pages.size) return null
-            return EditSession(pages, base.pages, emptyList(), emptyList())
+            return EditSession(pages, of(mainCount).pages, emptyList(), emptyList())
+        }
+
+        private fun decodePage(f: List<String>, pageCounts: Map<DocRef, Int>): PageItem? {
+            val rotation = f.lastOrNull()?.toIntOrNull() ?: return null
+            if (rotation % PageItem.QUARTER_TURN != 0) return null
+            val turned = Math.floorMod(rotation, PageItem.FULL_TURN)
+            return when (f.firstOrNull()) {
+                PDF -> {
+                    if (f.size != 5) return null
+                    val doc = DocRef(f[2].toIntOrNull() ?: return null)
+                    val pageIndex = f[3].toIntOrNull() ?: return null
+                    val count = pageCounts[doc] ?: return null
+                    if (pageIndex !in 0 until count) return null
+                    PageItem.FromPdf(f[1], doc, pageIndex, turned)
+                }
+                BLANK -> {
+                    if (f.size != 5) return null
+                    val (w, h) = positiveSize(f[2], f[3]) ?: return null
+                    PageItem.Blank(f[1], w, h, turned)
+                }
+                IMAGE -> {
+                    if (f.size != 7) return null
+                    val mode = ImageFit.entries.firstOrNull { it.name == f[3] } ?: return null
+                    val (w, h) = positiveSize(f[4], f[5]) ?: return null
+                    PageItem.FromImage(f[1], f[2], mode, w, h, turned)
+                }
+                else -> null
+            }
+        }
+
+        private fun positiveSize(width: String, height: String): Pair<Float, Float>? {
+            val w = width.toFloatOrNull() ?: return null
+            val h = height.toFloatOrNull() ?: return null
+            return if (w > 0f && h > 0f && w.isFinite() && h.isFinite()) w to h else null
         }
     }
 }

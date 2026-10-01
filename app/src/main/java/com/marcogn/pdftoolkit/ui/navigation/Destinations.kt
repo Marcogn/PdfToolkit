@@ -15,9 +15,21 @@ sealed interface Destination {
     /**
      * Edit hub and page tools (spec §4.3, §6) on the document at [uri]. [tool] is the name of the
      * [com.marcogn.pdftoolkit.domain.model.PdfTool] to open straight on (from Home), or null for the hub.
+     *
+     * A merge (spec §6.6) is an edit whose [mergeWith] lists the other PDFs, in order, after the
+     * main one at [uri]; with [autoSave] it asks where to save the result straight away.
      */
     @Serializable
-    data class Edit(val uri: String, val tool: String? = null) : Destination
+    data class Edit(
+        val uri: String,
+        val tool: String? = null,
+        val mergeWith: List<String> = emptyList(),
+        val autoSave: Boolean = false,
+    ) : Destination
+
+    /** Merge list (spec §6.6): the PDFs at [uris] in the order picked, to reorder, add to and combine. */
+    @Serializable
+    data class Merge(val uris: List<String> = emptyList()) : Destination
 
     /** Tool opened from Home; [tool] is the name of a [com.marcogn.pdftoolkit.domain.model.PdfTool]. */
     @Serializable

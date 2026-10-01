@@ -6,6 +6,22 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Add pages.** The edit hub's "Add pages" (also on Home) inserts pages from another PDF (pick the
+  file, then select pages with "all", "none" and ranges) or blank pages (1 to 50, sized like the
+  neighbouring page, with the size shown). New pages go at the start, at the end, or before/after a
+  page number. Every addition can be undone, and the snackbar offers Undo.
+- **Insert images.** "Insert images" (also on Home) turns photos or files into pages, picking from
+  the system photo picker or from files. **Fit to page** gives each page the size of the neighbouring
+  one (turned to follow the image, centred, never cropped); **original size** uses the image's size
+  (150 DPI when the file has no usable DPI). Photos are saved as JPEG (quality 85, longest side at most
+  3000 px when fitting) and images with transparency stay lossless; the camera's EXIF orientation
+  is respected and HEIC/HEIF/AVIF are decoded by Android where the device supports them.
+- **Merge PDFs.** Pick two or more PDFs from Home (or "Merge PDFs" in the edit hub, which starts
+  from the open file), reorder them by dragging, swipe to remove one, "+" to add more. **Merge** asks
+  where to save the new file (`<first name>_unito.pdf`); **Merge and edit** opens the edit hub on the
+  merged pages first. Files with form fields get a warning.
+- **Limits.** PDFs added to another one can't be password-protected yet. Bookmarks of merged files
+  are not kept and their form fields may stop working.
 - **Edit pages.** An **Edit** button in the viewer (it hides while you scroll down) opens the edit
   hub, and "Remove pages" and "Reorder pages" on Home pick a PDF and open straight on the tool.
   Remove pages by tapping them (press and hold one, then tap another for a range) with an undo

@@ -1,6 +1,8 @@
 package com.marcogn.pdftoolkit.ui.navigation
 
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -41,6 +43,7 @@ import com.marcogn.pdftoolkit.ui.common.PlaceholderScreen
 import com.marcogn.pdftoolkit.ui.edit.EditScreen
 import com.marcogn.pdftoolkit.ui.home.HomeScreen
 import com.marcogn.pdftoolkit.ui.home.labelRes
+import com.marcogn.pdftoolkit.ui.merge.MergeScreen
 import com.marcogn.pdftoolkit.ui.recents.RecentsScreen
 import com.marcogn.pdftoolkit.ui.recents.RecentsViewModel
 import com.marcogn.pdftoolkit.ui.settings.SettingsScreen
@@ -75,6 +78,9 @@ private val navPopExitTransition: AnimatedContentTransitionScope<NavBackStackEnt
     slideOutHorizontally(tween(NAV_EXIT_MS, easing = FastOutSlowInEasing)) { it / SLIDE_FRACTION } +
         fadeOut(tween(NAV_EXIT_MS))
 }
+
+/** Tools of Home that work on one open PDF and open straight on their pane or dialog (spec §4.1). */
+private val pageTools = setOf(PdfTool.ADD_PAGES, PdfTool.INSERT_IMAGES, PdfTool.REMOVE_PAGES, PdfTool.REORDER_PAGES)
 
 private val drawerDestinations = listOf(
     Destination.Home,
@@ -171,6 +177,13 @@ fun PdfToolkitNavGraph(
                         if (tool == null) Destination.Viewer(uri.toString()) else Destination.Edit(uri.toString(), tool),
                     )
                 }
+                // "Merge PDFs" picks the files first, then opens the merge list (spec §6.6).
+                val mergePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+                    if (uris.isNotEmpty()) {
+                        uris.forEach { context.takePersistableAccess(it) }
+                        navController.navigate(Destination.Merge(uris.map { it.toString() }))
+                    }
+                }
                 HomeScreen(
                     onMenuClick = openDrawer,
                     onOpenPdfClick = {
@@ -189,7 +202,9 @@ fun PdfToolkitNavGraph(
                             // Same screen as the drawer entry, so same navigation: this way
                             // two copies never pile up on the back stack.
                             navigateFromDrawer(Destination.Signatures)
-                        } else if (tool == PdfTool.REMOVE_PAGES || tool == PdfTool.REORDER_PAGES) {
+                        } else if (tool == PdfTool.MERGE) {
+                            if (entry.lifecycleIsResumed()) mergePicker.launch(arrayOf("application/pdf"))
+                        } else if (tool in pageTools) {
                             if (entry.lifecycleIsResumed()) {
                                 pendingTool = tool.name
                                 openPdf()
@@ -217,8 +232,20 @@ fun PdfToolkitNavGraph(
                 EditScreen(
                     startTool = entry.toRoute<Destination.Edit>().tool?.let { PdfTool.valueOf(it) },
                     onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
+                    onMerge = { uris -> if (entry.lifecycleIsResumed()) navController.navigate(Destination.Merge(uris)) },
                     onResultReady = showResult,
                     onOpenCopy = { uri -> if (entry.lifecycleIsResumed()) showResult(uri) },
+                )
+            }
+            composable<Destination.Merge> { entry ->
+                MergeScreen(
+                    onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
+                    onMerge = { uris, edit ->
+                        // The first file is the main document of the edit; the others are added to it.
+                        if (entry.lifecycleIsResumed() && uris.size >= 2) {
+                            navController.navigate(Destination.Edit(uri = uris.first(), mergeWith = uris.drop(1), autoSave = !edit))
+                        }
+                    },
                 )
             }
             composable<Destination.Tool> { entry ->

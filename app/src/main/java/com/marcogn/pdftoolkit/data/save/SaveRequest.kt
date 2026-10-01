@@ -12,4 +12,9 @@ data class SaveRequest(
     val destinationUri: String,
     val sourcePageCount: Int,
     val pages: String,
+    val extraSources: List<ExtraSource> = emptyList(),
 )
+
+/** A PDF added to the session (document [docId] of its pages), read at save time. */
+@Serializable
+data class ExtraSource(val docId: Int, val uri: String, val pageCount: Int)

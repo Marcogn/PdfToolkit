@@ -6,6 +6,7 @@ import androidx.core.net.toUri
 import androidx.test.core.app.ApplicationProvider
 import com.marcogn.pdftoolkit.domain.edit.DocRef
 import com.marcogn.pdftoolkit.domain.edit.EditSession
+import com.marcogn.pdftoolkit.domain.edit.PageItem
 import com.marcogn.pdftoolkit.domain.edit.SaveException
 import com.marcogn.pdftoolkit.domain.edit.SaveFailure
 import com.marcogn.pdftoolkit.pdf.edit.PdfEditor
@@ -36,9 +37,11 @@ class PdfSaverTest {
 
     private class FakeEditor(private val result: ByteArray? = null, private val failure: SaveFailure? = null) : PdfEditor {
         var sourceSeen: ByteArray? = null
+        var sourcesSeen: Map<DocRef, String> = emptyMap()
 
         override suspend fun applySession(session: EditSession, sources: Map<DocRef, File>, output: File, onProgress: (Float) -> Unit) {
             sourceSeen = sources.getValue(DocRef.MAIN).readBytes()
+            sourcesSeen = sources.mapValues { it.value.readText() }
             onProgress(0.5f)
             if (failure != null) {
                 output.writeBytes(byteArrayOf(1, 2, 3)) // half-written output
@@ -46,6 +49,8 @@ class PdfSaverTest {
             }
             output.writeBytes(result!!)
         }
+
+        override suspend fun hasFormFields(open: () -> java.io.InputStream?) = false
     }
 
     @Before
@@ -106,9 +111,63 @@ class PdfSaverTest {
 
     @Test
     fun `a pages string that doesn't match the document fails cleanly`() = runBlocking {
-        val bad = request(File(folder.root, "out.pdf").toUri()).copy(pages = "p0,0,9,0")
+        val bad = request(File(folder.root, "out.pdf").toUri()).copy(pages = "P,p0,0,9,0")
         try {
             PdfSaver(context, FakeEditor(result = ByteArray(0))).save(bad)
+            fail("expected a failure")
+        } catch (e: SaveException) {
+            assertEquals(SaveFailure.FAILED, e.failure)
+        }
+    }
+
+    private fun mergeRequest(destination: File, vararg extras: ExtraSource) = SaveRequest(
+        sourceUri = source.toUri().toString(),
+        destinationUri = destination.toUri().toString(),
+        sourcePageCount = 2,
+        pages = EditSession.of(2).insert(2, listOf(PageItem.FromPdf("n1", DocRef(1), 0))).encode(),
+        extraSources = extras.toList(),
+    )
+
+    @Test
+    fun `added PDFs are copied for the editor and removed afterwards`() = runBlocking {
+        val added = folder.newFile("added.pdf").apply { writeText("ADDED") }
+        val editor = FakeEditor(result = "MERGED".toByteArray())
+        PdfSaver(context, editor).save(mergeRequest(File(folder.root, "out.pdf"), ExtraSource(1, added.toUri().toString(), 3)))
+
+        assertEquals(mapOf(DocRef.MAIN to "ORIGINAL", DocRef(1) to "ADDED"), editor.sourcesSeen)
+        assertEquals("MERGED", File(folder.root, "out.pdf").readText())
+        assertTrue(workFiles().isEmpty())
+        assertEquals("ADDED", added.readText())
+    }
+
+    @Test
+    fun `an added PDF the pages no longer use is not read`() = runBlocking {
+        val editor = FakeEditor(result = "OUT".toByteArray())
+        val gone = File(folder.root, "gone.pdf") // never created: reading it would fail
+        val request = mergeRequest(File(folder.root, "out.pdf"), ExtraSource(1, source.toUri().toString(), 3), ExtraSource(2, gone.toUri().toString(), 1))
+        PdfSaver(context, editor).save(request)
+        assertEquals(setOf(DocRef.MAIN, DocRef(1)), editor.sourcesSeen.keys)
+    }
+
+    @Test
+    fun `an added PDF that can't be read is reported as an unreadable source and nothing is written`() = runBlocking {
+        val destination = File(folder.root, "out.pdf").apply { writeText("KEEP ME") }
+        val missing = File(folder.root, "missing.pdf")
+        try {
+            PdfSaver(context, FakeEditor(result = ByteArray(0))).save(mergeRequest(destination, ExtraSource(1, missing.toUri().toString(), 3)))
+            fail("expected a failure")
+        } catch (e: SaveException) {
+            assertEquals(SaveFailure.SOURCE_UNREADABLE, e.failure)
+        }
+        assertEquals("KEEP ME", destination.readText())
+        assertTrue(workFiles().isEmpty())
+    }
+
+    @Test
+    fun `a page of an added PDF beyond its page count fails cleanly`() = runBlocking {
+        val added = folder.newFile("added2.pdf").apply { writeText("ADDED") }
+        try {
+            PdfSaver(context, FakeEditor(result = ByteArray(0))).save(mergeRequest(File(folder.root, "out.pdf"), ExtraSource(1, added.toUri().toString(), 0)))
             fail("expected a failure")
         } catch (e: SaveException) {
             assertEquals(SaveFailure.FAILED, e.failure)

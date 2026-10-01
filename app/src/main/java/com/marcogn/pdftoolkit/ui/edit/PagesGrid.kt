@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,10 +41,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -53,14 +56,19 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.marcogn.pdftoolkit.R
+import android.graphics.Bitmap
+import com.marcogn.pdftoolkit.domain.edit.DocRef
 import com.marcogn.pdftoolkit.domain.edit.PageItem
-import com.marcogn.pdftoolkit.pdf.render.PageSize
-import com.marcogn.pdftoolkit.pdf.render.PageThumbnails
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 
-/** What the page grid is for: pick pages to remove, or drag them into a new order (spec §6.3, §6.4). */
-enum class PagesMode { REMOVE, REORDER }
+/**
+ * What the page grid is for: pick pages to remove, drag them into a new order (spec §6.3, §6.4), or
+ * pick pages of another PDF to add (spec §6.2). [REMOVE] and [PICK] behave the same: a tap selects.
+ */
+enum class PagesMode { REMOVE, REORDER, PICK }
 
 /** What the cell menu of a page in reorder mode can do. */
 class PageActions(
@@ -85,8 +93,8 @@ private val CellMinWidth = 104.dp
 @Composable
 fun PagesGrid(
     pages: List<PageItem>,
-    pageSizes: List<PageSize>,
-    thumbnails: PageThumbnails,
+    sources: Map<DocRef, PageSource>,
+    imageThumbnail: (uri: String) -> Bitmap?,
     mode: PagesMode,
     selection: Set<String>,
     onTap: (PageItem) -> Unit,
@@ -142,10 +150,10 @@ fun PagesGrid(
                     Modifier
                 }
                 PageCell(
-                    page = page as PageItem.FromPdf,
+                    page = page,
                     number = index + 1,
-                    pageSize = pageSizes[page.pageIndex],
-                    thumbnails = thumbnails,
+                    sources = sources,
+                    imageThumbnail = imageThumbnail,
                     selected = page.id in selection,
                     mode = mode,
                     isDragging = isDragging,
@@ -164,10 +172,10 @@ fun PagesGrid(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PageCell(
-    page: PageItem.FromPdf,
+    page: PageItem,
     number: Int,
-    pageSize: PageSize,
-    thumbnails: PageThumbnails,
+    sources: Map<DocRef, PageSource>,
+    imageThumbnail: (uri: String) -> Bitmap?,
     selected: Boolean,
     mode: PagesMode,
     isDragging: Boolean,
@@ -201,7 +209,7 @@ private fun PageCell(
             }
         }
     }
-    val clickModifier = if (mode == PagesMode.REMOVE) {
+    val clickModifier = if (mode != PagesMode.REORDER) {
         Modifier.combinedClickable(onClick = onTap, onLongClick = onLongPress)
     } else {
         Modifier
@@ -225,7 +233,7 @@ private fun PageCell(
             border = if (selected) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            RotatedThumbnail(page, pageSize, thumbnails)
+            PageThumbnail(page, sources, imageThumbnail)
         }
         Text(
             text = number.toString(),
@@ -295,30 +303,55 @@ private fun MenuItem(labelRes: Int, onClick: () -> Unit) {
     DropdownMenuItem(text = { Text(stringResource(labelRes)) }, onClick = onClick)
 }
 
+/** The thumbnail of any kind of page, drawn in its added rotation. */
+@Composable
+private fun PageThumbnail(page: PageItem, sources: Map<DocRef, PageSource>, imageThumbnail: (uri: String) -> Bitmap?) {
+    when (page) {
+        is PageItem.FromPdf -> {
+            val source = sources[page.docRef]
+            val size = source?.pageSizes?.getOrNull(page.pageIndex)
+            val bitmap by produceState<ImageBitmap?>(initialValue = null, page.pageIndex, source) {
+                value = source?.thumbnails?.get(page.pageIndex)?.asImageBitmap()
+            }
+            RotatedThumbnail(page.rotation, size?.let { it.width / it.height } ?: A4_ASPECT) {
+                bitmap?.let { Image(it, contentDescription = null, modifier = Modifier.matchParentSize()) }
+            }
+        }
+        is PageItem.Blank -> RotatedThumbnail(page.rotation, page.widthPt / page.heightPt) {
+            Box(Modifier.matchParentSize().background(Color.White))
+        }
+        is PageItem.FromImage -> {
+            val bitmap by produceState<ImageBitmap?>(initialValue = null, page.imageUri) {
+                value = withContext(Dispatchers.IO) { imageThumbnail(page.imageUri) }?.asImageBitmap()
+            }
+            RotatedThumbnail(page.rotation, page.widthPt / page.heightPt) {
+                Box(Modifier.matchParentSize().background(Color.White)) {
+                    // Same placement as the saved page: fitted and centred inside it.
+                    bitmap?.let { Image(it, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.matchParentSize()) }
+                }
+            }
+        }
+    }
+}
+
 /**
- * The thumbnail of the source page, turned by the rotation the user added. At 90° and 270° the
- * cell is as tall as the page is wide, so the unrotated image is laid out swapped and then turned.
+ * [content] is the unrotated page, turned by [rotation]. At 90° and 270° the cell is as tall as the
+ * page is wide, so the unrotated page is laid out swapped and then turned. [aspect] is the unrotated
+ * width / height.
  */
 @Composable
-private fun RotatedThumbnail(page: PageItem.FromPdf, pageSize: PageSize, thumbnails: PageThumbnails) {
-    val bitmap by produceState<ImageBitmap?>(initialValue = null, page.pageIndex, thumbnails) {
-        value = thumbnails.get(page.pageIndex)?.asImageBitmap()
-    }
-    val sideways = page.rotation % HALF_TURN != 0
-    val aspect = pageSize.width / pageSize.height // unrotated, width / height
+private fun RotatedThumbnail(rotation: Int, aspect: Float, content: @Composable BoxScope.() -> Unit) {
+    val sideways = rotation % HALF_TURN != 0
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val cellWidth = maxWidth
         val cellHeight = if (sideways) cellWidth * aspect else cellWidth / aspect
         Box(Modifier.size(cellWidth, cellHeight), contentAlignment = Alignment.Center) {
-            val imageModifier = if (sideways) Modifier.requiredSize(cellHeight, cellWidth) else Modifier.fillMaxSize()
-            Box(
-                imageModifier.graphicsLayer { rotationZ = page.rotation.toFloat() },
-            ) {
-                bitmap?.let { Image(it, contentDescription = null, modifier = Modifier.matchParentSize()) }
-            }
+            val pageModifier = if (sideways) Modifier.requiredSize(cellHeight, cellWidth) else Modifier.fillMaxSize()
+            Box(pageModifier.graphicsLayer { rotationZ = rotation.toFloat() }, content = content)
         }
     }
 }
 
 private const val DRAG_SCALE = 1.05f
 private const val HALF_TURN = 180
+private const val A4_ASPECT = 595f / 842f

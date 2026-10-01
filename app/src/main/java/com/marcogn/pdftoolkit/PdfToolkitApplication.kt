@@ -1,6 +1,7 @@
 package com.marcogn.pdftoolkit
 
 import android.app.Application
+import com.marcogn.pdftoolkit.data.images.ImageImporter
 import com.marcogn.pdftoolkit.data.save.PdfSaver
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import dagger.hilt.android.HiltAndroidApp
@@ -13,5 +14,6 @@ class PdfToolkitApplication : Application() {
         super.onCreate()
         PDFBoxResourceLoader.init(this)
         PdfSaver.cleanWorkDir(this)
+        ImageImporter.cleanImagesDir(this)
     }
 }

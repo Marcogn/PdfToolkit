@@ -96,10 +96,15 @@ class PdfDocumentOpener @Inject constructor(@ApplicationContext private val cont
         false
     }
 
-    /** Copies a non-seekable source and closes [fd]. Earlier copies are removed first. */
+    /**
+     * Copies a non-seekable source and closes [fd]. Only stale copies (left by a killed process)
+     * are removed: several documents can be open at once (merge, added pages), each deletes its
+     * own copy when closed.
+     */
     private fun copyToCache(fd: ParcelFileDescriptor): File {
         val dir = File(context.cacheDir, OPEN_DIR).apply { mkdirs() }
-        dir.listFiles()?.forEach { it.delete() }
+        val limit = System.currentTimeMillis() - STALE_COPY_MS
+        dir.listFiles()?.forEach { if (it.lastModified() < limit) it.delete() }
         val file = File(dir, "${UUID.randomUUID()}.pdf")
         try {
             ParcelFileDescriptor.AutoCloseInputStream(fd).use { input ->
@@ -114,5 +119,6 @@ class PdfDocumentOpener @Inject constructor(@ApplicationContext private val cont
 
     private companion object {
         const val OPEN_DIR = "open"
+        const val STALE_COPY_MS = 60L * 60 * 1000
     }
 }
