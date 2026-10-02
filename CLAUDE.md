@@ -165,8 +165,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   rotation were laid out with zero height (blank cells).
 - **Phase 3 Add pages and merge done (2026-10-01)**, PR #7 merged; lint (0 errors), 144 unit tests
   and `assembleDebug` green; device checks passed (author).
-- **4a Fill and sign core implemented (2026-10-02)**; lint, unit tests and `assembleDebug` green;
-  194 unit tests; **device checks still to do (author)**. **Next: phase 4b Fill and sign complete (Sonnet).**
+- **4a Fill and sign core implemented (2026-10-02)**, PR #8; lint, 194 unit tests and
+  `assembleDebug` green; device checks passed (author) except fields on a turned page, where the
+  control showed the text across the field: fixed (the control now turns with the page), to recheck. **Next: phase 4b Fill and sign complete (Sonnet).**
 - The author still has to add the signing secrets to the repository.
 
 ### Handoff for 4b (from 4a)
@@ -179,7 +180,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   (degrees ccw in user space; `PdfPageSpace.displayAngle/userAngle`). The writer already handles any angle.
 - UI: `ui/fill/FillPane` (pager of `FillPage`, `FillToolBar`, `FillPaneState`), `OverlayPainter`
   draws overlays on screen like the writer. Tap places; tap selects (Edit text / Delete / Done).
-  Missing for 4b: drag/resize/rotate gestures on the selected overlay, signature archive (Room,
+  Missing for 4b: drag/resize/rotate gestures on the selected overlay (author, after the 4a device
+  test: **long press and drag** moves a placed item to adjust its position; tap keeps edit/delete), signature archive (Room,
   `filesDir/signatures/`) replacing the temporary "pick any image" (`EditScreen.signaturePicker`,
   `EditViewModel.importOverlayImage`), drawing canvas, import with background removal, legal note
   (spec §6.5, also in About), `PdfTool.MY_SIGNATURES` screen (still a placeholder).

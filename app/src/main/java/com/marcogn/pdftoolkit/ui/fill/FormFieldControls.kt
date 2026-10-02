@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -61,10 +62,13 @@ private const val AUTO_MULTILINE_PT = 10f
 private const val FIELD_FILL_ALPHA = 0.12f
 private const val FIELD_BORDER_ALPHA = 0.5f
 private const val RADIO_DOT_FRACTION = 0.3f
+private const val HALF_TURN = 180
 
 /**
  * A Compose control laid over one widget of an AcroForm field (spec §6.5), at [rect] in screen
- * pixels; [pxPerPoint] scales the text with the zoom. [value] is the current value (the user's,
+ * pixels; [pxPerPoint] scales the text with the zoom. [rotation] (clockwise, quarter turns) is
+ * the direction the field's text runs on screen: on a turned page the control turns with it, so
+ * the text runs along the field as in the saved PDF. [value] is the current value (the user's,
  * or the file's). [onChange] receives the new value; `typing` is true for keystrokes, so the edit
  * session makes one undo step of them.
  */
@@ -76,17 +80,24 @@ internal fun FieldControl(
     pxPerPoint: Float,
     value: FieldValue,
     onChange: (FieldValue, typing: Boolean) -> Unit,
+    rotation: Int = 0,
 ) {
     val density = LocalDensity.current
     val primary = MaterialTheme.colorScheme.primary
+    // Laid out unturned (width along the text), centred on the widget, then turned about its centre.
+    val sideways = rotation % HALF_TURN != 0
+    val width = if (sideways) rect.height else rect.width
+    val height = if (sideways) rect.width else rect.height
+    val unturned = Rect(rect.center.x - width / 2f, rect.center.y - height / 2f, rect.center.x + width / 2f, rect.center.y + height / 2f)
     val base = Modifier
-        .offset { IntOffset(rect.left.roundToInt(), rect.top.roundToInt()) }
-        .size(with(density) { rect.width.toDp() }, with(density) { rect.height.toDp() })
+        .offset { IntOffset(unturned.left.roundToInt(), unturned.top.roundToInt()) }
+        .size(with(density) { width.toDp() }, with(density) { height.toDp() })
+        .graphicsLayer { rotationZ = rotation.toFloat() }
         .background(primary.copy(alpha = FIELD_FILL_ALPHA))
         .border(1.dp, primary.copy(alpha = FIELD_BORDER_ALPHA))
         .semantics { contentDescription = field.label ?: field.name }
     when (field) {
-        is FormField.Text -> TextFieldControl(field, base, rect, pxPerPoint, (value as? FieldValue.Text)?.value.orEmpty(), onChange)
+        is FormField.Text -> TextFieldControl(field, base, unturned, pxPerPoint, (value as? FieldValue.Text)?.value.orEmpty(), onChange)
         is FormField.CheckBox -> {
             val on = (value as? FieldValue.Toggle)?.on == true
             Box(base.toggleable(value = on, enabled = !field.readOnly, role = Role.Checkbox) { onChange(FieldValue.Toggle(it), false) }) {
@@ -111,7 +122,7 @@ internal fun FieldControl(
             Box(base.clickable(enabled = !field.readOnly, role = Role.DropdownList) { expanded = true }, contentAlignment = Alignment.CenterStart) {
                 Text(
                     label,
-                    style = TextStyle(color = Color.Black, fontSize = with(density) { autoFontPx(rect, pxPerPoint, false).toSp() }),
+                    style = TextStyle(color = Color.Black, fontSize = with(density) { autoFontPx(unturned, pxPerPoint, false).toSp() }),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(horizontal = 2.dp),

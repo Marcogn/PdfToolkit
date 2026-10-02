@@ -180,6 +180,8 @@ internal fun FillPage(
                         pxPerPoint = mapper.screenPxPerPoint,
                         value = values[field.name] ?: field.value,
                         onChange = { value, typing -> onFieldChange(field, value, typing) },
+                        // Field text is upright in user space: on screen it runs at the page's rotation.
+                        rotation = space.displayAngle(0f).toInt(),
                     )
                 }
             }

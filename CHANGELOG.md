@@ -8,7 +8,7 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 - **Fill and sign.** "Fill and sign" (edit hub and Home) shows the pages one at a time, with zoom
   and pan. Forms with fields get a control over every field (text, check box, radio button, drop-down
-  list), and the keyboard's "Next" goes to the next field. On any PDF you can tap to add **text**
+  list; on a turned page the control turns with it), and the keyboard's "Next" goes to the next field. On any PDF you can tap to add **text**
   (size adjustable), the **date** (in the app's language, editable), a **tick**, a **cross** and an
   **image as signature**; tap one to edit or delete it. Everything can be undone. When saving, a
   form can be **made final** (on by default when a signature was added): its fields become part of
