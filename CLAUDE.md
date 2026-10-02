@@ -80,13 +80,16 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - `ui/<feature>/` Compose screens and ViewModels; `ui/navigation/` `@Serializable` routes
   (`Destination`), NavHost and drawer; `ui/theme/` palette (`Color.kt`) and theme.
 - `domain/` models with no Android dependencies (`PdfTool`, `ThemeMode`, `domain/edit/`:
-  `EditSession`, `PageItem`, `SaveFailure`).
+  `EditSession`, `PageItem`, `SaveFailure`; `domain/fill/`: overlays, `FieldValue`, `FormField`,
+  `TextBlock`, `MarkShape`).
 - `data/` DataStore (`data/settings/ThemePreferences`, `ReadingPreferences`), Room
   (`data/recents/`: `AppDatabase`, `RecentDocument`, `RecentsRepository`, `ThumbnailStore`),
   background save (`data/save/`: `SaveScheduler`, `SaveWorker`, `PdfSaver`), later signatures. Room schemas are exported to `app/schemas/` and committed.
 - `pdf/render` (phase 1): `PdfDocumentRenderer`, `RenderScheduler`/`RenderPlanner`, `PageThumbnails`, caches, and
   the geometry shared by all phases (`DocumentLayout`, `Viewport`, `PageCoordinateMapper`).
-  `pdf/edit` (phase 2: `PdfEditor`, `PdfBoxEditor`), `pdf/forms`, `pdf/text` from phases 4–5 (spec §12).
+  `pdf/edit` (phase 2: `PdfEditor`, `PdfBoxEditor`; phase 4: `FillWriter`, `FontSource`, `FontCoverage`),
+  `pdf/forms` (phase 4: `FormReader`), `pdf/text` from phase 5 (spec §12). `ui/fill/` is the
+  "Fill and sign" pane of `EditScreen`.
 - `di/` Hilt modules, when needed.
 
 ## Non-obvious rules
@@ -103,7 +106,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - After an *overwrite* nothing may keep the old file open: the nav graph opens the result with
   `popUpTo<Home>`.
 - Signatures, text, check marks and dates are written into the page content stream, not as
-  annotations.
+  annotations. Overlays are stored in **PDF user space** (`OverlayBox`: centre, size, angle), so they
+  turn with their page; screen and writer both go through `OverlayGeometry` + `PdfPageSpace`, and
+  text layout through `TextBlock` (Noto Sans metrics as constants, kerning/ligatures off on screen).
 - Search highlights are overlay only, never written into the PDF.
 - No `INTERNET` permission in product phase 1: the manifest removes it with `tools:node="remove"`
   and CI checks the packaged manifest. Don't add dependencies that need it.
@@ -118,7 +123,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   the real page index and several viewports can share one `RenderScheduler` (it merges the lists
   per source). A one-finger horizontal drag the page can't absorb is left unconsumed for the pager.
 - Viewer coordinates go only through `PageCoordinateMapper` (page points top-left ↔ layout px ↔
-  screen px). Don't convert by hand in the UI.
+  screen px; user space through `PdfPageSpace`, whose matrices follow pdfium). Don't convert by hand
+  in the UI.
 - Navigation transitions 200–250 ms, never above 300 (spec §9). `NavHost` needs both the pop and
   the `predictivePop*` transitions: system back uses the latter, and the library default is a
   `scaleOut(0.7f)` towards the centre.
@@ -160,8 +166,29 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - **Phase 3 Add pages and merge implemented (2026-10-01)**; lint (0 errors), 144 unit tests and
   `assembleDebug` green; **device checks still to do (author)**: images in both modes (EXIF, HEIC),
   a mixed A4/Letter PDF, merge of 3 PDFs with reordering, result checked in another reader.
-  **Next: phase 4a Fill and sign core (Opus).**
+- **4a Fill and sign core implemented (2026-10-02)**; lint, unit tests and `assembleDebug` green;
+  194 unit tests; **device checks still to do (author)**. **Next: phase 4b Fill and sign complete (Sonnet).**
 - The author still has to add the signing secrets to the repository.
+
+### Handoff for 4b (from 4a)
+- Model: `EditSession.fill` (`FillContent`: `overlays`, `fields`) is part of the undo history;
+  `addOverlay/updateOverlay/removeOverlay`, `setField(name, value, typing)` (typing = one undo step
+  per field). `encodeFill()` → `SavedStateHandle` (`fill`) and `SaveRequest.fill`; `flattenForm` too.
+- Geometry: place with `OverlayGeometry.uprightAt(space, displayPoint, w, h)`; move = change
+  `centerX/centerY` (user space, convert a screen drag with `PageCoordinateMapper.screenToUser`);
+  resize keeping a corner = `resizedFromTopLeft` (add others the same way); free rotation = `angle`
+  (degrees ccw in user space; `PdfPageSpace.displayAngle/userAngle`). The writer already handles any angle.
+- UI: `ui/fill/FillPane` (pager of `FillPage`, `FillToolBar`, `FillPaneState`), `OverlayPainter`
+  draws overlays on screen like the writer. Tap places; tap selects (Edit text / Delete / Done).
+  Missing for 4b: drag/resize/rotate gestures on the selected overlay, signature archive (Room,
+  `filesDir/signatures/`) replacing the temporary "pick any image" (`EditScreen.signaturePicker`,
+  `EditViewModel.importOverlayImage`), drawing canvas, import with background removal, legal note
+  (spec §6.5, also in About), `PdfTool.MY_SIGNATURES` screen (still a placeholder).
+- Writing: `FillWriter` (values with appearances, Noto Sans fallback for missing glyphs; flatten;
+  overlays appended with `resetContext`); image overlays decoded ≤ 1600 px, PNG with alpha kept.
+- Known limits: no tiling in the fill pane (one bitmap per page, ≤ 4 Mpx); "Next" moves only within
+  the current page; static XFA is removed when fields are filled or flattened; flatten-before-merge
+  (spec §6.6) not done yet; fields of PDFs added to the session (not the main one) aren't fillable.
 
 ### Notes for phase 4 onwards (edit, from phase 3)
 - Edit code: `domain/edit/` (`EditSession`: immutable, undo/redo by swapping lists, `isModified`
@@ -214,6 +241,24 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-02 · Phase 4a: overlays and form values live in `EditSession` (one undo history for pages
+  and fill) rather than as a separate `overlays` argument of `applySession` (spec §12): the session
+  already travels to the save; `WriteOptions(flattenForm)` carries the save-time choice.
+- 2026-10-02 · Phase 4a: overlay coordinates in PDF user space with an angle, not screen/display
+  space: they don't depend on zoom or on rotations added later, and the writer needs no conversion.
+  Visible box = `/CropBox` ∩ `/MediaBox`, `/Rotate` truncated to quarter turns, as pdfium
+  (`CPDF_Page::UpdateDimensions`, [source](https://pdfium.googlesource.com/pdfium/+/refs/heads/main/core/fpdfapi/page/cpdf_page.cpp)).
+- 2026-10-02 · Phase 4a: Noto Sans Regular 2.015 (static, unhinted, from notofonts.github.io; OFL 1.1,
+  licence in `assets/fonts/OFL.txt`) in `assets/`, read by both PdfBox and Android. Embedded as a
+  subset for overlays and in full only when a form field needs it (a viewer may regenerate field
+  appearances with other characters). Characters it lacks are dropped (screen and PDF alike).
+- 2026-10-02 · Phase 4a: ticks and crosses are stroked paths, not glyphs (Noto Sans has no ✓/✗).
+- 2026-10-02 · Phase 4a: "Fill and sign" is a pane of `EditScreen` (shares session and save, like the
+  other tools), one page at a time in a pager; "make final" is in the save dialog once the form has
+  been read, default on when an image (signature) was placed (spec §6.5). Dynamic XFA: message, free
+  filling only; static XFA: the AcroForm is filled and `/XFA` removed so readers use the new values.
+- 2026-10-02 · Phase 4a: until the signature archive (4b), the Signature tool places any image
+  picked with the photo picker (copied to `cacheDir/images/` like page images).
 - 2026-10-02 · No "Merge PDFs" in the edit hub (spec §6.6 has "Unisci con altro PDF" there): on an
   open document it duplicates "Add pages → from another PDF" (author's decision after the device
   test). It also never worked from the hub: its navigation came from an activity result and went

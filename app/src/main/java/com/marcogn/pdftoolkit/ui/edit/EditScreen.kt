@@ -59,6 +59,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -77,19 +78,32 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.edit.PageItem
+import com.marcogn.pdftoolkit.domain.fill.FieldValue
+import com.marcogn.pdftoolkit.domain.fill.FormField
+import com.marcogn.pdftoolkit.domain.fill.Overlay
 import com.marcogn.pdftoolkit.domain.model.OpenFailure
 import com.marcogn.pdftoolkit.domain.model.PdfTool
 import com.marcogn.pdftoolkit.ui.home.icon
 import com.marcogn.pdftoolkit.ui.home.isSignatureAction
 import com.marcogn.pdftoolkit.ui.home.labelRes
+import com.marcogn.pdftoolkit.ui.fill.FILL_IMAGE_SIDE_PX
+import com.marcogn.pdftoolkit.ui.fill.FillActions
+import com.marcogn.pdftoolkit.ui.fill.FillPane
+import com.marcogn.pdftoolkit.ui.fill.FillTool
+import com.marcogn.pdftoolkit.ui.fill.FillToolBar
+import com.marcogn.pdftoolkit.ui.fill.MAX_PAGE_PIXELS
+import com.marcogn.pdftoolkit.ui.fill.rememberFillPaneState
 import com.marcogn.pdftoolkit.ui.viewer.takePersistableAccess
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-private enum class EditPane { HUB, REMOVE, REORDER }
+private enum class EditPane { HUB, REMOVE, REORDER, FILL }
 
 private fun PdfTool?.initialPane(): EditPane = when (this) {
     PdfTool.REMOVE_PAGES -> EditPane.REMOVE
     PdfTool.REORDER_PAGES -> EditPane.REORDER
+    PdfTool.FILL_AND_SIGN -> EditPane.FILL
     else -> EditPane.HUB
 }
 
@@ -129,6 +143,9 @@ fun EditScreen(
     val pendingPdf by viewModel.pendingPdf.collectAsStateWithLifecycle()
     val pendingImages by viewModel.pendingImages.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val fillLoad by viewModel.fillLoad.collectAsStateWithLifecycle()
+    val flattenChoice by viewModel.flattenChoice.collectAsStateWithLifecycle()
+    val fillState = rememberFillPaneState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -177,6 +194,21 @@ fun EditScreen(
     }
     val imageFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         viewModel.pickImages(uris)
+    }
+    // Phase 4a: any picked image works as the signature; phase 4b replaces this with "My signatures".
+    val signaturePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val image = viewModel.importOverlayImage(uri)
+                if (image == null) {
+                    snackbarHostState.showSnackbar(resources.getString(R.string.fill_image_unreadable))
+                } else {
+                    fillState.image = image
+                    fillState.tool = FillTool.SIGNATURE
+                    fillState.selected = null
+                }
+            }
+        }
     }
 
     LaunchedEffect(saveState) {
@@ -242,6 +274,7 @@ fun EditScreen(
     }
     val handleBack = {
         when {
+            pane == EditPane.FILL && fillState.consumesBack -> fillState.back()
             picking -> {
                 viewModel.dropPendingPdf()
                 selection = emptySet()
@@ -296,7 +329,27 @@ fun EditScreen(
             PdfTool.REORDER_PAGES -> pane = EditPane.REORDER
             PdfTool.ADD_PAGES -> showAddSource = true
             PdfTool.INSERT_IMAGES -> showImageSource = true
+            PdfTool.FILL_AND_SIGN -> pane = EditPane.FILL
             else -> showMessage(resources.getString(R.string.edit_tool_unavailable, resources.getString(tool.labelRes())))
+        }
+    }
+
+    // "Fill and sign" reads the documents' page boxes and form when it opens (and again for PDFs added since).
+    LaunchedEffect(pane, ready?.sources?.size) {
+        if (pane == EditPane.FILL && ready != null) viewModel.loadFill()
+    }
+    val currentShowMessage by rememberUpdatedState(showMessage)
+    val fillActions = remember(viewModel) {
+        object : FillActions {
+            override suspend fun renderPage(item: PageItem.FromPdf, pxPerPoint: Float) = viewModel.renderPage(item, pxPerPoint, MAX_PAGE_PIXELS)
+            override suspend fun image(uri: String) = withContext(Dispatchers.IO) { viewModel.imageThumbnail(uri, FILL_IMAGE_SIDE_PX) }
+            override fun addOverlay(overlay: Overlay) { viewModel.addOverlay(overlay) }
+            override fun updateOverlay(overlay: Overlay) { viewModel.updateOverlay(overlay) }
+            override fun removeOverlay(id: String) { viewModel.removeOverlay(id) }
+            override fun setField(field: FormField, value: FieldValue, typing: Boolean) { viewModel.setField(field, value, typing) }
+            override fun newOverlayId() = viewModel.newOverlayId()
+            override fun sanitize(text: String) = viewModel.sanitizeText(text)
+            override fun message(text: String) = currentShowMessage(text)
         }
     }
 
@@ -304,6 +357,11 @@ fun EditScreen(
         // In the bottomBar slot, so snackbars are placed above the tools instead of covering them.
         bottomBar = {
             if (ready != null && !picking && pane == EditPane.HUB) HubToolBar(hubTools, onHubTool)
+            if (ready != null && !picking && pane == EditPane.FILL) {
+                FillToolBar(fillState, ready.session.fill.overlays, fillActions) {
+                    signaturePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }
+            }
         },
         topBar = {
             Column {
@@ -399,7 +457,13 @@ fun EditScreen(
                     else -> TopAppBar(
                         title = {
                             Text(
-                                stringResource(if (pane == EditPane.REMOVE) R.string.tool_remove_pages else R.string.tool_reorder_pages),
+                                stringResource(
+                                    when (pane) {
+                                        EditPane.REMOVE -> R.string.tool_remove_pages
+                                        EditPane.FILL -> R.string.tool_fill_and_sign
+                                        else -> R.string.tool_reorder_pages
+                                    },
+                                ),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -484,6 +548,15 @@ fun EditScreen(
                     scrollToId = scrollToId,
                     padding = padding,
                 )
+                EditPane.FILL -> FillPane(
+                    pages = state.session.pages,
+                    overlays = state.session.fill.overlays,
+                    values = state.session.fill.fields,
+                    load = fillLoad,
+                    state = fillState,
+                    actions = fillActions,
+                    modifier = Modifier.padding(padding),
+                )
                 EditPane.REMOVE, EditPane.REORDER -> PagesPane(
                     state = state,
                     imageThumbnail = { uri -> viewModel.imageThumbnail(uri, THUMBNAIL_PX) },
@@ -522,12 +595,16 @@ fun EditScreen(
     }
 
     if (showSaveDialog) {
+        // "Make final" is offered once the form has been read, i.e. after "Fill and sign" was opened.
+        val hasForm = (fillLoad as? FillLoad.Ready)?.documents?.form?.hasFields == true
         SaveDialog(
             overwrite = overwriteChoice && canOverwrite,
             canOverwrite = canOverwrite,
             onOverwriteChange = viewModel::setOverwriteChoice,
             onConfirm = startSave,
             onDismiss = { showSaveDialog = false },
+            flatten = if (hasForm) flattenChoice ?: ready?.session?.fill?.hasSignature ?: false else null,
+            onFlattenChange = viewModel::setFlattenChoice,
         )
     }
     if (showOverwriteConfirm) {
