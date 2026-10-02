@@ -12,8 +12,9 @@ The viewer (phase 1 of the plan, `docs/spec.md` §13) is complete: PDFs open fro
 from a file manager ("Open with") and from the share sheet, in continuous or single-page mode,
 with zoom, scrubber, thumbnail bar, password support (Android 15+), recent files with the last page
 read, and the related settings. Page editing (phase 2) is in as well: remove, reorder and rotate
-pages with undo/redo, and save as a copy or overwrite, in the background. The other editing tools
-(add pages, merge, images, fill and sign) come in later phases and for now open a placeholder.
+pages with undo/redo, and save as a copy or overwrite, in the background. Adding pages (from another
+PDF, blank, from images) and merging PDFs (phase 3) are in too. Fill and sign comes in a later phase
+and for now shows "coming up".
 
 ## Features
 
@@ -21,8 +22,9 @@ Planned for the first version:
 
 - reading with zoom, continuous or single-page scrolling, scrubber and thumbnails (done)
 - text search
-- merging several PDFs
-- removing, reordering and rotating pages (done); adding pages (from another PDF, blank, from images)
+- merging several PDFs (done)
+- removing, reordering and rotating pages (done); adding pages from another PDF, blank, or from
+  images (done)
 - form filling and signing, with an archive of signatures saved on the phone
 
 Planned for later: document scanning with OCR, cloud upload (WebDAV), highlighting, freehand
@@ -57,7 +59,7 @@ secret lets "Release" commit the version bump to `main`.
 app/src/main/java/com/marcogn/pdftoolkit/
   ui/        Compose screens, navigation and theme
   domain/    models with no Android dependencies
-  data/      preferences (DataStore), recent documents (Room), background save (save/), later signatures
+  data/      preferences (DataStore), recent documents (Room), background save (save/), picked images (images/), later signatures
   pdf/       PDF rendering (render/) and editing (edit/), later forms and text search
   di/        Hilt modules
 docs/
@@ -82,6 +84,15 @@ and Reorderable (page drag and drop), all under the Apache 2.0 licence; the view
 - Password-protected PDFs can be read (Android 15+) but not edited yet.
 - Removing a page doesn't guarantee its data leaves the file: if a bookmark or link still points to
   it, the page's objects stay in the file (not shown by readers). Not a redaction tool.
+- PDFs added to another one (add pages, merge) can't be password-protected yet.
+- Merging keeps the pages as they are but not the bookmarks, and the form fields of the merged files
+  may stop working: the merge list warns when a file has them. Flattening the form before merging
+  comes with the fill-and-sign phase.
+- Images become pages through Android's own decoder: HEIC/HEIF are read from Android 9 and AVIF
+  from Android 14 (where the platform guarantees a decoder, see Android's "supported media formats");
+  on Android 8 only the formats `BitmapFactory` reads are expected to work (JPEG, PNG, WebP, GIF). A photo's DPI is used
+  for "original size" only when it is 100 or more, otherwise 150 DPI is assumed (cameras often write
+  72, which would make a page over a metre wide).
 - Overwriting needs a file that grants write access (most local files do, some providers don't);
   otherwise only "save as copy" is offered.
 

@@ -148,10 +148,84 @@ class EditSessionTest {
     @Test
     fun `decode rejects what doesn't belong to the document`() {
         assertNull(EditSession.decode("", 3))
-        assertNull(EditSession.decode("p0,0,5,0", 3)) // page index out of range
-        assertNull(EditSession.decode("p0,1,0,0", 3)) // unknown document
-        assertNull(EditSession.decode("p0,0,0,45", 3)) // not a quarter turn
-        assertNull(EditSession.decode("p0,0,0,0;p0,0,1,0", 3)) // repeated id
+        assertNull(EditSession.decode("P,p0,0,5,0", 3)) // page index out of range
+        assertNull(EditSession.decode("P,p0,1,0,0", 3)) // unknown document
+        assertNull(EditSession.decode("P,p0,0,0,45", 3)) // not a quarter turn
+        assertNull(EditSession.decode("P,p0,0,0,0;P,p0,0,1,0", 3)) // repeated id
+        assertNull(EditSession.decode("B,b0,0,10,0", 3)) // blank page with no width
+        assertNull(EditSession.decode("I,i0,file%3A%2F%2Fx,SIDEWAYS,10,10,0", 3)) // unknown fit mode
         assertNull(EditSession.decode("garbage", 3))
+    }
+
+    private val blank = PageItem.Blank("b1", 200f, 300f)
+    private val image = PageItem.FromImage("i1", "file:///cache/images/a,b;c", ImageFit.FIT_PAGE, 595.28f, 841.89f)
+
+    @Test
+    fun `insert puts the pages at the index, keeping their order, and is one undo step`() {
+        val session = EditSession.of(3).insert(1, listOf(blank, image))
+        assertEquals(listOf("p0", "b1", "i1", "p1", "p2"), session.pages.map { it.id })
+        assertTrue(session.isModified)
+        assertEquals(listOf("p0", "p1", "p2"), session.undo().pages.map { it.id })
+    }
+
+    @Test
+    fun `insert at the ends`() {
+        assertEquals(listOf("b1", "p0", "p1"), EditSession.of(2).insert(0, listOf(blank)).pages.map { it.id })
+        assertEquals(listOf("p0", "p1", "b1"), EditSession.of(2).insert(2, listOf(blank)).pages.map { it.id })
+    }
+
+    @Test
+    fun `insert ignores a bad index, nothing to add and ids already in use`() {
+        val session = EditSession.of(2)
+        assertSame(session, session.insert(3, listOf(blank)))
+        assertSame(session, session.insert(-1, listOf(blank)))
+        assertSame(session, session.insert(0, emptyList()))
+        assertSame(session, session.insert(0, listOf(PageItem.Blank("p1", 1f, 1f))))
+    }
+
+    @Test
+    fun `blank and image pages rotate and can be removed like any other`() {
+        val session = EditSession.of(2).insert(1, listOf(blank, image)).rotate(setOf("b1", "i1"), 90)
+        assertEquals(90, session.pages[1].rotation)
+        assertEquals(90, session.pages[2].rotation)
+        assertEquals(listOf("p0", "p1"), session.remove(setOf("b1", "i1")).pages.map { it.id })
+    }
+
+    @Test
+    fun `encode and decode keep blank and image pages, even with separators in the URI`() {
+        val session = EditSession.of(3).insert(1, listOf(blank, image)).rotate(setOf("i1"), 270).move(0, 3)
+        val restored = EditSession.decode(session.encode(), 3)
+        assertNotNull(restored)
+        assertEquals(session.pages, restored!!.pages)
+    }
+
+    @Test
+    fun `documents added later are listed, and decoded only if their page count is known`() {
+        val added = DocRef(1)
+        val session = EditSession.of(2).insert(2, listOf(PageItem.FromPdf("n1", added, 4), PageItem.FromPdf("n2", added, 0)))
+        assertEquals(setOf(added), session.extraDocuments)
+        assertEquals(session.pages, EditSession.decode(session.encode(), mapOf(DocRef.MAIN to 2, added to 5))!!.pages)
+        assertNull(EditSession.decode(session.encode(), mapOf(DocRef.MAIN to 2, added to 4))) // page 4 is out of range
+        assertNull(EditSession.decode(session.encode(), mapOf(DocRef.MAIN to 2))) // document 1 unknown
+        assertTrue(EditSession.of(2).extraDocuments.isEmpty())
+    }
+
+    @Test
+    fun `a merge session lists every document in order and always has something to save`() {
+        val session = EditSession.ofDocuments(listOf(2, 3, 1))
+        assertEquals(
+            listOf(DocRef.MAIN to 0, DocRef.MAIN to 1, DocRef(1) to 0, DocRef(1) to 1, DocRef(1) to 2, DocRef(2) to 0),
+            session.pages.map { (it as PageItem.FromPdf).let { page -> page.docRef to page.pageIndex } },
+        )
+        assertEquals(setOf(DocRef(1), DocRef(2)), session.extraDocuments)
+        assertTrue(session.isModified)
+        val restored = EditSession.decode(session.encode(), mapOf(DocRef.MAIN to 2, DocRef(1) to 3, DocRef(2) to 1))
+        assertEquals(session.pages, restored!!.pages)
+    }
+
+    @Test
+    fun `a single document merge session is the plain one`() {
+        assertEquals(EditSession.of(3).pages, EditSession.ofDocuments(listOf(3)).pages)
+        assertFalse(EditSession.ofDocuments(listOf(3)).isModified)
     }
 }

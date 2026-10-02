@@ -156,24 +156,51 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   device checks passed (author).
 - **Phase 2 Edit session and pages done (2026-10-01)**, PR #6; lint (0 errors), 95 unit tests and
   `assembleDebug` green; device checks passed (author). Follow-up fix: page thumbnails with no added
-  rotation were laid out with zero height (blank cells). **Next: phase 3 Add pages and merge (Sonnet).**
+  rotation were laid out with zero height (blank cells).
+- **Phase 3 Add pages and merge implemented (2026-10-01)**; lint (0 errors), 144 unit tests and
+  `assembleDebug` green; **device checks still to do (author)**: images in both modes (EXIF, HEIC),
+  a mixed A4/Letter PDF, merge of 3 PDFs with reordering, result checked in another reader.
+  **Next: phase 4a Fill and sign core (Opus).**
 - The author still has to add the signing secrets to the repository.
 
-### Notes for phase 3 onwards
+### Notes for phase 4 onwards (edit, from phase 3)
 - Edit code: `domain/edit/` (`EditSession`: immutable, undo/redo by swapping lists, `isModified`
-  against the original; `PageItem.FromPdf` only, add `Blank`/`FromImage` and extra `DocRef`s in
-  phase 3), `pdf/edit/PdfBoxEditor.applySession(session, sources, output)` (supports only
-  `DocRef.MAIN` and throws otherwise: extend it with `importPage` for other documents and blanks),
-  `data/save/*`, `ui/edit/` (`EditScreen` with the hub grid and `PagesGrid`; the hub already lists
-  every tool and shows "coming up" for the ones not built, hook phase 3 tools in `EditScreen`'s
-  `onToolClick` and `implementedTools`). Merge from Home still opens the `Tool` placeholder.
+  against the original; `PageItem.FromPdf` / `Blank` / `FromImage`; `PageSizing` has the §6.2 size
+  rules as pure functions; `InsertionPoint`), `pdf/edit/PdfBoxEditor.applySession(session, sources,
+  output)` (main PDF rearranged in place; pages of other PDFs through `importPage` with the other
+  documents kept open until saved; blank and image pages built at write time; one bitmap alive at a
+  time), `pdf/edit/PageImageLoader` (interface; `AndroidPageImageLoader`: `ImageDecoder` on API 28+,
+  `BitmapFactory` + EXIF below), `data/save/*` (`SaveRequest.extraSources` lists the added PDFs, the
+  saver copies only the ones the final pages use), `data/images/ImageImporter` (picked images are
+  copied to `cacheDir/images/`, cleaned after 24 h), `ui/edit/` (`EditScreen`: hub, remove/reorder
+  panes, page picker for an added PDF, dialogs in `AddPagesDialogs`), `ui/merge/` (merge list).
+- `EditSession.encode()` is a typed format (`P`/`B`/`I` entries, URL-encoded fields); `decode` needs the
+  page count of every document (`Map<DocRef, Int>`). Doc ids of added PDFs are `DocRef(index + 1)` of
+  the `extras` list kept in `SavedStateHandle`; a merge is `Destination.Edit(uri = first, mergeWith =
+  rest, autoSave)` and starts from `EditSession.ofDocuments(...)`.
 - `PdfEditor` doesn't take overlays yet (spec §12 has `applySession(session, overlays, destination)`):
-  add them in phase 4. Destination copy lives in `PdfSaver`, not in the editor.
+  add them in phase 4 (they bind to `PageItem.id`). Destination copy lives in `PdfSaver`, not in the editor.
 - Known limits: FAB → hub is the normal slide+fade, not a container transform (phase 6 polish);
-  password-protected PDFs show an error in the edit screen (PdfBox gets no password); a save can't
-  be cancelled; if the app is killed during a save the result of a *copy* isn't announced (the
-  work finishes anyway); removed pages can stay in the file as orphan objects if a bookmark/link
-  references them; the Edit button hides on scroll in continuous mode only.
+  password-protected PDFs can't be edited, added or merged (PdfBox gets no password; the merge list and
+  "add pages" report it); a save can't be cancelled; if the app is killed during a save the result of
+  a *copy* isn't announced (the work finishes anyway); removed pages can stay in the file as orphan
+  objects if a bookmark/link references them; the Edit button hides on scroll in continuous mode only;
+  merging drops bookmarks and may break form fields (warned in the merge list; flatten-before-merge,
+  proposed by spec §6.6, waits for phase 4a's flatten); HEIC/HEIF need API 28+, AVIF is guaranteed only from Android 14;
+  `AndroidPageImageLoader` (both decoding paths) has no unit tests: only on-device checks cover it;
+  each image page probes the file twice at save time (size, then decode).
+- `SavedStateHandle` also receives the route arguments by name: never reuse an argument name
+  (`uri`, `tool`, `mergeWith`, `autoSave`, `uris`) as a state key, and its list arguments are arrays,
+  not `ArrayList` (the merge screen crashed on this).
+- The hub is the session's pages (`PagesGrid` in `PagesMode.VIEW`, read-only) plus `HubToolBar` at
+  the bottom. After an addition the new page ids are highlighted and scrolled to (`highlighted` /
+  `scrollToId` in `EditScreen`); the marks clear on the remove pane and after a save.
+- Merge is only on Home (`Destination.Merge`); the hub leaves it out, its job there is "Add pages →
+  from another PDF". Home's "Add pages" / "Insert images" show a dialog before the PDF picker
+  (`toolsPickingTwice` in the nav graph).
+- `importPage` keeps link annotations whose destinations point into the source PDF: those page
+  objects (and what they reach) are written as unreferenced objects, so a merged file with internal
+  links can be larger than the sum of its pages. Valid PDF, not addressed.
 
 ### Notes for phase 2 onwards (viewer, from 1b)
 - The viewer is `ViewerScreen` (states) → `ReadyViewer` (top bar, `ContinuousPages` / `SinglePages`,
@@ -187,6 +214,33 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-02 · No "Merge PDFs" in the edit hub (spec §6.6 has "Unisci con altro PDF" there): on an
+  open document it duplicates "Add pages → from another PDF" (author's decision after the device
+  test). It also never worked from the hub: its navigation came from an activity result and went
+  through the `lifecycleIsResumed()` guard, which drops it (see Non-obvious rules).
+- 2026-10-01 · Edit hub: page thumbnails of the session with the tools in a bottom bar, instead of
+  the tool grid of spec §4.3 (author's request after the phase 3 device test: the tool grid looked
+  like Home and didn't show the document being edited).
+- 2026-10-01 · Phase 3: images are copied to `cacheDir/images/` when picked (Photo Picker grants are
+  temporary and a save resumed by the system must still read them); cleaned after 24 h at startup,
+  not when the screen closes, because a background save may still need them. Added PDFs are read from
+  their URIs (persistable read grant taken when the provider allows it).
+- 2026-10-01 · Phase 3: a photo's DPI is used for "original size" only if it is ≥ 100; below that
+  (cameras write 72) 150 DPI is used. This reads spec §6.2's "DPI dei metadati se presenti" together
+  with its own remark that 72 DPI would make a 1.4 m page. Original-size images are decoded at most
+  8000 px on the long side (the spec sets no cap; this only guards memory). Pages added at the start
+  take the *next* page's size, others the previous one, using the visible size (rotation applied).
+- 2026-10-01 · Phase 3: protected PDFs are rejected when added or merged (message), consistently
+  with the phase 2 decision; spec §6.6 asks for a password prompt per file, which would need the
+  password kept until save (not persisted) or a decrypted copy: left out, to revisit with the
+  author. Merge is its own `Destination.Merge` list screen; "Merge"/"Merge and edit" then open
+  `Edit` with `mergeWith`, so no merge logic lives outside `EditSession`/`PdfEditor` (spec §6.6).
+- 2026-10-01 · Phase 3: `ImageDecoder` applies the EXIF orientation and reports oriented sizes
+  (AOSP `libs/hwui/hwui/ImageDecoder.cpp`); below API 28 the orientation is applied by hand with
+  the matrices of Glide's `TransformationUtils`. `androidx.exifinterface` 1.4.2 added (DPI and
+  orientation); `android.media.ExifInterface` is discouraged by lint.
+- 2026-10-01 · Phase 3: `PdfDocumentOpener` no longer deletes every file in `cacheDir/open/` on
+  each non-seekable open (it would break other open documents); only copies older than 1 hour.
 - 2026-10-01 · Phase 2 saving runs in WorkManager (expedited, `dataSync` foreground fallback), not
   a hand-written service; the page list goes through a JSON file; the worker reaches `PdfSaver`
   through a Hilt `EntryPoint` (no `hilt-work`). Reasons in ADR 0003.

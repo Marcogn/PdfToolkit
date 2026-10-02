@@ -188,4 +188,70 @@
     <string name="save_error_ok">Ho capito</string>
     <string name="save_channel_name">Salvataggio PDF</string>
     <string name="save_notification_title">Salvataggio del PDF</string>
+
+    <!-- Add pages, images and merge (phase 3) -->
+    <string name="add_where">Dove inserire</string>
+    <string name="add_at_start">All\'inizio</string>
+    <string name="add_at_end">Alla fine</string>
+    <string name="add_before_page">Prima della pagina</string>
+    <string name="add_after_page">Dopo la pagina</string>
+    <string name="add_page_number">Numero di pagina (1–%1$d)</string>
+    <string name="add_from_pdf">Da un altro PDF</string>
+    <string name="add_blank">Pagine vuote</string>
+    <string name="add_blank_count">Numero di pagine</string>
+    <string name="add_blank_fewer">Una pagina in meno</string>
+    <string name="add_blank_more">Una pagina in più</string>
+    <string name="add_size_used">Dimensione delle nuove pagine: %1$s.</string>
+    <string name="add_size_mixed">Il documento ha pagine di dimensioni diverse: si usa quella della pagina vicina al punto di inserimento.</string>
+    <string name="add_confirm">Aggiungi</string>
+    <string name="add_select_none">Deseleziona tutto</string>
+    <string name="add_pick_pages_title">Scegli le pagine</string>
+    <string name="add_pick_pages_hint">Pagine di %1$s. Tocca per selezionare; tieni premuto su una pagina e tocca un\'altra per un intervallo.</string>
+    <plurals name="add_pdf_pages_title">
+        <item quantity="one">Aggiungi %1$d pagina</item>
+        <item quantity="other">Aggiungi %1$d pagine</item>
+    </plurals>
+    <string name="add_pdf_protected">I PDF protetti da password non si possono ancora aggiungere.</string>
+    <string name="add_pdf_unreadable">Impossibile leggere questo PDF.</string>
+    <plurals name="edit_pages_added">
+        <item quantity="one">%1$d pagina aggiunta</item>
+        <item quantity="other">%1$d pagine aggiunte</item>
+    </plurals>
+    <string name="images_from_photos">Dalle foto</string>
+    <string name="images_from_files">Dai file</string>
+    <plurals name="images_dialog_title">
+        <item quantity="one">%1$d immagine</item>
+        <item quantity="other">%1$d immagini</item>
+    </plurals>
+    <string name="images_fit_page">Adatta alla pagina</string>
+    <string name="images_fit_page_hint">La pagina ha la dimensione di quella vicina; l\'immagine è centrata e non viene ritagliata.</string>
+    <string name="images_original_size">Dimensione originale</string>
+    <string name="images_original_size_hint">La pagina prende le dimensioni dell\'immagine (150 DPI se il file non ne indica di validi).</string>
+    <plurals name="images_skipped">
+        <item quantity="one">%1$d immagine non è leggibile ed è stata saltata.</item>
+        <item quantity="other">%1$d immagini non sono leggibili e sono state saltate.</item>
+    </plurals>
+    <string name="save_merge_suffix">_unito</string>
+    <string name="merge_add">Aggiungi PDF</string>
+    <string name="merge_empty">Scegli almeno due PDF da unire in un unico file.</string>
+    <string name="merge_need_two">Servono almeno due file.</string>
+    <string name="merge_action">Unisci</string>
+    <string name="merge_and_edit">Unisci e modifica</string>
+    <string name="merge_form_warning">Alcuni file contengono campi modulo: nel PDF unito potrebbero non funzionare.</string>
+    <string name="merge_protected">%1$s è protetto da password: i PDF protetti non si possono ancora unire.</string>
+    <string name="merge_unreadable">Impossibile leggere %1$s.</string>
+    <string name="merge_drag_handle">Trascina per riordinare</string>
+    <string name="merge_move_up">Sposta su</string>
+    <string name="merge_move_down">Sposta giù</string>
+    <string name="merge_remove">Rimuovi dalla lista</string>
+    <string name="add_from_pdf_hint">Scegli le pagine da copiare in questo documento</string>
+    <string name="add_blank_hint">Inserisci da 1 a 50 pagine bianche</string>
+    <string name="images_from_photos_hint">Seleziona dalla galleria</string>
+    <string name="images_from_files_hint">Scegli dai file del telefono</string>
+    <string name="add_new_badge">Nuova</string>
+    <string name="add_review_hint">Le pagine nuove sono evidenziate: se non sono dove volevi, trascinale nella posizione giusta.</string>
+    <string name="add_review_hint_hub">Le pagine nuove sono evidenziate. Per spostarle usa \"Riordina pagine\".</string>
+    <string name="home_pick_pdf_first_images">Prima scegli il PDF in cui inserire le immagini, poi le immagini da aggiungere.</string>
+    <string name="home_pick_pdf_first_pages">Prima scegli il PDF a cui aggiungere pagine, poi da dove prenderle (un altro PDF o pagine vuote).</string>
+    <string name="home_pick_pdf_first_confirm">Scegli il PDF</string>
 </resources>

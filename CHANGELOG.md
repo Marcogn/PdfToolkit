@@ -6,6 +6,36 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Add pages.** The edit hub's "Add pages" (also on Home) inserts pages from another PDF (pick the
+  file, then select pages with "all", "none" and ranges) or blank pages (1 to 50, sized like the
+  neighbouring page, with the size shown). New pages go at the start, at the end, or before/after a
+  page number. Every addition can be undone, and the snackbar offers Undo.
+- **Insert images.** "Insert images" (also on Home) turns photos or files into pages, picking from
+  the system photo picker or from files. **Fit to page** gives each page the size of the neighbouring
+  one (turned to follow the image, centred, never cropped); **original size** uses the image's size
+  (150 DPI when the file has no usable DPI). Photos are saved as JPEG (quality 85, longest side at most
+  3000 px when fitting) and images with transparency stay lossless; the camera's EXIF orientation
+  is respected and HEIC/HEIF/AVIF are decoded by Android where the device supports them.
+- **Merge PDFs.** Pick two or more PDFs from Home, reorder them by dragging, swipe to remove one, "+" to add more. **Merge** asks
+  where to save the new file (`<first name>_unito.pdf`); **Merge and edit** opens the edit hub on the
+  merged pages first. Files with form fields get a warning.
+- **Save snackbar.** "Open" and "Share" after saving are readable again (they used a colour meant
+  for normal backgrounds), the snackbars no longer cover the hub's tool bar, and "N pages added ·
+  Undo" closes once the document is saved.
+- **Clearer tool flows.** "Add pages" and "Insert images" on Home first say that the PDF is
+  chosen before the pages or images. The edit hub no longer has "Merge PDFs": on an open document
+  that is "Add pages → From another PDF" (it also did nothing when used from the hub).
+- **Edit hub shows the document.** The edit hub now shows the thumbnails of the pages as they are
+  (after merges, additions, removals and rotations), with the tools in a bar at the bottom and undo
+  and redo at the top, instead of a grid of tools that looked like Home.
+- **Where did it go?** After adding pages or images the new pages are highlighted ("New" badge)
+  and scrolled into view, so you see which they are and where they went. The image dialog shows a preview strip of the picked
+  images and the blank-pages dialog a preview of the page; the source dialogs are now two clear rows
+  with icon and description.
+- **Fix.** Merge crashed right after picking the files (a saved-state key clashed with the route
+  argument of the same name).
+- **Limits.** PDFs added to another one can't be password-protected yet. Bookmarks of merged files
+  are not kept and their form fields may stop working.
 - **Edit pages.** An **Edit** button in the viewer (it hides while you scroll down) opens the edit
   hub, and "Remove pages" and "Reorder pages" on Home pick a PDF and open straight on the tool.
   Remove pages by tapping them (press and hold one, then tap another for a range) with an undo

@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,14 +15,24 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Surface
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.SnackbarDefaults
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Deselect
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Save
@@ -65,10 +76,13 @@ import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
+import com.marcogn.pdftoolkit.domain.edit.PageItem
 import com.marcogn.pdftoolkit.domain.model.OpenFailure
 import com.marcogn.pdftoolkit.domain.model.PdfTool
-import com.marcogn.pdftoolkit.ui.home.ToolButton
+import com.marcogn.pdftoolkit.ui.home.icon
+import com.marcogn.pdftoolkit.ui.home.isSignatureAction
 import com.marcogn.pdftoolkit.ui.home.labelRes
+import com.marcogn.pdftoolkit.ui.viewer.takePersistableAccess
 import kotlinx.coroutines.launch
 
 private enum class EditPane { HUB, REMOVE, REORDER }
@@ -79,17 +93,21 @@ private fun PdfTool?.initialPane(): EditPane = when (this) {
     else -> EditPane.HUB
 }
 
-private val SelectionSaver = listSaver<Set<String>, String>(save = { it.toList() }, restore = { it.toSet() })
+private const val PDF_MIME = "application/pdf"
+private const val IMAGE_MIME = "image/*"
+private const val THUMBNAIL_PX = 320
 
-/** Tools of the hub that already work; the others show "coming up" until phases 3 and 4. */
-private val implementedTools = setOf(PdfTool.REMOVE_PAGES, PdfTool.REORDER_PAGES)
+/** Ids of the cells of the page picker; they live only in this screen, not in the edit session. */
+private const val PICK_ID_PREFIX = "pick"
+
+private val SelectionSaver = listSaver<Set<String>, String>(save = { it.toList() }, restore = { it.toSet() })
 
 /**
  * Edit hub and page tools on one edit session (spec §4.3, §6). Hub, "remove" and "reorder" are
  * panes of this one screen so they share the session, the renderer and the save state; the
  * system back goes pane → hub → leave (asking about unsaved changes).
  *
- * @param startTool the tool tapped on Home, which opens straight on its pane (spec §4.1); null from the viewer.
+ * @param startTool the tool tapped on Home, which opens straight on its pane or dialog (spec §4.1); null from the viewer.
  * @param onBack leaves the edit.
  * @param onResultReady an overwrite finished: the original has new content, so the caller must
  * drop any screen still showing the old one and open [uri].
@@ -108,6 +126,9 @@ fun EditScreen(
     val saveState by viewModel.saveState.collectAsStateWithLifecycle()
     val overwriteChoice by viewModel.overwriteChoice.collectAsStateWithLifecycle()
     val canOverwrite by viewModel.canOverwrite.collectAsStateWithLifecycle()
+    val pendingPdf by viewModel.pendingPdf.collectAsStateWithLifecycle()
+    val pendingImages by viewModel.pendingImages.collectAsStateWithLifecycle()
+    val busy by viewModel.busy.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -120,29 +141,99 @@ fun EditScreen(
     var showSaveDialog by rememberSaveable { mutableStateOf(false) }
     var showOverwriteConfirm by rememberSaveable { mutableStateOf(false) }
     var showUnsaved by rememberSaveable { mutableStateOf(false) }
+    var showAddSource by rememberSaveable { mutableStateOf(false) }
+    var showBlankDialog by rememberSaveable { mutableStateOf(false) }
+    var showImageSource by rememberSaveable { mutableStateOf(false) }
+    var showPickedPagesDialog by rememberSaveable { mutableStateOf(false) }
+    var startToolHandled by rememberSaveable { mutableStateOf(false) }
+    // Pages just added: shown highlighted, in the page grid, scrolled into view.
+    var highlighted by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf(emptySet<String>()) }
+    var scrollToId by rememberSaveable { mutableStateOf<String?>(null) }
+    var autoSaveHandled by rememberSaveable { mutableStateOf(false) }
 
     val copyLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         if (uri != null) viewModel.save(uri, overwrite = false)
     }
+    val copySuffix = resources.getString(if (viewModel.isMerge) R.string.save_merge_suffix else R.string.save_copy_suffix)
     val startSave = {
         showSaveDialog = false
         if (overwriteChoice && canOverwrite) {
             showOverwriteConfirm = true
         } else {
-            copyLauncher.launch(viewModel.suggestedCopyName(resources.getString(R.string.save_copy_suffix)))
+            copyLauncher.launch(viewModel.suggestedCopyName(copySuffix))
         }
+    }
+
+    // The pickers of phase 3. Read access is kept when the provider allows it, so a save
+    // resumed by the system can still read the added PDF.
+    val pdfPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            context.takePersistableAccess(uri)
+            viewModel.openPdfToAdd(uri)
+        }
+    }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris ->
+        viewModel.pickImages(uris)
+    }
+    val imageFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        viewModel.pickImages(uris)
     }
 
     LaunchedEffect(saveState) {
         (saveState as? SaveUiState.Overwritten)?.let { onResultReady(it.uri) }
+        // "N pages added · Undo" no longer applies once the document is saved, and it would stack
+        // on top of the "saved" snackbar.
+        if (saveState is SaveUiState.Saved) snackbarHostState.currentSnackbarData?.dismiss()
     }
 
     val ready = uiState as? EditUiState.Ready
     val saving = saveState is SaveUiState.Saving
+    val picking = pendingPdf != null
+    // The "new" marks help find what was just added; picking pages to remove is a different
+    // question, and once saved there is nothing new any more.
+    LaunchedEffect(pane, saveState is SaveUiState.Saved) {
+        if (pane == EditPane.REMOVE || saveState is SaveUiState.Saved) {
+            highlighted = emptySet()
+            scrollToId = null
+        }
+    }
+    // Tools of Home that are a dialog rather than a pane open it as soon as the document is ready;
+    // a merge without editing asks where to save straight away.
+    LaunchedEffect(ready != null) {
+        if (ready == null) return@LaunchedEffect
+        if (!startToolHandled) {
+            startToolHandled = true
+            when (startTool) {
+                PdfTool.ADD_PAGES -> showAddSource = true
+                PdfTool.INSERT_IMAGES -> showImageSource = true
+                else -> Unit
+            }
+        }
+        if (viewModel.autoSave && !autoSaveHandled) {
+            autoSaveHandled = true
+            copyLauncher.launch(viewModel.suggestedCopyName(copySuffix))
+        }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            snackbarHostState.currentSnackbarData?.dismiss()
+            launch {
+                snackbarHostState.showSnackbar(
+                    when (event) {
+                        EditEvent.PdfProtected -> resources.getString(R.string.add_pdf_protected)
+                        EditEvent.PdfUnreadable -> resources.getString(R.string.add_pdf_unreadable)
+                        is EditEvent.ImagesSkipped -> resources.getQuantityString(R.plurals.images_skipped, event.count, event.count)
+                    },
+                )
+            }
+        }
+    }
     // Selection can only hold pages that still exist (undo can bring pages back, remove takes them).
     LaunchedEffect(ready?.session?.pages) {
+        if (picking) return@LaunchedEffect
         val ids = ready?.session?.pages?.map { it.id }?.toSet() ?: return@LaunchedEffect
         if (!ids.containsAll(selection)) selection = selection intersect ids
+        if (!ids.containsAll(highlighted)) highlighted = highlighted intersect ids
         if (rangeAnchor !in ids) rangeAnchor = null
     }
 
@@ -151,6 +242,11 @@ fun EditScreen(
     }
     val handleBack = {
         when {
+            picking -> {
+                viewModel.dropPendingPdf()
+                selection = emptySet()
+                rangeAnchor = null
+            }
             selection.isNotEmpty() -> {
                 selection = emptySet()
                 rangeAnchor = null
@@ -169,6 +265,22 @@ fun EditScreen(
             if (result == SnackbarResult.ActionPerformed) viewModel.undo()
         }
     }
+    // After an addition the page grid shows the new pages marked and scrolls to them, so it is
+    // clear which they are and where they went.
+    val showAdded: (List<String>) -> Unit = showAdded@{ ids ->
+        if (ids.isEmpty()) return@showAdded
+        val count = ids.size
+        highlighted = ids.toSet()
+        scrollToId = ids.first()
+        selection = emptySet()
+        rangeAnchor = null
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val message = resources.getQuantityString(R.plurals.edit_pages_added, count, count)
+            val result = snackbarHostState.showSnackbar(message, actionLabel = resources.getString(R.string.edit_undo), duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed) viewModel.undo()
+        }
+    }
     val showMessage: (String) -> Unit = { message ->
         scope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
@@ -176,13 +288,59 @@ fun EditScreen(
         }
     }
 
+    // No "Merge" in the hub: on an open document it is "Add pages → from another PDF" (author's decision).
+    val hubTools = remember { PdfTool.available.filter { it.requiresDocument && it != PdfTool.MERGE } }
+    val onHubTool: (PdfTool) -> Unit = { tool ->
+        when (tool) {
+            PdfTool.REMOVE_PAGES -> pane = EditPane.REMOVE
+            PdfTool.REORDER_PAGES -> pane = EditPane.REORDER
+            PdfTool.ADD_PAGES -> showAddSource = true
+            PdfTool.INSERT_IMAGES -> showImageSource = true
+            else -> showMessage(resources.getString(R.string.edit_tool_unavailable, resources.getString(tool.labelRes())))
+        }
+    }
+
     Scaffold(
+        // In the bottomBar slot, so snackbars are placed above the tools instead of covering them.
+        bottomBar = {
+            if (ready != null && !picking && pane == EditPane.HUB) HubToolBar(hubTools, onHubTool)
+        },
         topBar = {
             Column {
                 when {
                     ready == null -> TopAppBar(
                         title = {},
                         navigationIcon = { BackButton(onBack) },
+                    )
+                    picking -> TopAppBar(
+                        title = {
+                            Text(
+                                if (selection.isEmpty()) {
+                                    stringResource(R.string.add_pick_pages_title)
+                                } else {
+                                    pluralStringResource(R.plurals.edit_selected_count, selection.size, selection.size)
+                                },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = handleBack) {
+                                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.save_cancel))
+                            }
+                        },
+                        actions = {
+                            val pageCount = pendingPdf?.source?.pageCount ?: 0
+                            IconButton(onClick = { selection = (0 until pageCount).map { "$PICK_ID_PREFIX$it" }.toSet() }) {
+                                Icon(Icons.Filled.SelectAll, contentDescription = stringResource(R.string.edit_select_all))
+                            }
+                            IconButton(onClick = { selection = emptySet(); rangeAnchor = null }, enabled = selection.isNotEmpty()) {
+                                Icon(Icons.Filled.Deselect, contentDescription = stringResource(R.string.add_select_none))
+                            }
+                            IconButton(onClick = { showPickedPagesDialog = true }, enabled = selection.isNotEmpty()) {
+                                Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.add_confirm))
+                            }
+                        },
                     )
                     pane == EditPane.REMOVE && selection.isNotEmpty() -> TopAppBar(
                         title = { Text(pluralStringResource(R.plurals.edit_selected_count, selection.size, selection.size)) },
@@ -227,6 +385,14 @@ fun EditScreen(
                         },
                         navigationIcon = { BackButton(handleBack) },
                         actions = {
+                            if (ready.session.canUndo || ready.session.canRedo) {
+                                IconButton(onClick = viewModel::undo, enabled = ready.session.canUndo) {
+                                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.edit_undo))
+                                }
+                                IconButton(onClick = viewModel::redo, enabled = ready.session.canRedo) {
+                                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.edit_redo))
+                                }
+                            }
                             if (ready.hasUnsavedChanges) SaveAction(enabled = !saving) { showSaveDialog = true }
                         },
                     )
@@ -255,6 +421,8 @@ fun EditScreen(
                         },
                     )
                 }
+                // Reading a picked PDF or copying images can take a moment: show it without blocking the screen.
+                if (busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 // Non-blocking progress (spec §6.7): the screen stays usable.
                 if (saveState is SaveUiState.Saving) {
                     val fraction = (saveState as SaveUiState.Saving).fraction
@@ -287,19 +455,40 @@ fun EditScreen(
                 CircularProgressIndicator()
             }
             is EditUiState.Error -> EditError(state.failure, onBack, Modifier.padding(padding))
-            is EditUiState.Ready -> when (pane) {
-                EditPane.HUB -> EditHub(
-                    onToolClick = { tool ->
-                        when (tool) {
-                            PdfTool.REMOVE_PAGES -> pane = EditPane.REMOVE
-                            PdfTool.REORDER_PAGES -> pane = EditPane.REORDER
-                            else -> showMessage(resources.getString(R.string.edit_tool_unavailable, resources.getString(tool.labelRes())))
+            is EditUiState.Ready -> if (pendingPdf != null) {
+                PickPdfPane(
+                    pending = pendingPdf!!,
+                    selection = selection,
+                    onTap = { page ->
+                        val anchor = rangeAnchor
+                        if (anchor != null) {
+                            val a = anchor.removePrefix(PICK_ID_PREFIX).toIntOrNull()
+                            val b = page.id.removePrefix(PICK_ID_PREFIX).toIntOrNull()
+                            if (a != null && b != null) selection = selection union (minOf(a, b)..maxOf(a, b)).map { "$PICK_ID_PREFIX$it" }
+                            rangeAnchor = null
+                        } else {
+                            selection = if (page.id in selection) selection - page.id else selection + page.id
                         }
                     },
-                    modifier = Modifier.padding(padding),
+                    onLongPress = { page ->
+                        selection = selection + page.id
+                        rangeAnchor = page.id
+                    },
+                    padding = padding,
+                )
+            } else when (pane) {
+                EditPane.HUB -> EditHub(
+                    state = state,
+                    imageThumbnail = { uri -> viewModel.imageThumbnail(uri, THUMBNAIL_PX) },
+                    highlighted = highlighted,
+                    scrollToId = scrollToId,
+                    padding = padding,
                 )
                 EditPane.REMOVE, EditPane.REORDER -> PagesPane(
                     state = state,
+                    imageThumbnail = { uri -> viewModel.imageThumbnail(uri, THUMBNAIL_PX) },
+                    highlighted = highlighted,
+                    scrollToId = scrollToId,
                     mode = if (pane == EditPane.REMOVE) PagesMode.REMOVE else PagesMode.REORDER,
                     selection = selection,
                     onTap = { page ->
@@ -363,6 +552,71 @@ fun EditScreen(
             onDismiss = { showUnsaved = false },
         )
     }
+    if (showAddSource) {
+        AddPagesSourceDialog(
+            onFromPdf = {
+                showAddSource = false
+                pdfPicker.launch(arrayOf(PDF_MIME))
+            },
+            onBlank = {
+                showAddSource = false
+                showBlankDialog = true
+            },
+            onDismiss = { showAddSource = false },
+        )
+    }
+    if (showBlankDialog && ready != null) {
+        BlankPagesDialog(
+            pageCount = ready.session.pageCount,
+            referenceSize = viewModel::referenceSize,
+            mixedSizes = viewModel.hasMixedSizes(),
+            onConfirm = { count, point ->
+                showBlankDialog = false
+                showAdded(viewModel.insertBlankPages(count, point))
+            },
+            onDismiss = { showBlankDialog = false },
+        )
+    }
+    if (showImageSource) {
+        ImageSourceDialog(
+            onPhotos = {
+                showImageSource = false
+                photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onFiles = {
+                showImageSource = false
+                imageFilePicker.launch(arrayOf(IMAGE_MIME))
+            },
+            onDismiss = { showImageSource = false },
+        )
+    }
+    if (pendingImages.isNotEmpty() && ready != null) {
+        ImagesDialog(
+            images = pendingImages,
+            thumbnail = { uri -> viewModel.imageThumbnail(uri, THUMBNAIL_PX) },
+            pageCount = ready.session.pageCount,
+            referenceSize = viewModel::referenceSize,
+            mixedSizes = viewModel.hasMixedSizes(),
+            onConfirm = { mode, point ->
+                showAdded(viewModel.insertPendingImages(mode, point))
+            },
+            onDismiss = viewModel::dropPendingImages,
+        )
+    }
+    if (showPickedPagesDialog && pendingPdf != null && ready != null) {
+        PickedPagesDialog(
+            pickedCount = selection.size,
+            pageCount = ready.session.pageCount,
+            onConfirm = { point ->
+                showPickedPagesDialog = false
+                val indices = selection.mapNotNull { it.removePrefix(PICK_ID_PREFIX).toIntOrNull() }.sorted()
+                selection = emptySet()
+                rangeAnchor = null
+                showAdded(viewModel.insertPendingPdfPages(indices, point))
+            },
+            onDismiss = { showPickedPagesDialog = false },
+        )
+    }
     (saveState as? SaveUiState.Failed)?.let { failed ->
         SaveErrorDialog(failed.failure, onDismiss = viewModel::dismissSaveResult)
     }
@@ -382,49 +636,173 @@ private fun SaveAction(enabled: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** The tools of Home bound to the open document (spec §4.3). */
+/**
+ * The edit hub: the document as it is now (the session's pages, read-only) with the tools of Home
+ * bound to it in a bar at the bottom (spec §4.3, changed at the author's request: a grid of tools
+ * alone looked like Home and didn't show which document was being edited).
+ */
 @Composable
-private fun EditHub(onToolClick: (PdfTool) -> Unit, modifier: Modifier = Modifier) {
-    val tools = remember { PdfTool.available.filter { it.requiresDocument } }
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(100.dp),
-        contentPadding = PaddingValues(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = modifier.fillMaxSize(),
+private fun EditHub(
+    state: EditUiState.Ready,
+    imageThumbnail: (uri: String) -> android.graphics.Bitmap?,
+    highlighted: Set<String>,
+    scrollToId: String?,
+    padding: PaddingValues,
+) {
+    Column(Modifier.padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()).fillMaxSize()) {
+        if (highlighted.isNotEmpty()) {
+            Text(
+                stringResource(R.string.add_review_hint_hub),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+        PagesGrid(
+            pages = state.session.pages,
+            sources = state.sources,
+            imageThumbnail = imageThumbnail,
+            mode = PagesMode.VIEW,
+            selection = emptySet(),
+            onTap = {},
+            onLongPress = {},
+            onCommitMove = { _, _ -> },
+            actions = PageActions({}, {}, {}, {}, {}),
+            contentPadding = PaddingValues(16.dp),
+            modifier = Modifier.weight(1f),
+            highlighted = highlighted,
+            scrollToId = scrollToId,
+        )
+    }
+}
+
+/** The document tools as a row of compact buttons, scrollable on narrow screens. */
+@Composable
+private fun HubToolBar(tools: List<PdfTool>, onToolClick: (PdfTool) -> Unit, modifier: Modifier = Modifier) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier.fillMaxWidth()) {
+        Row(
+            Modifier
+                .navigationBarsPadding()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            tools.forEach { tool -> HubToolButton(tool, onClick = { onToolClick(tool) }) }
+        }
+    }
+}
+
+@Composable
+private fun HubToolButton(tool: PdfTool, onClick: () -> Unit) {
+    val accent = tool.isSignatureAction
+    Column(
+        Modifier
+            .width(76.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 6.dp, horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        items(tools, key = { it.name }) { tool -> ToolButton(tool, onClick = { onToolClick(tool) }) }
+        Surface(
+            shape = CircleShape,
+            color = if (accent) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.size(40.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    tool.icon(),
+                    contentDescription = null,
+                    tint = if (accent) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+        Text(
+            stringResource(tool.labelRes()),
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
 @Composable
 private fun PagesPane(
     state: EditUiState.Ready,
+    imageThumbnail: (uri: String) -> android.graphics.Bitmap?,
+    highlighted: Set<String>,
+    scrollToId: String?,
     mode: PagesMode,
     selection: Set<String>,
-    onTap: (com.marcogn.pdftoolkit.domain.edit.PageItem) -> Unit,
-    onLongPress: (com.marcogn.pdftoolkit.domain.edit.PageItem) -> Unit,
+    onTap: (PageItem) -> Unit,
+    onLongPress: (PageItem) -> Unit,
     onCommitMove: (Int, Int) -> Unit,
     actions: PageActions,
     padding: PaddingValues,
 ) {
     Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
         Text(
-            stringResource(if (mode == PagesMode.REMOVE) R.string.edit_remove_hint else R.string.edit_reorder_hint),
+            stringResource(
+                when {
+                    highlighted.isNotEmpty() && mode == PagesMode.REORDER -> R.string.add_review_hint
+                    mode == PagesMode.REMOVE -> R.string.edit_remove_hint
+                    else -> R.string.edit_reorder_hint
+                },
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
         PagesGrid(
             pages = state.session.pages,
-            pageSizes = state.pageSizes,
-            thumbnails = state.thumbnails,
+            sources = state.sources,
+            imageThumbnail = imageThumbnail,
             mode = mode,
             selection = selection,
             onTap = onTap,
             onLongPress = onLongPress,
             onCommitMove = onCommitMove,
             actions = actions,
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = padding.calculateBottomPadding() + 24.dp),
+            modifier = Modifier.fillMaxSize(),
+            highlighted = highlighted,
+            scrollToId = scrollToId,
+        )
+    }
+}
+
+/** The pages of the PDF picked to add from, as a grid to select from (spec §6.2). */
+@Composable
+private fun PickPdfPane(
+    pending: PendingPdf,
+    selection: Set<String>,
+    onTap: (PageItem) -> Unit,
+    onLongPress: (PageItem) -> Unit,
+    padding: PaddingValues,
+) {
+    val pages = remember(pending) { List(pending.source.pageCount) { PageItem.FromPdf("$PICK_ID_PREFIX$it", pending.docRef, it) } }
+    val sources = remember(pending) { mapOf(pending.docRef to pending.source) }
+    Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+        Text(
+            stringResource(R.string.add_pick_pages_hint, pending.source.name),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        PagesGrid(
+            pages = pages,
+            sources = sources,
+            imageThumbnail = { null },
+            mode = PagesMode.PICK,
+            selection = selection,
+            onTap = onTap,
+            onLongPress = onLongPress,
+            onCommitMove = { _, _ -> },
+            actions = PageActions({}, {}, {}, {}, {}),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = padding.calculateBottomPadding() + 24.dp),
             modifier = Modifier.fillMaxSize(),
         )
@@ -466,13 +844,17 @@ private fun SavedSnackbar(onOpen: () -> Unit, onShare: () -> Unit, onDismiss: ()
     Snackbar(
         modifier = Modifier.padding(12.dp),
         action = {
+            // A plain TextButton takes the primary colour, unreadable on the snackbar's inverse surface.
+            val actionColors = ButtonDefaults.textButtonColors(contentColor = SnackbarDefaults.actionColor)
             Row {
-                TextButton(onClick = onOpen) { Text(stringResource(R.string.save_open)) }
-                TextButton(onClick = onShare) { Text(stringResource(R.string.save_share)) }
+                TextButton(onClick = onOpen, colors = actionColors) { Text(stringResource(R.string.save_open)) }
+                TextButton(onClick = onShare, colors = actionColors) { Text(stringResource(R.string.save_share)) }
             }
         },
         dismissAction = {
-            IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = null) }
+            IconButton(onClick = onDismiss) {
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close), tint = SnackbarDefaults.dismissActionContentColor)
+            }
         },
     ) {
         Text(stringResource(R.string.save_done))

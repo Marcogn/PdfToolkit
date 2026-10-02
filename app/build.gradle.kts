@@ -124,6 +124,7 @@ dependencies {
     // Theme (DataStore) and per-app language (AppCompatDelegate), as in the reference projects.
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.exifinterface)
 
     // Writes (ADR 0002), page drag & drop (spec §6.4) and the background save (ADR 0003).
     implementation(libs.pdfbox.android)

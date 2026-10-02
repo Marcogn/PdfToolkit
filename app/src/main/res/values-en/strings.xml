@@ -184,4 +184,70 @@
     <string name="save_error_ok">Got it</string>
     <string name="save_channel_name">PDF saving</string>
     <string name="save_notification_title">Saving the PDF</string>
+
+    <!-- Add pages, images and merge (phase 3) -->
+    <string name="add_where">Where to insert</string>
+    <string name="add_at_start">At the start</string>
+    <string name="add_at_end">At the end</string>
+    <string name="add_before_page">Before page</string>
+    <string name="add_after_page">After page</string>
+    <string name="add_page_number">Page number (1–%1$d)</string>
+    <string name="add_from_pdf">From another PDF</string>
+    <string name="add_blank">Blank pages</string>
+    <string name="add_blank_count">Number of pages</string>
+    <string name="add_blank_fewer">One page fewer</string>
+    <string name="add_blank_more">One page more</string>
+    <string name="add_size_used">Size of the new pages: %1$s.</string>
+    <string name="add_size_mixed">The document has pages of different sizes: the one next to the insertion point is used.</string>
+    <string name="add_confirm">Add</string>
+    <string name="add_select_none">Select none</string>
+    <string name="add_pick_pages_title">Choose pages</string>
+    <string name="add_pick_pages_hint">Pages of %1$s. Tap to select; press and hold a page, then tap another for a range.</string>
+    <plurals name="add_pdf_pages_title">
+        <item quantity="one">Add %1$d page</item>
+        <item quantity="other">Add %1$d pages</item>
+    </plurals>
+    <string name="add_pdf_protected">Password-protected PDFs can\'t be added yet.</string>
+    <string name="add_pdf_unreadable">This PDF can\'t be read.</string>
+    <plurals name="edit_pages_added">
+        <item quantity="one">%1$d page added</item>
+        <item quantity="other">%1$d pages added</item>
+    </plurals>
+    <string name="images_from_photos">From photos</string>
+    <string name="images_from_files">From files</string>
+    <plurals name="images_dialog_title">
+        <item quantity="one">%1$d image</item>
+        <item quantity="other">%1$d images</item>
+    </plurals>
+    <string name="images_fit_page">Fit to page</string>
+    <string name="images_fit_page_hint">The page has the size of the neighbouring one; the image is centred and never cropped.</string>
+    <string name="images_original_size">Original size</string>
+    <string name="images_original_size_hint">The page takes the image\'s size (150 DPI if the file has no usable DPI).</string>
+    <plurals name="images_skipped">
+        <item quantity="one">%1$d image can\'t be read and was skipped.</item>
+        <item quantity="other">%1$d images can\'t be read and were skipped.</item>
+    </plurals>
+    <string name="save_merge_suffix">_merged</string>
+    <string name="merge_add">Add PDFs</string>
+    <string name="merge_empty">Choose at least two PDFs to merge into one file.</string>
+    <string name="merge_need_two">At least two files are needed.</string>
+    <string name="merge_action">Merge</string>
+    <string name="merge_and_edit">Merge and edit</string>
+    <string name="merge_form_warning">Some files contain form fields: in the merged PDF they may not work.</string>
+    <string name="merge_protected">%1$s is password-protected: protected PDFs can\'t be merged yet.</string>
+    <string name="merge_unreadable">%1$s can\'t be read.</string>
+    <string name="merge_drag_handle">Drag to reorder</string>
+    <string name="merge_move_up">Move up</string>
+    <string name="merge_move_down">Move down</string>
+    <string name="merge_remove">Remove from the list</string>
+    <string name="add_from_pdf_hint">Choose the pages to copy into this document</string>
+    <string name="add_blank_hint">Insert 1 to 50 blank pages</string>
+    <string name="images_from_photos_hint">Pick from the gallery</string>
+    <string name="images_from_files_hint">Choose from the phone\'s files</string>
+    <string name="add_new_badge">New</string>
+    <string name="add_review_hint">The new pages are highlighted: if they are not where you wanted, drag them into place.</string>
+    <string name="add_review_hint_hub">The new pages are highlighted. To move them, use \"Reorder pages\".</string>
+    <string name="home_pick_pdf_first_images">First choose the PDF to insert the images into, then the images to add.</string>
+    <string name="home_pick_pdf_first_pages">First choose the PDF to add pages to, then where they come from (another PDF or blank pages).</string>
+    <string name="home_pick_pdf_first_confirm">Choose the PDF</string>
 </resources>

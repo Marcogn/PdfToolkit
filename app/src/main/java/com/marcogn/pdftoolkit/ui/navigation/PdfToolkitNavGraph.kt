@@ -1,6 +1,8 @@
 package com.marcogn.pdftoolkit.ui.navigation
 
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -10,7 +12,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -41,6 +46,7 @@ import com.marcogn.pdftoolkit.ui.common.PlaceholderScreen
 import com.marcogn.pdftoolkit.ui.edit.EditScreen
 import com.marcogn.pdftoolkit.ui.home.HomeScreen
 import com.marcogn.pdftoolkit.ui.home.labelRes
+import com.marcogn.pdftoolkit.ui.merge.MergeScreen
 import com.marcogn.pdftoolkit.ui.recents.RecentsScreen
 import com.marcogn.pdftoolkit.ui.recents.RecentsViewModel
 import com.marcogn.pdftoolkit.ui.settings.SettingsScreen
@@ -75,6 +81,12 @@ private val navPopExitTransition: AnimatedContentTransitionScope<NavBackStackEnt
     slideOutHorizontally(tween(NAV_EXIT_MS, easing = FastOutSlowInEasing)) { it / SLIDE_FRACTION } +
         fadeOut(tween(NAV_EXIT_MS))
 }
+
+/** Tools of Home that work on one open PDF and open straight on their pane or dialog (spec §4.1). */
+private val pageTools = setOf(PdfTool.ADD_PAGES, PdfTool.INSERT_IMAGES, PdfTool.REMOVE_PAGES, PdfTool.REORDER_PAGES)
+
+/** Page tools that, after the PDF, ask for more files (images, another PDF): a dialog explains the order first. */
+private val toolsPickingTwice = setOf(PdfTool.ADD_PAGES, PdfTool.INSERT_IMAGES)
 
 private val drawerDestinations = listOf(
     Destination.Home,
@@ -164,12 +176,22 @@ fun PdfToolkitNavGraph(
                 // opens the picker is guarded.
                 // A page tool tapped on Home picks the file first and then opens straight on the tool (spec §4.1).
                 var pendingTool by rememberSaveable { mutableStateOf<String?>(null) }
+                // Tools that pick a second file after the PDF say so first: otherwise the PDF picker
+                // looks like the wrong one ("I wanted images").
+                var explainTool by rememberSaveable { mutableStateOf<String?>(null) }
                 val openPdf = rememberOpenPdfLauncher { uri ->
                     val tool = pendingTool
                     pendingTool = null
                     navController.navigate(
                         if (tool == null) Destination.Viewer(uri.toString()) else Destination.Edit(uri.toString(), tool),
                     )
+                }
+                // "Merge PDFs" picks the files first, then opens the merge list (spec §6.6).
+                val mergePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+                    if (uris.isNotEmpty()) {
+                        uris.forEach { context.takePersistableAccess(it) }
+                        navController.navigate(Destination.Merge(uris.map { it.toString() }))
+                    }
                 }
                 HomeScreen(
                     onMenuClick = openDrawer,
@@ -189,16 +211,46 @@ fun PdfToolkitNavGraph(
                             // Same screen as the drawer entry, so same navigation: this way
                             // two copies never pile up on the back stack.
                             navigateFromDrawer(Destination.Signatures)
-                        } else if (tool == PdfTool.REMOVE_PAGES || tool == PdfTool.REORDER_PAGES) {
+                        } else if (tool == PdfTool.MERGE) {
+                            if (entry.lifecycleIsResumed()) mergePicker.launch(arrayOf("application/pdf"))
+                        } else if (tool in pageTools) {
                             if (entry.lifecycleIsResumed()) {
-                                pendingTool = tool.name
-                                openPdf()
+                                if (tool in toolsPickingTwice) {
+                                    explainTool = tool.name
+                                } else {
+                                    pendingTool = tool.name
+                                    openPdf()
+                                }
                             }
                         } else if (entry.lifecycleIsResumed()) {
                             navController.navigate(Destination.Tool(tool.name))
                         }
                     },
                 )
+                explainTool?.let { name ->
+                    val tool = PdfTool.valueOf(name)
+                    AlertDialog(
+                        onDismissRequest = { explainTool = null },
+                        title = { Text(stringResource(tool.labelRes())) },
+                        text = {
+                            Text(
+                                stringResource(
+                                    if (tool == PdfTool.INSERT_IMAGES) R.string.home_pick_pdf_first_images else R.string.home_pick_pdf_first_pages,
+                                ),
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    explainTool = null
+                                    pendingTool = name
+                                    openPdf()
+                                },
+                            ) { Text(stringResource(R.string.home_pick_pdf_first_confirm)) }
+                        },
+                        dismissButton = { TextButton(onClick = { explainTool = null }) { Text(stringResource(R.string.save_cancel)) } },
+                    )
+                }
             }
             composable<Destination.Viewer> { entry ->
                 ViewerScreen(
@@ -219,6 +271,17 @@ fun PdfToolkitNavGraph(
                     onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
                     onResultReady = showResult,
                     onOpenCopy = { uri -> if (entry.lifecycleIsResumed()) showResult(uri) },
+                )
+            }
+            composable<Destination.Merge> { entry ->
+                MergeScreen(
+                    onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
+                    onMerge = { uris, edit ->
+                        // The first file is the main document of the edit; the others are added to it.
+                        if (entry.lifecycleIsResumed() && uris.size >= 2) {
+                            navController.navigate(Destination.Edit(uri = uris.first(), mergeWith = uris.drop(1), autoSave = !edit))
+                        }
+                    },
                 )
             }
             composable<Destination.Tool> { entry ->
