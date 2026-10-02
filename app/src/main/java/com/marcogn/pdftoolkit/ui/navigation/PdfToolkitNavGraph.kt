@@ -12,7 +12,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -81,6 +84,9 @@ private val navPopExitTransition: AnimatedContentTransitionScope<NavBackStackEnt
 
 /** Tools of Home that work on one open PDF and open straight on their pane or dialog (spec §4.1). */
 private val pageTools = setOf(PdfTool.ADD_PAGES, PdfTool.INSERT_IMAGES, PdfTool.REMOVE_PAGES, PdfTool.REORDER_PAGES)
+
+/** Page tools that, after the PDF, ask for more files (images, another PDF): a dialog explains the order first. */
+private val toolsPickingTwice = setOf(PdfTool.ADD_PAGES, PdfTool.INSERT_IMAGES)
 
 private val drawerDestinations = listOf(
     Destination.Home,
@@ -170,6 +176,9 @@ fun PdfToolkitNavGraph(
                 // opens the picker is guarded.
                 // A page tool tapped on Home picks the file first and then opens straight on the tool (spec §4.1).
                 var pendingTool by rememberSaveable { mutableStateOf<String?>(null) }
+                // Tools that pick a second file after the PDF say so first: otherwise the PDF picker
+                // looks like the wrong one ("I wanted images").
+                var explainTool by rememberSaveable { mutableStateOf<String?>(null) }
                 val openPdf = rememberOpenPdfLauncher { uri ->
                     val tool = pendingTool
                     pendingTool = null
@@ -206,14 +215,42 @@ fun PdfToolkitNavGraph(
                             if (entry.lifecycleIsResumed()) mergePicker.launch(arrayOf("application/pdf"))
                         } else if (tool in pageTools) {
                             if (entry.lifecycleIsResumed()) {
-                                pendingTool = tool.name
-                                openPdf()
+                                if (tool in toolsPickingTwice) {
+                                    explainTool = tool.name
+                                } else {
+                                    pendingTool = tool.name
+                                    openPdf()
+                                }
                             }
                         } else if (entry.lifecycleIsResumed()) {
                             navController.navigate(Destination.Tool(tool.name))
                         }
                     },
                 )
+                explainTool?.let { name ->
+                    val tool = PdfTool.valueOf(name)
+                    AlertDialog(
+                        onDismissRequest = { explainTool = null },
+                        title = { Text(stringResource(tool.labelRes())) },
+                        text = {
+                            Text(
+                                stringResource(
+                                    if (tool == PdfTool.INSERT_IMAGES) R.string.home_pick_pdf_first_images else R.string.home_pick_pdf_first_pages,
+                                ),
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    explainTool = null
+                                    pendingTool = name
+                                    openPdf()
+                                },
+                            ) { Text(stringResource(R.string.home_pick_pdf_first_confirm)) }
+                        },
+                        dismissButton = { TextButton(onClick = { explainTool = null }) { Text(stringResource(R.string.save_cancel)) } },
+                    )
+                }
             }
             composable<Destination.Viewer> { entry ->
                 ViewerScreen(
@@ -232,7 +269,6 @@ fun PdfToolkitNavGraph(
                 EditScreen(
                     startTool = entry.toRoute<Destination.Edit>().tool?.let { PdfTool.valueOf(it) },
                     onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
-                    onMerge = { uris -> if (entry.lifecycleIsResumed()) navController.navigate(Destination.Merge(uris)) },
                     onResultReady = showResult,
                     onOpenCopy = { uri -> if (entry.lifecycleIsResumed()) showResult(uri) },
                 )

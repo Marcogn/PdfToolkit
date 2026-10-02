@@ -106,7 +106,6 @@ private val SelectionSaver = listSaver<Set<String>, String>(save = { it.toList()
  *
  * @param startTool the tool tapped on Home, which opens straight on its pane or dialog (spec §4.1); null from the viewer.
  * @param onBack leaves the edit.
- * @param onMerge the user picked more PDFs to merge with this one; [uris] has this PDF first (spec §6.6).
  * @param onResultReady an overwrite finished: the original has new content, so the caller must
  * drop any screen still showing the old one and open [uri].
  * @param onOpenCopy opens the saved copy.
@@ -116,7 +115,6 @@ private val SelectionSaver = listSaver<Set<String>, String>(save = { it.toList()
 fun EditScreen(
     startTool: PdfTool?,
     onBack: () -> Unit,
-    onMerge: (uris: List<String>) -> Unit,
     onResultReady: (uri: String) -> Unit,
     onOpenCopy: (uri: String) -> Unit,
     viewModel: EditViewModel = hiltViewModel(),
@@ -163,7 +161,7 @@ fun EditScreen(
         }
     }
 
-    // The three pickers of phase 3. Read access is kept when the provider allows it, so a save
+    // The pickers of phase 3. Read access is kept when the provider allows it, so a save
     // resumed by the system can still read the added PDF.
     val pdfPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -176,12 +174,6 @@ fun EditScreen(
     }
     val imageFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         viewModel.pickImages(uris)
-    }
-    val mergePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (uris.isNotEmpty()) {
-            uris.forEach { context.takePersistableAccess(it) }
-            onMerge(listOf(viewModel.sourceUri) + uris.map { it.toString() })
-        }
     }
 
     LaunchedEffect(saveState) {
@@ -475,14 +467,6 @@ fun EditScreen(
                             PdfTool.REORDER_PAGES -> pane = EditPane.REORDER
                             PdfTool.ADD_PAGES -> showAddSource = true
                             PdfTool.INSERT_IMAGES -> showImageSource = true
-                            PdfTool.MERGE ->
-                                // The merge starts from the file this screen was opened on: edits made
-                                // here (even if already saved as a copy) would be left out.
-                                if (state.session.isModified) {
-                                    showMessage(resources.getString(R.string.merge_save_first))
-                                } else {
-                                    mergePicker.launch(arrayOf(PDF_MIME))
-                                }
                             else -> showMessage(resources.getString(R.string.edit_tool_unavailable, resources.getString(tool.labelRes())))
                         }
                     },
@@ -653,7 +637,8 @@ private fun EditHub(
     padding: PaddingValues,
     onToolClick: (PdfTool) -> Unit,
 ) {
-    val tools = remember { PdfTool.available.filter { it.requiresDocument } }
+    // No "Merge" here: on an open document it is "Add pages → from another PDF" (author's decision).
+    val tools = remember { PdfTool.available.filter { it.requiresDocument && it != PdfTool.MERGE } }
     Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
         if (highlighted.isNotEmpty()) {
             Text(

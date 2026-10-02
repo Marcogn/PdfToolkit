@@ -195,8 +195,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - The hub is the session's pages (`PagesGrid` in `PagesMode.VIEW`, read-only) plus `HubToolBar` at
   the bottom. After an addition the new page ids are highlighted and scrolled to (`highlighted` /
   `scrollToId` in `EditScreen`); the marks clear on the remove pane and after a save.
-- The hub's "Merge" works only on an unmodified session: it merges the file the screen was opened
-  on, so edits (even saved as a copy) would be lost; the message says to open the saved file.
+- Merge is only on Home (`Destination.Merge`); the hub leaves it out, its job there is "Add pages →
+  from another PDF". Home's "Add pages" / "Insert images" show a dialog before the PDF picker
+  (`toolsPickingTwice` in the nav graph).
 - `importPage` keeps link annotations whose destinations point into the source PDF: those page
   objects (and what they reach) are written as unreferenced objects, so a merged file with internal
   links can be larger than the sum of its pages. Valid PDF, not addressed.
@@ -213,6 +214,10 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-02 · No "Merge PDFs" in the edit hub (spec §6.6 has "Unisci con altro PDF" there): on an
+  open document it duplicates "Add pages → from another PDF" (author's decision after the device
+  test). It also never worked from the hub: its navigation came from an activity result and went
+  through the `lifecycleIsResumed()` guard, which drops it (see Non-obvious rules).
 - 2026-10-01 · Edit hub: page thumbnails of the session with the tools in a bottom bar, instead of
   the tool grid of spec §4.3 (author's request after the phase 3 device test: the tool grid looked
   like Home and didn't show the document being edited).

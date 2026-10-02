@@ -16,10 +16,12 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
   (150 DPI when the file has no usable DPI). Photos are saved as JPEG (quality 85, longest side at most
   3000 px when fitting) and images with transparency stay lossless; the camera's EXIF orientation
   is respected and HEIC/HEIF/AVIF are decoded by Android where the device supports them.
-- **Merge PDFs.** Pick two or more PDFs from Home (or "Merge PDFs" in the edit hub, which starts
-  from the open file), reorder them by dragging, swipe to remove one, "+" to add more. **Merge** asks
+- **Merge PDFs.** Pick two or more PDFs from Home, reorder them by dragging, swipe to remove one, "+" to add more. **Merge** asks
   where to save the new file (`<first name>_unito.pdf`); **Merge and edit** opens the edit hub on the
   merged pages first. Files with form fields get a warning.
+- **Clearer tool flows.** "Add pages" and "Insert images" on Home first say that the PDF is
+  chosen before the pages or images. The edit hub no longer has "Merge PDFs": on an open document
+  that is "Add pages → From another PDF" (it also did nothing when used from the hub).
 - **Edit hub shows the document.** The edit hub now shows the thumbnails of the pages as they are
   (after merges, additions, removals and rotations), with the tools in a bar at the bottom and undo
   and redo at the top, instead of a grid of tools that looked like Home.
