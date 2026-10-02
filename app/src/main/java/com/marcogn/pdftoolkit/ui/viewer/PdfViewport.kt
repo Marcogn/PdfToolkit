@@ -166,13 +166,15 @@ private fun DrawScope.drawBitmap(bitmap: ImageBitmap, dst: Rect) {
 /**
  * Pinch and pan with any number of fingers, fling when the last finger lifts after a one-finger
  * pan. A touch stops the running animation. Changes are consumed only past the touch slop, so
- * the tap detector still sees taps and double taps.
+ * the tap detector still sees taps and double taps. While [suppressed] is true the gesture is
+ * left alone: another detector owns it.
  */
 internal suspend fun PointerInputScope.detectZoomPanFling(
     state: PdfViewportState,
     scope: CoroutineScope,
     decay: DecayAnimationSpec<Float>,
     yieldHorizontalToParent: Boolean,
+    suppressed: () -> Boolean = { false },
 ) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
@@ -190,6 +192,11 @@ internal suspend fun PointerInputScope.detectZoomPanFling(
             val event = awaitPointerEvent()
             val pressed = event.changes.filter { it.pressed }
             if (pressed.isEmpty()) break
+            // Something else (an overlay being moved) has taken this gesture.
+            if (suppressed()) {
+                state.isInteracting = false
+                return@awaitEachGesture
+            }
 
             val zoomChange = event.calculateZoom()
             val panChange = event.calculatePan()

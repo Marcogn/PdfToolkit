@@ -237,7 +237,10 @@ private fun FillPages(
                     pageColor = androidx.compose.ui.graphics.Color.White,
                     backgroundColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                     selectionColor = MaterialTheme.colorScheme.primary,
+                    toolArmed = state.tool != null,
                     onTap = { user, display -> onPageTap(page, space, user, display, overlays, state, actions) },
+                    onOverlaySelect = { state.selected = it },
+                    onOverlayChange = actions::updateOverlay,
                     onFieldChange = actions::setField,
                 )
             }
@@ -301,10 +304,10 @@ private fun onPageTap(
 fun FillToolBar(state: FillPaneState, overlays: List<Overlay>, actions: FillActions, onPickSignature: () -> Unit) {
     val selected = state.selected?.let { id -> overlays.firstOrNull { it.id == id } }
     Column {
-        if (state.tool != null) {
+        if (state.tool != null || selected != null) {
             Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    stringResource(R.string.fill_hint_place),
+                    stringResource(if (selected != null) R.string.fill_hint_move else R.string.fill_hint_place),
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(8.dp),

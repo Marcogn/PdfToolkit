@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.marcogn.pdftoolkit.data.recents.AppDatabase
 import com.marcogn.pdftoolkit.data.recents.RecentDocumentDao
+import com.marcogn.pdftoolkit.data.signatures.SignatureDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,8 +19,13 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, "pdftoolkit.db").build()
+        Room.databaseBuilder(context, AppDatabase::class.java, "pdftoolkit.db")
+            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .build()
 
     @Provides
     fun provideRecentDocumentDao(database: AppDatabase): RecentDocumentDao = database.recentDocumentDao()
+
+    @Provides
+    fun provideSignatureDao(database: AppDatabase): SignatureDao = database.signatureDao()
 }

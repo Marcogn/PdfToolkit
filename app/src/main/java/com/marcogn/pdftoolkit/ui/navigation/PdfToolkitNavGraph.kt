@@ -50,6 +50,7 @@ import com.marcogn.pdftoolkit.ui.merge.MergeScreen
 import com.marcogn.pdftoolkit.ui.recents.RecentsScreen
 import com.marcogn.pdftoolkit.ui.recents.RecentsViewModel
 import com.marcogn.pdftoolkit.ui.settings.SettingsScreen
+import com.marcogn.pdftoolkit.ui.signatures.SignaturesScreen
 import com.marcogn.pdftoolkit.ui.viewer.ViewerScreen
 import com.marcogn.pdftoolkit.ui.viewer.rememberOpenPdfLauncher
 import com.marcogn.pdftoolkit.ui.viewer.takePersistableAccess
@@ -304,7 +305,7 @@ fun PdfToolkitNavGraph(
                 )
             }
             composable<Destination.Signatures> {
-                PlaceholderScreen(title = stringResource(R.string.drawer_signatures), onMenuClick = openDrawer)
+                SignaturesScreen(onMenuClick = openDrawer)
             }
             composable<Destination.Settings> {
                 SettingsScreen(onMenuClick = openDrawer)

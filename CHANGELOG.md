@@ -17,9 +17,18 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
   with an embedded Noto Sans font, so accents come out right and they show in any reader, rotated
   pages included; form values get their appearance written too (switching to Noto Sans when the
   form's font lacks a character).
-- **Limits.** For now the signature is any image picked from the gallery (the signature archive and
-  drawing come next); placed items can't be moved or resized yet (delete and place again). XFA forms
-  aren't supported: free filling still works.
+- **My signatures.** The new archive (drawer or Home) keeps your signatures on the phone, private to
+  the app and left out of Android's backup. Add one by **drawing** it (full-screen landscape canvas, black or
+  blue ink whose line thickens when you slow down, Clear / Undo stroke / Save) or **from an image** (crop
+  with the corners, "Remove the background" with a threshold slider, preview on a chequer). Rename,
+  mark one as your favourite (listed first) or delete it. The first time, a note says a signature is an
+  image, not a certified digital signature.
+- **Signature in Fill and sign.** The Signature tool now offers the archive (or "New signature" on
+  the spot) instead of any gallery image.
+- **Move, resize, rotate.** In "Fill and sign" a selected item follows one finger and is resized and
+  turned with two (proportions kept; text changes its font size). **Press and hold** any placed item
+  to select it and drag it into place. One gesture is one undo step.
+- **Limits.** XFA forms aren't supported: free filling still works.
 - **Add pages.** The edit hub's "Add pages" (also on Home) inserts pages from another PDF (pick the
   file, then select pages with "all", "none" and ranges) or blank pages (1 to 50, sized like the
   neighbouring page, with the size shown). New pages go at the start, at the end, or before/after a

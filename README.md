@@ -13,9 +13,10 @@ from a file manager ("Open with") and from the share sheet, in continuous or sin
 with zoom, scrubber, thumbnail bar, password support (Android 15+), recent files with the last page
 read, and the related settings. Page editing (phase 2) is in as well: remove, reorder and rotate
 pages with undo/redo, and save as a copy or overwrite, in the background. Adding pages (from another
-PDF, blank, from images) and merging PDFs (phase 3) are in too. Fill and sign is in progress
-(phase 4): form fields, text, dates, ticks and crosses, and an image as signature are written into
-the page; the signature archive, drawing a signature and moving placed items come next.
+PDF, blank, from images) and merging PDFs (phase 3) are in too. Fill and sign (phase 4) is complete:
+form fields, text, dates, ticks and crosses, and signatures are written into the page; signatures
+are drawn or imported into an archive ("My signatures") and every placed item can be moved, resized
+and turned with the fingers. Text search is next.
 
 ## Features
 
@@ -26,7 +27,7 @@ Planned for the first version:
 - merging several PDFs (done)
 - removing, reordering and rotating pages (done); adding pages from another PDF, blank, or from
   images (done)
-- form filling and signing (in progress: forms, text, date, ticks, image signature), with an
+- form filling and signing (done: forms, text, date, ticks, signatures drawn or imported), with an
   archive of signatures saved on the phone
 
 Planned for later: document scanning with OCR, cloud upload (WebDAV), highlighting, freehand
@@ -61,7 +62,7 @@ secret lets "Release" commit the version bump to `main`.
 app/src/main/java/com/marcogn/pdftoolkit/
   ui/        Compose screens, navigation and theme
   domain/    models with no Android dependencies
-  data/      preferences (DataStore), recent documents (Room), background save (save/), picked images (images/), later signatures
+  data/      preferences (DataStore), recent documents and signatures (Room), background save (save/), picked images (images/)
   pdf/       PDF rendering (render/), editing (edit/) and forms (forms/), later text search
   di/        Hilt modules
 docs/
@@ -97,8 +98,12 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   on Android 8 only the formats `BitmapFactory` reads are expected to work (JPEG, PNG, WebP, GIF). A photo's DPI is used
   for "original size" only when it is 100 or more, otherwise 150 DPI is assumed (cameras often write
   72, which would make a page over a metre wide).
-- Fill and sign: the signature is, for now, any image picked from the gallery (no transparency for
-  photos); placed items can't be moved or resized yet; XFA forms are not supported (free filling
+- Signatures are images placed on the page, not digital signatures with a certificate: they have
+  no legal value as a qualified electronic signature (the app says so the first time you create one,
+  and in About). The archive is private to the app and excluded from Android's backup, so a new
+  phone starts without them. Background removal is a brightness threshold: a photo with uneven
+  light may need the slider, or a tighter crop.
+- Fill and sign: XFA forms are not supported (free filling
   still works, and a form that also has XFA data loses it when its fields are filled, so other
   readers show the new values); "Next" on the keyboard moves between the fields of one page.
   Pages in "Fill and sign" are not tiled like in the viewer: at high zoom they look softer.

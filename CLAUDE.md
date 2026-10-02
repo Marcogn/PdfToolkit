@@ -81,15 +81,18 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   (`Destination`), NavHost and drawer; `ui/theme/` palette (`Color.kt`) and theme.
 - `domain/` models with no Android dependencies (`PdfTool`, `ThemeMode`, `domain/edit/`:
   `EditSession`, `PageItem`, `SaveFailure`; `domain/fill/`: overlays, `FieldValue`, `FormField`,
-  `TextBlock`, `MarkShape`).
+  `TextBlock`, `MarkShape`; `domain/signature/`: `InkStroke`/`InkWidth`, `BackgroundRemoval`).
 - `data/` DataStore (`data/settings/ThemePreferences`, `ReadingPreferences`), Room
-  (`data/recents/`: `AppDatabase`, `RecentDocument`, `RecentsRepository`, `ThumbnailStore`),
-  background save (`data/save/`: `SaveScheduler`, `SaveWorker`, `PdfSaver`), later signatures. Room schemas are exported to `app/schemas/` and committed.
+  (`data/recents/`: `AppDatabase` (v2, `MIGRATION_1_2`), `RecentDocument`, `RecentsRepository`, `ThumbnailStore`),
+  signatures (`data/signatures/`: `Signature`, `SignatureDao`, `SignatureRepository`,
+  `SignatureRendering`), background save (`data/save/`: `SaveScheduler`, `SaveWorker`, `PdfSaver`).
+  Room schemas are exported to `app/schemas/` and committed.
 - `pdf/render` (phase 1): `PdfDocumentRenderer`, `RenderScheduler`/`RenderPlanner`, `PageThumbnails`, caches, and
   the geometry shared by all phases (`DocumentLayout`, `Viewport`, `PageCoordinateMapper`).
   `pdf/edit` (phase 2: `PdfEditor`, `PdfBoxEditor`; phase 4: `FillWriter`, `FontSource`, `FontCoverage`),
   `pdf/forms` (phase 4: `FormReader`), `pdf/text` from phase 5 (spec §12). `ui/fill/` is the
-  "Fill and sign" pane of `EditScreen`.
+  "Fill and sign" pane of `EditScreen`; `ui/signatures/` is "My signatures" plus the creation flow
+  (draw, import) and the picker sheet that `EditScreen` reuses.
 - `di/` Hilt modules, when needed.
 
 ## Non-obvious rules
@@ -109,6 +112,10 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   annotations. Overlays are stored in **PDF user space** (`OverlayBox`: centre, size, angle), so they
   turn with their page; screen and writer both go through `OverlayGeometry` + `PdfPageSpace`, and
   text layout through `TextBlock` (Noto Sans metrics as constants, kerning/ligatures off on screen).
+- Overlay gestures (`ui/fill/OverlayGestures`): the overlay handler sits after `detectZoomPanFling`
+  and tells it to stand down through `OverlayGrab.active` (`suppressed` parameter). Live changes are
+  a local copy in `FillPage`, committed once on lift (one undo step); the maths is
+  `OverlayGeometry.transformed` + `UserTransform`, in user space.
 - Search highlights are overlay only, never written into the PDF.
 - No `INTERNET` permission in product phase 1: the manifest removes it with `tools:node="remove"`
   and CI checks the packaged manifest. Don't add dependencies that need it.
@@ -167,29 +174,28 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   and `assembleDebug` green; device checks passed (author).
 - **4a Fill and sign core done (2026-10-02)**, PR #8; lint, 194 unit tests and `assembleDebug`
   green; device checks passed (author). Follow-up fix: form controls on a turned page now turn with
-  it (they showed the text across the field). **Next: phase 4b Fill and sign complete (Sonnet).**
+  it (they showed the text across the field).
+- **4b Fill and sign complete done (2026-10-02)**, PR pending; lint (0 errors), 219 unit tests and
+  `assembleDebug` green; device checks pending (author). **Next: phase 5a Search core (Opus).**
 - The author still has to add the signing secrets to the repository.
 
-### Handoff for 4b (from 4a)
+### Notes from phase 4 (fill and sign)
 - Model: `EditSession.fill` (`FillContent`: `overlays`, `fields`) is part of the undo history;
-  `addOverlay/updateOverlay/removeOverlay`, `setField(name, value, typing)` (typing = one undo step
-  per field). `encodeFill()` → `SavedStateHandle` (`fill`) and `SaveRequest.fill`; `flattenForm` too.
-- Geometry: place with `OverlayGeometry.uprightAt(space, displayPoint, w, h)`; move = change
-  `centerX/centerY` (user space, convert a screen drag with `PageCoordinateMapper.screenToUser`);
-  resize keeping a corner = `resizedFromTopLeft` (add others the same way); free rotation = `angle`
-  (degrees ccw in user space; `PdfPageSpace.displayAngle/userAngle`). The writer already handles any angle.
-- UI: `ui/fill/FillPane` (pager of `FillPage`, `FillToolBar`, `FillPaneState`), `OverlayPainter`
-  draws overlays on screen like the writer. Tap places; tap selects (Edit text / Delete / Done).
-  Missing for 4b: drag/resize/rotate gestures on the selected overlay (author, after the 4a device
-  test: **long press and drag** moves a placed item to adjust its position; tap keeps edit/delete), signature archive (Room,
-  `filesDir/signatures/`) replacing the temporary "pick any image" (`EditScreen.signaturePicker`,
-  `EditViewModel.importOverlayImage`), drawing canvas, import with background removal, legal note
-  (spec §6.5, also in About), `PdfTool.MY_SIGNATURES` screen (still a placeholder).
-- Writing: `FillWriter` (values with appearances, Noto Sans fallback for missing glyphs; flatten;
-  overlays appended with `resetContext`); image overlays decoded ≤ 1600 px, PNG with alpha kept.
+  `addOverlay/updateOverlay/removeOverlay`, `setField(name, value, typing)`. `encodeFill()` →
+  `SavedStateHandle` (`fill`) and `SaveRequest.fill`.
+- Geometry: place with `OverlayGeometry.uprightAt`; gestures through `OverlayGeometry.transformed`
+  (move, pinch scale, twist; text scales its font size). `PdfPageSpace.displayAngle/userAngle` for angles.
+- Signatures: Room table `signatures` (v2), PNGs in `filesDir/signatures/`; `SignaturesViewModel`
+  (Hilt) serves "My signatures" and the picker sheet. Placing copies the PNG to `cacheDir/images/`
+  (`EditViewModel.importOverlayImage`), so deleting a signature never breaks an unsaved session.
+  Creation state (`SignatureCreationState`) is saved across rotation; the drawing dialog forces
+  landscape while open. The legal note shows once (DataStore `signature_prefs`) before the first
+  creation, and is in About.
 - Known limits: no tiling in the fill pane (one bitmap per page, ≤ 4 Mpx); "Next" moves only within
   the current page; static XFA is removed when fields are filled or flattened; flatten-before-merge
-  (spec §6.6) not done yet; fields of PDFs added to the session (not the main one) aren't fillable.
+  (spec §6.6) not done yet; fields of PDFs added to the session (not the main one) aren't fillable;
+  an overlay can't be resized on one axis (proportions are locked); the crop in the import dialog
+  has corner handles only; the signature drawing isn't smoothed beyond the width (straight segments).
 
 ### Notes for phase 4 onwards (edit, from phase 3)
 - Edit code: `domain/edit/` (`EditSession`: immutable, undo/redo by swapping lists, `isModified`
@@ -242,6 +248,22 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-02 · Phase 4b: the drawing canvas is my own Compose implementation (spec allows it, or
+  `androidx.ink`): per-point width from finger speed (`InkWidth`, smoothed, 0.55–1.25 × base), drawn
+  as round-capped segments; strokes are rendered to a transparent PNG cropped to their bounds (max
+  1600 px). Avoids a new dependency.
+- 2026-10-02 · Phase 4b: the signature archive is created from a dialog flow rather than nav
+  destinations, so "create on the spot" from the fill pane returns without touching the nav graph;
+  its state is saved across rotation. A new signature is saved straight away with a default name
+  ("Firma N") and renamed from the archive, to keep the flow short.
+- 2026-10-02 · Phase 4b: "remove background" is a luminance threshold with a soft ramp
+  (`BackgroundRemoval`, default 0.75, slider 0.3–0.95) and then trims to the ink; spec §6.5 says
+  "soglia sul bianco → trasparente". The result is trimmed only when the background is removed.
+- 2026-10-02 · Phase 4b: gestures on overlays: a touch that starts on the selected overlay (20 dp
+  margin) drags/pinches it; long press on any other one selects and drags (author's request after
+  the 4a device test). Pinch scales with locked proportions (spec), text scales via font size.
+- 2026-10-02 · Phase 4b: the legal note is a once-only dialog before the first creation (DataStore
+  flag), not a permanent banner; it is also in About (already there from phase 0).
 - 2026-10-02 · Phase 4a: overlays and form values live in `EditSession` (one undo history for pages
   and fill) rather than as a separate `overlays` argument of `applySession` (spec §12): the session
   already travels to the save; `WriteOptions(flattenForm)` carries the save-time choice.
