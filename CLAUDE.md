@@ -165,9 +165,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   rotation were laid out with zero height (blank cells).
 - **Phase 3 Add pages and merge done (2026-10-01)**, PR #7 merged; lint (0 errors), 144 unit tests
   and `assembleDebug` green; device checks passed (author).
-- **4a Fill and sign core implemented (2026-10-02)**, PR #8; lint, 194 unit tests and
-  `assembleDebug` green; device checks passed (author) except fields on a turned page, where the
-  control showed the text across the field: fixed (the control now turns with the page), to recheck. **Next: phase 4b Fill and sign complete (Sonnet).**
+- **4a Fill and sign core done (2026-10-02)**, PR #8; lint, 194 unit tests and `assembleDebug`
+  green; device checks passed (author). Follow-up fix: form controls on a turned page now turn with
+  it (they showed the text across the field). **Next: phase 4b Fill and sign complete (Sonnet).**
 - The author still has to add the signing secrets to the repository.
 
 ### Handoff for 4b (from 4a)
