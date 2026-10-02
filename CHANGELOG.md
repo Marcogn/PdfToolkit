@@ -19,6 +19,9 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 - **Merge PDFs.** Pick two or more PDFs from Home, reorder them by dragging, swipe to remove one, "+" to add more. **Merge** asks
   where to save the new file (`<first name>_unito.pdf`); **Merge and edit** opens the edit hub on the
   merged pages first. Files with form fields get a warning.
+- **Save snackbar.** "Open" and "Share" after saving are readable again (they used a colour meant
+  for normal backgrounds), the snackbars no longer cover the hub's tool bar, and "N pages added ·
+  Undo" closes once the document is saved.
 - **Clearer tool flows.** "Add pages" and "Insert images" on Home first say that the PDF is
   chosen before the pages or images. The edit hub no longer has "Merge PDFs": on an open document
   that is "Add pages → From another PDF" (it also did nothing when used from the hub).

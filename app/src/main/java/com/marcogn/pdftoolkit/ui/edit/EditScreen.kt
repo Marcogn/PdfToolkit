@@ -21,6 +21,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Surface
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.SnackbarDefaults
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.Icons
@@ -178,6 +181,9 @@ fun EditScreen(
 
     LaunchedEffect(saveState) {
         (saveState as? SaveUiState.Overwritten)?.let { onResultReady(it.uri) }
+        // "N pages added · Undo" no longer applies once the document is saved, and it would stack
+        // on top of the "saved" snackbar.
+        if (saveState is SaveUiState.Saved) snackbarHostState.currentSnackbarData?.dismiss()
     }
 
     val ready = uiState as? EditUiState.Ready
@@ -282,7 +288,23 @@ fun EditScreen(
         }
     }
 
+    // No "Merge" in the hub: on an open document it is "Add pages → from another PDF" (author's decision).
+    val hubTools = remember { PdfTool.available.filter { it.requiresDocument && it != PdfTool.MERGE } }
+    val onHubTool: (PdfTool) -> Unit = { tool ->
+        when (tool) {
+            PdfTool.REMOVE_PAGES -> pane = EditPane.REMOVE
+            PdfTool.REORDER_PAGES -> pane = EditPane.REORDER
+            PdfTool.ADD_PAGES -> showAddSource = true
+            PdfTool.INSERT_IMAGES -> showImageSource = true
+            else -> showMessage(resources.getString(R.string.edit_tool_unavailable, resources.getString(tool.labelRes())))
+        }
+    }
+
     Scaffold(
+        // In the bottomBar slot, so snackbars are placed above the tools instead of covering them.
+        bottomBar = {
+            if (ready != null && !picking && pane == EditPane.HUB) HubToolBar(hubTools, onHubTool)
+        },
         topBar = {
             Column {
                 when {
@@ -461,15 +483,6 @@ fun EditScreen(
                     highlighted = highlighted,
                     scrollToId = scrollToId,
                     padding = padding,
-                    onToolClick = { tool ->
-                        when (tool) {
-                            PdfTool.REMOVE_PAGES -> pane = EditPane.REMOVE
-                            PdfTool.REORDER_PAGES -> pane = EditPane.REORDER
-                            PdfTool.ADD_PAGES -> showAddSource = true
-                            PdfTool.INSERT_IMAGES -> showImageSource = true
-                            else -> showMessage(resources.getString(R.string.edit_tool_unavailable, resources.getString(tool.labelRes())))
-                        }
-                    },
                 )
                 EditPane.REMOVE, EditPane.REORDER -> PagesPane(
                     state = state,
@@ -635,11 +648,8 @@ private fun EditHub(
     highlighted: Set<String>,
     scrollToId: String?,
     padding: PaddingValues,
-    onToolClick: (PdfTool) -> Unit,
 ) {
-    // No "Merge" here: on an open document it is "Add pages → from another PDF" (author's decision).
-    val tools = remember { PdfTool.available.filter { it.requiresDocument && it != PdfTool.MERGE } }
-    Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
+    Column(Modifier.padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()).fillMaxSize()) {
         if (highlighted.isNotEmpty()) {
             Text(
                 stringResource(R.string.add_review_hint_hub),
@@ -663,7 +673,6 @@ private fun EditHub(
             highlighted = highlighted,
             scrollToId = scrollToId,
         )
-        HubToolBar(tools, onToolClick, Modifier.padding(bottom = padding.calculateBottomPadding()))
     }
 }
 
@@ -673,6 +682,7 @@ private fun HubToolBar(tools: List<PdfTool>, onToolClick: (PdfTool) -> Unit, mod
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier.fillMaxWidth()) {
         Row(
             Modifier
+                .navigationBarsPadding()
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -834,13 +844,17 @@ private fun SavedSnackbar(onOpen: () -> Unit, onShare: () -> Unit, onDismiss: ()
     Snackbar(
         modifier = Modifier.padding(12.dp),
         action = {
+            // A plain TextButton takes the primary colour, unreadable on the snackbar's inverse surface.
+            val actionColors = ButtonDefaults.textButtonColors(contentColor = SnackbarDefaults.actionColor)
             Row {
-                TextButton(onClick = onOpen) { Text(stringResource(R.string.save_open)) }
-                TextButton(onClick = onShare) { Text(stringResource(R.string.save_share)) }
+                TextButton(onClick = onOpen, colors = actionColors) { Text(stringResource(R.string.save_open)) }
+                TextButton(onClick = onShare, colors = actionColors) { Text(stringResource(R.string.save_share)) }
             }
         },
         dismissAction = {
-            IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = null) }
+            IconButton(onClick = onDismiss) {
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close), tint = SnackbarDefaults.dismissActionContentColor)
+            }
         },
     ) {
         Text(stringResource(R.string.save_done))
