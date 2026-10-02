@@ -163,9 +163,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - **Phase 2 Edit session and pages done (2026-10-01)**, PR #6; lint (0 errors), 95 unit tests and
   `assembleDebug` green; device checks passed (author). Follow-up fix: page thumbnails with no added
   rotation were laid out with zero height (blank cells).
-- **Phase 3 Add pages and merge implemented (2026-10-01)**; lint (0 errors), 144 unit tests and
-  `assembleDebug` green; **device checks still to do (author)**: images in both modes (EXIF, HEIC),
-  a mixed A4/Letter PDF, merge of 3 PDFs with reordering, result checked in another reader.
+- **Phase 3 Add pages and merge done (2026-10-01)**, PR #7 merged; lint (0 errors), 144 unit tests
+  and `assembleDebug` green; device checks passed (author).
 - **4a Fill and sign core implemented (2026-10-02)**; lint, unit tests and `assembleDebug` green;
   194 unit tests; **device checks still to do (author)**. **Next: phase 4b Fill and sign complete (Sonnet).**
 - The author still has to add the signing secrets to the repository.
