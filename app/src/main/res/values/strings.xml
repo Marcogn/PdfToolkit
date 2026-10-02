@@ -254,4 +254,26 @@
     <string name="home_pick_pdf_first_images">Prima scegli il PDF in cui inserire le immagini, poi le immagini da aggiungere.</string>
     <string name="home_pick_pdf_first_pages">Prima scegli il PDF a cui aggiungere pagine, poi da dove prenderle (un altro PDF o pagine vuote).</string>
     <string name="home_pick_pdf_first_confirm">Scegli il PDF</string>
+
+    <!-- Fill and sign (phase 4a) -->
+    <string name="fill_tool_text">Testo</string>
+    <string name="fill_tool_date">Data</string>
+    <string name="fill_tool_check">Spunta</string>
+    <string name="fill_tool_cross">Croce</string>
+    <string name="fill_tool_signature">Firma</string>
+    <string name="fill_hint_place">Tocca la pagina nel punto in cui inserirlo</string>
+    <string name="fill_edit">Modifica</string>
+    <string name="fill_delete">Elimina</string>
+    <string name="fill_done">Fine</string>
+    <string name="fill_text_add">Aggiungi testo</string>
+    <string name="fill_text_edit">Modifica testo</string>
+    <string name="fill_text_size">Dimensione: %1$d pt</string>
+    <string name="fill_text_confirm">OK</string>
+    <string name="fill_text_removed">Alcuni caratteri non si possono scrivere nel PDF e sono stati tolti.</string>
+    <string name="fill_load_failed">Non è stato possibile leggere il documento per compilarlo.</string>
+    <string name="fill_xfa_unsupported">Questo modulo usa XFA, che non è supportato. Puoi comunque compilarlo con testo, spunte e firma.</string>
+    <string name="fill_page_indicator">Pagina %1$d di %2$d</string>
+    <string name="fill_image_unreadable">Immagine non leggibile.</string>
+    <string name="save_flatten">Rendi definitivo il modulo</string>
+    <string name="save_flatten_hint">I campi diventano parte della pagina e non si potranno più modificare.</string>
 </resources>

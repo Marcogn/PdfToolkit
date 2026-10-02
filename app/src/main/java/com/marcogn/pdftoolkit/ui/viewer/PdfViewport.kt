@@ -48,7 +48,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** Space between pages, and above the first and below the last one. */
-private val PageGap = 8.dp
+internal val PageGap = 8.dp
 
 /** Spec §5: the sharp re-render starts when the zoom has been still for about 150 ms. */
 private const val SETTLE_DELAY_MS = 150L
@@ -168,7 +168,7 @@ private fun DrawScope.drawBitmap(bitmap: ImageBitmap, dst: Rect) {
  * pan. A touch stops the running animation. Changes are consumed only past the touch slop, so
  * the tap detector still sees taps and double taps.
  */
-private suspend fun PointerInputScope.detectZoomPanFling(
+internal suspend fun PointerInputScope.detectZoomPanFling(
     state: PdfViewportState,
     scope: CoroutineScope,
     decay: DecayAnimationSpec<Float>,

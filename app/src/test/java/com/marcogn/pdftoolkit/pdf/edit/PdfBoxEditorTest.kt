@@ -47,7 +47,7 @@ class PdfBoxEditorTest {
     val folder = TemporaryFolder()
 
     private val images = FakeImageLoader()
-    private val editor = PdfBoxEditor(images)
+    private val editor by lazy { PdfBoxEditor(images, AssetFontSource(ApplicationProvider.getApplicationContext())) }
     private lateinit var source: File
     private lateinit var output: File
 
@@ -381,7 +381,7 @@ class PdfBoxEditorTest {
 }
 
 /** Images as generated bitmaps, so the editor runs without a real decoder. A name nobody added can't be read. */
-private class FakeImageLoader : PageImageLoader {
+internal class FakeImageLoader : PageImageLoader {
     private class Entry(val widthPx: Int, val heightPx: Int, val hasAlpha: Boolean)
 
     private val entries = mutableMapOf<String, Entry>()

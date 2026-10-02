@@ -30,6 +30,10 @@ iText and MuPDF are excluded: both are AGPL (or commercial), which doesn't fit t
   renderer on older devices too (ADR 0001).
 - The dependency enters the project with the first phase that writes PDFs (phase 2), not earlier.
 
+- Update 2026-10-02 (phase 4a): overlays and form values travel inside the `EditSession` rather
+  than as a separate argument; `applySession(session, sources, output, options)` with
+  `WriteOptions(flattenForm)`. Text is written with an embedded Noto Sans (`FontSource`).
+
 ## Sources
 
 - PdfBox-Android releases: https://github.com/TomRoush/PdfBox-Android/releases (checked on

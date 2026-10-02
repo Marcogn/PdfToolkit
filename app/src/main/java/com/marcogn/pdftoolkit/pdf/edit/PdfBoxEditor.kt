@@ -31,12 +31,16 @@ import javax.inject.Inject
  * The open document itself is rearranged and saved (rather than copying pages into a new one), so
  * everything a page needs (fonts, images, annotations, form fields) stays as it was.
  */
-class PdfBoxEditor @Inject constructor(private val images: PageImageLoader) : PdfEditor {
+class PdfBoxEditor @Inject constructor(
+    private val images: PageImageLoader,
+    private val fonts: FontSource,
+) : PdfEditor {
 
     override suspend fun applySession(
         session: EditSession,
         sources: Map<DocRef, File>,
         output: File,
+        options: WriteOptions,
         onProgress: (Float) -> Unit,
     ) = withContext(Dispatchers.IO) {
         val file = sources[DocRef.MAIN] ?: throw SaveException(SaveFailure.FAILED)
@@ -50,7 +54,13 @@ class PdfBoxEditor @Inject constructor(private val images: PageImageLoader) : Pd
                     others[ref] = load(extra)
                 }
                 onProgress(LOADED)
-                rearrange(document, session, others)
+                val fill = FillWriter(document, fonts, images)
+                // Values go in while every widget is still on its page; flattening and overlays
+                // work on the final pages, so removed pages cost nothing.
+                fill.fillForm(session.fill.fields)
+                val pages = rearrange(document, session, others)
+                if (options.flattenForm) fill.flattenForm()
+                fill.drawOverlays(session.fill.overlays, session.pages.map { it.id }.zip(pages).toMap())
                 onProgress(REARRANGED)
                 document.save(output)
             }
@@ -94,8 +104,11 @@ class PdfBoxEditor @Inject constructor(private val images: PageImageLoader) : Pd
 
     private fun load(file: File): PDDocument = PDDocument.load(file, MemoryUsageSetting.setupMixed(MAIN_MEMORY_BYTES))
 
-    /** Detaches every page, then puts back the ones the session keeps, in its order and rotation. */
-    private fun rearrange(document: PDDocument, session: EditSession, others: Map<DocRef, PDDocument>) {
+    /**
+     * Detaches every page, then puts back the ones the session keeps, in its order and rotation.
+     * Returns the pages in session order.
+     */
+    private fun rearrange(document: PDDocument, session: EditSession, others: Map<DocRef, PDDocument>): List<PDPage> {
         val tree = document.pages
         val originals = List(tree.count) { tree.get(it) }
         // A page can inherit these from a parent /Pages node; once detached it would lose them.
@@ -104,7 +117,7 @@ class PdfBoxEditor @Inject constructor(private val images: PageImageLoader) : Pd
         // Images are decoded one at a time, while their page is built, so only one bitmap is alive.
         // PDPageTree.remove(int) keeps the /Count of the ancestors right.
         for (index in tree.count - 1 downTo 0) tree.remove(index)
-        session.pages.forEach { item ->
+        return session.pages.map { item ->
             val page = when (item) {
                 is PageItem.FromPdf -> {
                     if (item.docRef == DocRef.MAIN) {
@@ -121,6 +134,7 @@ class PdfBoxEditor @Inject constructor(private val images: PageImageLoader) : Pd
                 is PageItem.FromImage -> imagePage(document, item).also { document.addPage(it) }
             }
             if (item.rotation != 0) page.rotation = Math.floorMod(page.rotation + item.rotation, FULL_TURN)
+            page
         }
     }
 

@@ -250,4 +250,26 @@
     <string name="home_pick_pdf_first_images">First choose the PDF to insert the images into, then the images to add.</string>
     <string name="home_pick_pdf_first_pages">First choose the PDF to add pages to, then where they come from (another PDF or blank pages).</string>
     <string name="home_pick_pdf_first_confirm">Choose the PDF</string>
+
+    <!-- Fill and sign (phase 4a) -->
+    <string name="fill_tool_text">Text</string>
+    <string name="fill_tool_date">Date</string>
+    <string name="fill_tool_check">Tick</string>
+    <string name="fill_tool_cross">Cross</string>
+    <string name="fill_tool_signature">Signature</string>
+    <string name="fill_hint_place">Tap the page where it should go</string>
+    <string name="fill_edit">Edit</string>
+    <string name="fill_delete">Delete</string>
+    <string name="fill_done">Done</string>
+    <string name="fill_text_add">Add text</string>
+    <string name="fill_text_edit">Edit text</string>
+    <string name="fill_text_size">Size: %1$d pt</string>
+    <string name="fill_text_confirm">OK</string>
+    <string name="fill_text_removed">Some characters can\'t be written in the PDF and were removed.</string>
+    <string name="fill_load_failed">The document couldn\'t be read for filling.</string>
+    <string name="fill_xfa_unsupported">This form uses XFA, which isn\'t supported. You can still fill it with text, ticks and a signature.</string>
+    <string name="fill_page_indicator">Page %1$d of %2$d</string>
+    <string name="fill_image_unreadable">The image can\'t be read.</string>
+    <string name="save_flatten">Make the form final</string>
+    <string name="save_flatten_hint">The fields become part of the page and can no longer be changed.</string>
 </resources>

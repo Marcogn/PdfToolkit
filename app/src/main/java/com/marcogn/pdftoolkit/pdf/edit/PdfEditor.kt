@@ -5,15 +5,23 @@ import com.marcogn.pdftoolkit.domain.edit.EditSession
 import java.io.File
 import java.io.InputStream
 
+/** Choices made when saving that aren't part of the edit session. */
+data class WriteOptions(
+    /** Spec §6.5 "make final": the AcroForm becomes page content and stops being a form. */
+    val flattenForm: Boolean = false,
+)
+
 /**
  * Every write to a PDF goes through here (ADR 0002): the UI never touches the PDF library, which
- * can therefore be replaced. Overlays (fill and sign, phase 4) join [applySession] later.
+ * can therefore be replaced.
  */
 interface PdfEditor {
 
     /**
      * Writes the document described by [session] to [output]: its pages in its order, with the
-     * rotations it holds: pages of the main PDF and of other PDFs, blank pages and images.
+     * rotations it holds: pages of the main PDF and of other PDFs, blank pages and images, then
+     * the session's fill content (spec §6.5): form values, the optional flattening of [options],
+     * and the overlays, written into the page content.
      * [sources] maps each [DocRef] used by the session to a local file.
      * [onProgress] receives 0..1.
      *
@@ -24,6 +32,7 @@ interface PdfEditor {
         session: EditSession,
         sources: Map<DocRef, File>,
         output: File,
+        options: WriteOptions = WriteOptions(),
         onProgress: (Float) -> Unit = {},
     )
 

@@ -10,6 +10,7 @@ import com.marcogn.pdftoolkit.domain.edit.PageItem
 import com.marcogn.pdftoolkit.domain.edit.SaveException
 import com.marcogn.pdftoolkit.domain.edit.SaveFailure
 import com.marcogn.pdftoolkit.pdf.edit.PdfEditor
+import com.marcogn.pdftoolkit.pdf.edit.WriteOptions
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -39,7 +40,7 @@ class PdfSaverTest {
         var sourceSeen: ByteArray? = null
         var sourcesSeen: Map<DocRef, String> = emptyMap()
 
-        override suspend fun applySession(session: EditSession, sources: Map<DocRef, File>, output: File, onProgress: (Float) -> Unit) {
+        override suspend fun applySession(session: EditSession, sources: Map<DocRef, File>, output: File, options: WriteOptions, onProgress: (Float) -> Unit) {
             sourceSeen = sources.getValue(DocRef.MAIN).readBytes()
             sourcesSeen = sources.mapValues { it.value.readText() }
             onProgress(0.5f)

@@ -6,6 +6,20 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Fill and sign.** "Fill and sign" (edit hub and Home) shows the pages one at a time, with zoom
+  and pan. Forms with fields get a control over every field (text, check box, radio button, drop-down
+  list; on a turned page the control turns with it), and the keyboard's "Next" goes to the next field. On any PDF you can tap to add **text**
+  (size adjustable), the **date** (in the app's language, editable), a **tick**, a **cross** and an
+  **image as signature**; tap one to edit or delete it. Everything can be undone. When saving, a
+  form can be **made final** (on by default when a signature was added): its fields become part of
+  the page.
+- **Written into the page.** Text, ticks, dates and signatures are written into the page content
+  with an embedded Noto Sans font, so accents come out right and they show in any reader, rotated
+  pages included; form values get their appearance written too (switching to Noto Sans when the
+  form's font lacks a character).
+- **Limits.** For now the signature is any image picked from the gallery (the signature archive and
+  drawing come next); placed items can't be moved or resized yet (delete and place again). XFA forms
+  aren't supported: free filling still works.
 - **Add pages.** The edit hub's "Add pages" (also on Home) inserts pages from another PDF (pick the
   file, then select pages with "all", "none" and ranges) or blank pages (1 to 50, sized like the
   neighbouring page, with the size shown). New pages go at the start, at the end, or before/after a

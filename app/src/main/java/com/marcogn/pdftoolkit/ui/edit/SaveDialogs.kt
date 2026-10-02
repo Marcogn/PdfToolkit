@@ -5,7 +5,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -19,7 +22,10 @@ import androidx.compose.ui.unit.dp
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.edit.SaveFailure
 
-/** "Save as copy" (default) or "overwrite", the second only when the original accepts writes (spec §6.7). */
+/**
+ * "Save as copy" (default) or "overwrite", the second only when the original accepts writes (spec
+ * §6.7). For a document with form fields, [flatten] is the "make final" option (spec §6.5); null hides it.
+ */
 @Composable
 fun SaveDialog(
     overwrite: Boolean,
@@ -27,6 +33,8 @@ fun SaveDialog(
     onOverwriteChange: (Boolean) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    flatten: Boolean? = null,
+    onFlattenChange: (Boolean) -> Unit = {},
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -47,6 +55,25 @@ fun SaveDialog(
                     enabled = canOverwrite,
                     onSelect = { onOverwriteChange(true) },
                 )
+                if (flatten != null) {
+                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                    Row(
+                        modifier = Modifier
+                            .toggleable(value = flatten, role = Role.Checkbox, onValueChange = onFlattenChange)
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = flatten, onCheckedChange = null)
+                        Column(Modifier.padding(start = 12.dp)) {
+                            Text(stringResource(R.string.save_flatten), style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                stringResource(R.string.save_flatten_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.save_confirm)) } },
