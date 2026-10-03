@@ -25,7 +25,10 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import com.marcogn.pdftoolkit.domain.edit.ImageDimensions
 import com.marcogn.pdftoolkit.domain.edit.PageItem
@@ -36,6 +39,7 @@ import com.marcogn.pdftoolkit.domain.fill.FormField
 import com.marcogn.pdftoolkit.domain.fill.ImageOverlay
 import com.marcogn.pdftoolkit.domain.fill.Overlay
 import com.marcogn.pdftoolkit.pdf.render.Affine
+import com.marcogn.pdftoolkit.pdf.render.OverlayGeometry
 import com.marcogn.pdftoolkit.pdf.render.PdfPageSpace
 import com.marcogn.pdftoolkit.ui.viewer.PageGap
 import com.marcogn.pdftoolkit.ui.viewer.PdfViewportState
@@ -53,6 +57,12 @@ internal const val MAX_PAGE_PIXELS = 4_000_000
 
 /** A new render is asked only when the wanted resolution differs from the current one by more than this. */
 private const val RESOLUTION_SLACK = 0.15f
+
+/** How far outside an overlay a finger still grabs it, so a tick of 14 pt is not a precision job. */
+private val OVERLAY_HIT_MARGIN = 20.dp
+
+/** An overlay can grow to this many times the longer side of its page. */
+private const val MAX_OVERLAY_PAGES = 1.5f
 
 /** Longest side of image pages and image overlays as decoded for the screen. */
 internal const val FILL_IMAGE_SIDE_PX = 1600
@@ -85,7 +95,10 @@ internal fun FillPage(
     pageColor: Color,
     backgroundColor: Color,
     selectionColor: Color,
+    toolArmed: Boolean,
     onTap: (user: Offset, display: Offset) -> Unit,
+    onOverlaySelect: (String) -> Unit,
+    onOverlayChange: (Overlay) -> Unit,
     onFieldChange: (FormField, FieldValue, typing: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -98,6 +111,20 @@ internal fun FillPage(
     val overlayImages = remember { mutableStateMapOf<String, Bitmap>() }
     // The tap detector outlives recompositions: it must call the latest callback (current overlays, tool).
     val currentOnTap by rememberUpdatedState(onTap)
+
+    // The overlay being moved, resized or turned by the fingers: shown in place of the one in the
+    // session until the fingers lift, so a gesture is one undo step.
+    var live by remember(item.id) { mutableStateOf<Overlay?>(null) }
+    val shownOverlays = overlays.map { if (it.id == live?.id) live ?: it else it }
+    val currentOverlays by rememberUpdatedState(shownOverlays)
+    val currentSelected by rememberUpdatedState(selectedOverlay)
+    val currentToolArmed by rememberUpdatedState(toolArmed)
+    val currentOnSelect by rememberUpdatedState(onOverlaySelect)
+    val currentOnChange by rememberUpdatedState(onOverlayChange)
+    val grab = remember(item.id) { OverlayGrab() }
+    val haptic = LocalHapticFeedback.current
+    val hitMarginPx = with(LocalDensity.current) { OVERLAY_HIT_MARGIN.toPx() }
+    val maxSide = space.displaySize.let { maxOf(it.width, it.height) } * MAX_OVERLAY_PAGES
 
     // The source page, sharp enough for the current zoom once it settles.
     if (item is PageItem.FromPdf) {
@@ -136,7 +163,37 @@ internal fun FillPage(
                     onDoubleTap = { tap -> viewport.launchAnimation(scope) { viewport.animateDoubleTap(tap) } },
                 )
             }
-            .pointerInput(viewport) { detectZoomPanFling(viewport, scope, decay, yieldHorizontalToParent = true) },
+            .pointerInput(viewport) { detectZoomPanFling(viewport, scope, decay, yieldHorizontalToParent = true, suppressed = { grab.active }) }
+            .pointerInput(viewport, space) {
+                detectOverlayGestures(
+                    grab = grab,
+                    hit = { screen, anyOverlay ->
+                        val mapper = viewport.mapper
+                        if (mapper == null || currentToolArmed) {
+                            null
+                        } else {
+                            val user = mapper.screenToUser(0, space, screen)
+                            val margin = hitMarginPx / mapper.screenPxPerPoint
+                            if (anyOverlay) {
+                                currentOverlays.lastOrNull { OverlayGeometry.contains(it.box, user) }
+                            } else {
+                                currentOverlays.firstOrNull { it.id == currentSelected }?.takeIf { OverlayGeometry.contains(it.box, user, margin) }
+                            }
+                        }
+                    },
+                    toUser = { screen -> viewport.mapper?.screenToUser(0, space, screen) },
+                    onGrabbed = { overlay ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        currentOnSelect(overlay.id)
+                    },
+                    apply = { overlay, transform -> OverlayGeometry.transformed(overlay, transform, maxSide) },
+                    onLive = { live = it },
+                    onCommit = {
+                        currentOnChange(it)
+                        live = null
+                    },
+                )
+            },
     ) {
         Canvas(Modifier.fillMaxSize()) {
             drawRect(backgroundColor)
@@ -160,7 +217,7 @@ internal fun FillPage(
                     val toUser = Affine(box.width / bitmap.width, 0f, 0f, -box.height / bitmap.height, box.x, box.y + box.height)
                     painter.drawBitmap(native, bitmap, userToScreen * toUser)
                 }
-                overlays.forEach { overlay ->
+                shownOverlays.forEach { overlay ->
                     val image = (overlay as? ImageOverlay)?.let { overlayImages[it.imageUri] }
                     val selection = if (overlay.id == selectedOverlay) selectionColor.toArgb() else null
                     painter.draw(native, overlay, mapper.overlayToScreen(0, space, overlay.box), mapper.screenPxPerPoint, image, selection)

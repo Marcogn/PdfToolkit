@@ -2,7 +2,11 @@ package com.marcogn.pdftoolkit.pdf.render
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import com.marcogn.pdftoolkit.domain.fill.MarkKind
+import com.marcogn.pdftoolkit.domain.fill.MarkOverlay
 import com.marcogn.pdftoolkit.domain.fill.OverlayBox
+import com.marcogn.pdftoolkit.domain.fill.TextBlock
+import com.marcogn.pdftoolkit.domain.fill.TextOverlay
 import com.marcogn.pdftoolkit.domain.fill.UserRect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -133,5 +137,101 @@ class OverlayGeometryTest {
         val corner = mapper.overlayToScreen(0, s, box).map(Offset.Zero)
         // Centre (110, 170) shows at display (100, 150); the top-left is 10 left and 5 up: ×2 px.
         assertPoint(Offset(180f, 290f), corner)
+    }
+
+    private val box = OverlayBox(100f, 100f, 40f, 20f, angle = 0f)
+
+    @Test
+    fun dragMovesTheBoxByTheFingerDelta() {
+        val moved = OverlayGeometry.transformed(box, UserTransform.drag(Offset(10f, 10f), Offset(25f, -5f)), 5f, 1000f)
+        assertEquals(115f, moved.centerX, 1e-3f)
+        assertEquals(85f, moved.centerY, 1e-3f)
+        assertEquals(40f, moved.width, 1e-3f)
+        assertEquals(0f, moved.angle, 1e-3f)
+    }
+
+    @Test
+    fun pinchScalesAboutThePivotKeepingProportions() {
+        // Fingers 10 apart spread to 20 apart around the same midpoint: twice as big, same centre
+        // when the pivot is the box centre.
+        val t = UserTransform.pinch(Offset(95f, 100f), Offset(105f, 100f), Offset(90f, 100f), Offset(110f, 100f))
+        assertEquals(2f, t.scale, 1e-4f)
+        val scaled = OverlayGeometry.transformed(box, t, 5f, 1000f)
+        assertEquals(80f, scaled.width, 1e-3f)
+        assertEquals(40f, scaled.height, 1e-3f)
+        assertEquals(100f, scaled.centerX, 1e-3f)
+    }
+
+    @Test
+    fun pinchOffCentreKeepsThePivotPointFixed() {
+        // The point of the box under the pivot stays under the fingers' midpoint.
+        val t = UserTransform.pinch(Offset(110f, 100f), Offset(130f, 100f), Offset(100f, 100f), Offset(140f, 100f))
+        val scaled = OverlayGeometry.transformed(box, t, 5f, 1000f)
+        // Centre was 20 left of the pivot (120): after doubling it is 40 left of the new pivot (120).
+        assertEquals(80f, scaled.centerX, 1e-3f)
+        assertEquals(100f, scaled.centerY, 1e-3f)
+    }
+
+    @Test
+    fun twistTurnsTheBoxCounterclockwiseInUserSpace() {
+        // Fingers on the x axis turn to the y axis: 90° counterclockwise (y is up in user space).
+        val t = UserTransform.pinch(Offset(90f, 100f), Offset(110f, 100f), Offset(100f, 90f), Offset(100f, 110f))
+        assertEquals(90f, t.rotation, 1e-3f)
+        val turned = OverlayGeometry.transformed(box, t, 5f, 1000f)
+        assertEquals(90f, turned.angle, 1e-3f)
+        assertEquals(100f, turned.centerX, 1e-3f)
+        assertEquals(100f, turned.centerY, 1e-3f)
+        // The local x axis now points up in user space.
+        val xAxis = OverlayGeometry.localToUser(turned).map(Offset(10f, 0f)) - OverlayGeometry.localToUser(turned).map(Offset(0f, 0f))
+        assertPoint(Offset(0f, 10f), xAxis)
+    }
+
+    @Test
+    fun scaleIsLimitedAndAnglesStayNormalised() {
+        val tooBig = OverlayGeometry.transformed(box, UserTransform(100f, 0f, Offset.Zero, Offset.Zero), 5f, 200f)
+        assertEquals(200f, maxOf(tooBig.width, tooBig.height), 1e-3f)
+        assertEquals(2f, tooBig.width / tooBig.height, 1e-4f)
+        val tooSmall = OverlayGeometry.transformed(box, UserTransform(0.001f, 0f, Offset.Zero, Offset.Zero), 10f, 200f)
+        assertEquals(10f, maxOf(tooSmall.width, tooSmall.height), 1e-3f)
+        assertEquals(-170f, OverlayGeometry.normalizeAngle(190f), 1e-4f)
+        assertEquals(180f, OverlayGeometry.normalizeAngle(-180f), 1e-4f)
+    }
+
+    @Test
+    fun marginMakesSmallBoxesEasierToHit() {
+        val tiny = OverlayBox(50f, 50f, 10f, 10f)
+        assertFalse(OverlayGeometry.contains(tiny, Offset(60f, 50f)))
+        assertTrue(OverlayGeometry.contains(tiny, Offset(60f, 50f), margin = 8f))
+        assertFalse(OverlayGeometry.contains(tiny, Offset(80f, 50f), margin = 8f))
+    }
+
+    @Test
+    fun textScalesThroughItsFontSizeAndKeepsItsBoxInStep() {
+        val text = TextOverlay("t", "p", OverlayBox(100f, 100f, 60f, 20f), "Hi", fontSize = 10f)
+        val t = UserTransform(2f, 0f, Offset(100f, 100f), Offset(100f, 100f))
+        val bigger = OverlayGeometry.transformed(text, t, maxSide = 500f) as TextOverlay
+        assertEquals(20f, bigger.fontSize, 1e-3f)
+        assertEquals(120f, bigger.box.width, 1e-3f)
+        assertEquals(40f, bigger.box.height, 1e-3f)
+    }
+
+    @Test
+    fun textFontSizeStaysWithinTheLimits() {
+        val text = TextOverlay("t", "p", OverlayBox(100f, 100f, 60f, 20f), "Hi", fontSize = 60f)
+        val t = UserTransform(10f, 0f, Offset.Zero, Offset.Zero)
+        val big = OverlayGeometry.transformed(text, t, maxSide = 5000f) as TextOverlay
+        assertEquals(TextBlock.MAX_FONT_SIZE, big.fontSize, 1e-3f)
+        // The box grew by the same factor as the font.
+        assertEquals(60f * TextBlock.MAX_FONT_SIZE / 60f, big.box.width, 1e-3f)
+        val small = OverlayGeometry.transformed(big, UserTransform(0.0001f, 0f, Offset.Zero, Offset.Zero), 5000f) as TextOverlay
+        assertEquals(TextBlock.MIN_FONT_SIZE, small.fontSize, 1e-3f)
+    }
+
+    @Test
+    fun marksKeepTheirKindAndStayAboveTheMinimumSide() {
+        val mark = MarkOverlay("m", "p", OverlayBox(50f, 50f, 14f, 14f), MarkKind.CHECK)
+        val shrunk = OverlayGeometry.transformed(mark, UserTransform(0.01f, 0f, Offset.Zero, Offset.Zero), 500f) as MarkOverlay
+        assertEquals(MarkKind.CHECK, shrunk.kind)
+        assertEquals(OverlayGeometry.MIN_SIDE, shrunk.box.width, 1e-3f)
     }
 }

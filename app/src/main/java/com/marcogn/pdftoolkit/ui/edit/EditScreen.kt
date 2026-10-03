@@ -93,6 +93,11 @@ import com.marcogn.pdftoolkit.ui.fill.FillTool
 import com.marcogn.pdftoolkit.ui.fill.FillToolBar
 import com.marcogn.pdftoolkit.ui.fill.MAX_PAGE_PIXELS
 import com.marcogn.pdftoolkit.ui.fill.rememberFillPaneState
+import com.marcogn.pdftoolkit.ui.signatures.SignatureCreationHost
+import com.marcogn.pdftoolkit.ui.signatures.SignaturePickerSheet
+import com.marcogn.pdftoolkit.ui.signatures.SignaturesViewModel
+import com.marcogn.pdftoolkit.ui.signatures.rememberSignatureCreationState
+import com.marcogn.pdftoolkit.data.signatures.Signature
 import com.marcogn.pdftoolkit.ui.viewer.takePersistableAccess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -195,20 +200,30 @@ fun EditScreen(
     val imageFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         viewModel.pickImages(uris)
     }
-    // Phase 4a: any picked image works as the signature; phase 4b replaces this with "My signatures".
-    val signaturePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) {
-            scope.launch {
-                val image = viewModel.importOverlayImage(uri)
-                if (image == null) {
-                    snackbarHostState.showSnackbar(resources.getString(R.string.fill_image_unreadable))
-                } else {
-                    fillState.image = image
-                    fillState.tool = FillTool.SIGNATURE
-                    fillState.selected = null
-                }
+    // Phase 4b: the signature comes from the archive ("My signatures"), or is created on the spot.
+    val signaturesViewModel: SignaturesViewModel = hiltViewModel()
+    val signatureCreation = rememberSignatureCreationState()
+    var showSignatureSheet by rememberSaveable { mutableStateOf(false) }
+    val placeSignature: (Signature) -> Unit = { signature ->
+        scope.launch {
+            val image = viewModel.importOverlayImage(signaturesViewModel.file(signature).toUri())
+            if (image == null) {
+                snackbarHostState.showSnackbar(resources.getString(R.string.fill_image_unreadable))
+            } else {
+                fillState.image = image
+                fillState.tool = FillTool.SIGNATURE
+                fillState.selected = null
             }
         }
+    }
+    SignatureCreationHost(signatureCreation, signaturesViewModel, onCreated = placeSignature)
+    if (showSignatureSheet) {
+        SignaturePickerSheet(
+            viewModel = signaturesViewModel,
+            onPick = { showSignatureSheet = false; placeSignature(it) },
+            onNew = { showSignatureSheet = false; signatureCreation.start() },
+            onDismiss = { showSignatureSheet = false },
+        )
     }
 
     LaunchedEffect(saveState) {
@@ -358,9 +373,7 @@ fun EditScreen(
         bottomBar = {
             if (ready != null && !picking && pane == EditPane.HUB) HubToolBar(hubTools, onHubTool)
             if (ready != null && !picking && pane == EditPane.FILL) {
-                FillToolBar(fillState, ready.session.fill.overlays, fillActions) {
-                    signaturePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                }
+                FillToolBar(fillState, ready.session.fill.overlays, fillActions) { showSignatureSheet = true }
             }
         },
         topBar = {
