@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.unit.Velocity
@@ -56,6 +57,7 @@ class PdfViewportState(initialAnchor: ViewportAnchor? = null) {
 
     private var bounds: ViewportBounds? = null
     private var pendingAnchor: ViewportAnchor? = initialAnchor
+    private var pendingReveal: Pair<Int, Rect>? = null
     private var animationJob: Job? = null
 
     val mapper: PageCoordinateMapper?
@@ -84,6 +86,10 @@ class PdfViewportState(initialAnchor: ViewportAnchor? = null) {
         viewportSize = size
         viewport = if (anchor != null) restore(anchor, newLayout, newBounds) else newBounds.clamp(Viewport())
         pendingAnchor = null
+        pendingReveal?.let { (pageIndex, rect) ->
+            pendingReveal = null
+            centerOnPageRect(pageIndex, rect)
+        }
     }
 
     /**
@@ -112,6 +118,23 @@ class PdfViewportState(initialAnchor: ViewportAnchor? = null) {
         val page = layout.pageRects[index.coerceIn(0, layout.pageCount - 1)]
         val zoom = viewport.zoom
         viewport = bounds.clamp(Viewport(zoom, Offset(viewport.offset.x, (page.top - layout.gap) * zoom)))
+    }
+
+    /**
+     * Brings [rect] (page points, top-left origin) of page [index] to the centre of the screen,
+     * keeping the zoom (a search result, spec §5.1). Before the first layout it is remembered and
+     * applied then.
+     */
+    fun centerOnPageRect(index: Int, rect: Rect) {
+        val layout = layout
+        val bounds = bounds
+        if (layout == null || bounds == null) {
+            pendingReveal = index to rect
+            return
+        }
+        stopAnimation()
+        val page = layout.pageRects[index.coerceIn(0, layout.pageCount - 1)]
+        viewport = bounds.centerOn(viewport, page.topLeft + rect.center * layout.pxPerPoint)
     }
 
     fun currentAnchor(): ViewportAnchor? {

@@ -15,6 +15,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
+import java.io.InputStream
 import java.util.UUID
 import javax.inject.Inject
 
@@ -65,6 +66,20 @@ class PdfDocumentOpener @Inject constructor(@ApplicationContext private val cont
             tempFile?.delete()
             throw PdfOpenException(OpenFailure.UNREADABLE, e)
         }
+    }
+
+    /**
+     * A fresh stream over the same file, for reading its text (spec §5.1); null if it can't be
+     * opened any more. The caller closes it.
+     */
+    fun openStream(uri: Uri): InputStream? = try {
+        context.contentResolver.openInputStream(uri)
+    } catch (e: IOException) {
+        null
+    } catch (e: SecurityException) {
+        null
+    } catch (e: IllegalArgumentException) {
+        null
     }
 
     private fun nameAndSize(uri: Uri): Pair<String?, Long?> {

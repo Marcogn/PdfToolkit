@@ -91,7 +91,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   the geometry shared by all phases (`DocumentLayout`, `Viewport`, `PageCoordinateMapper`).
   `pdf/edit` (phase 2: `PdfEditor`, `PdfBoxEditor`; phase 4: `FillWriter`, `FontSource`, `FontCoverage`),
   `pdf/forms` (phase 4: `FormReader`), `pdf/text` (phase 5: `PdfTextExtractor`, `PositionedTextStripper`,
-  `TextNormalizer`, `PageTextIndex`; spec §12). `ui/fill/` is the
+  `TextNormalizer`, `PageTextIndex`, `DocumentSearch`; spec §12). `ui/search/` is the search bar, notices and
+  highlights used by the viewer. `ui/fill/` is the
   "Fill and sign" pane of `EditScreen`; `ui/signatures/` is "My signatures" plus the creation flow
   (draw, import) and the picker sheet that `EditScreen` reuses.
 - `di/` Hilt modules, when needed.
@@ -119,7 +120,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   and tells it to stand down through `OverlayGrab.active` (`suppressed` parameter). Live changes are
   a local copy in `FillPage`, committed once on lift (one undo step); the maths is
   `OverlayGeometry.transformed` + `UserTransform`, in user space.
-- Search highlights are overlay only, never written into the PDF.
+- Search highlights are overlay only, never written into the PDF. Search is in the viewer only,
+  not in the edit screens (spec §5.1).
 - No `INTERNET` permission in product phase 1: the manifest removes it with `tools:node="remove"`
   and CI checks the packaged manifest. Don't add dependencies that need it.
 - Every `navigate()`/`popBackStack()` goes through the `lifecycleIsResumed()` guard of the entry
@@ -184,27 +186,34 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   semi-transparent control; controls are now opaque white under their tint. Radio buttons drawn as
   two offset circles in Acrobat: the writer only switches `/AS` (test), the drawings are the
   source PDF's own appearance streams (author confirmed: the original shows them the same way).
-- **5a Search core done (2026-10-03)**, PR pending; lint (0 errors), 251 unit tests and
-  `assembleDebug` green. No device checks (verified by tests). **Next: phase 5b Search complete (Sonnet).**
+- **5a Search core done (2026-10-03)**, PR #10 merged; lint (0 errors), 251 unit tests and
+  `assembleDebug` green. No device checks (verified by tests).
+- **5b Search complete done (2026-10-03)**, PR pending; lint (0 errors), 277 unit tests and
+  `assembleDebug` green; device checks pending (author). **Next: phase 6 Polish (Sonnet).**
 - The author still has to add the signing secrets to the repository.
 
-### Handoff for 5b (from 5a, search core)
-- `pdf/text`: `PdfTextExtractor.pages(open, password): Flow<PageText>` (Hilt-bound to
-  `PdfBoxTextExtractor`; cold, on `Dispatchers.IO`, one page per emission, cancellation between
-  pages; a damaged page comes out empty, an unreadable document throws `TextExtractionException`).
-  Index each page with `PageTextIndex.build(pageText)` and drop the `PageText` (glyph objects are big).
-- `SearchQuery.of(raw)` (null when blank) → `PageTextIndex.find(query): List<TextMatch>` in reading
-  order; `TextMatch.rects` are page points (display, top-left), one per line, `bounds` for scrolling.
-  Draw with `PageCoordinateMapper.pageRectToScreen(page, rect)`; in single-page mode each viewport's
-  layout has one page, so use index 0 there and keep `TextMatch.pageIndex` for the pager.
-- `PageTextIndex.isEmpty` on every page → the scanned-PDF message (spec §5.1).
-- The viewer opens files through `PdfRenderer`; the extractor needs its own `InputStream` per run
-  (`contentResolver.openInputStream(uri)`) and the password the viewer already holds in memory.
-- Not done (5b): UI, debounce, progressive results, cancellation by a new query, "centre the
-  result" (no viewport helper for it yet), the index lives only as long as the caller keeps it.
+### Notes from phase 5 (search)
+- Core (`pdf/text`): `PdfTextExtractor.pages(open, password): Flow<PageText>` (Hilt-bound to
+  `PdfBoxTextExtractor`), `PageTextIndex.build(page).find(SearchQuery)` → `TextMatch` (page points,
+  one rectangle per line), `TextNormalizer`. `DocumentSearch` (plain Kotlin, tests with a fake
+  extractor) runs the index in the background, matches each new page against the current query, and
+  exposes `SearchState` (`matches`, `current`, `focusToken`, `status`, `noSearchableText`).
+- It is created by `ViewerViewModel` (`ViewerUiState.Ready.search`, scope `viewModelScope`, stream from
+  `PdfDocumentOpener.openStream`, the password typed for the viewer), so rotation keeps index and
+  results. `ReadyViewer` owns `searchOpen`/`searchText` (saved); `start()`+`setQuery` on open,
+  `close()` on close. Indexing starts on the first open and runs to the end, then the index stays
+  until the document closes.
+- `focusToken` changes on the first result of a query and on next/previous only: `ReadyViewer`
+  turns it into a `RevealRequest` (`Channel`, one-shot) that `ContinuousPages` and `SinglePages`
+  answer with `PdfViewportState.centerOnPageRect` (zoom kept, `ViewportBounds.centerOn`); in single
+  page mode the request waits in `pendingReveal` until the target page is composed and laid out.
+- Highlights: `ui/search/SearchHighlights` → `PdfViewport(highlights = …)`, drawn after the tiles
+  with `PageCoordinateMapper.pageRectToScreen`; `pageIndexOffset` maps the viewport's page to the
+  document's. Colours in `ui/theme/Color.kt`.
 - Known limits: extraction order is PdfBox's (columns, tables); no de-hyphenation; RTL not handled;
-  highlight boxes are axis-aligned (fine on quarter turns, loose on text at other angles); glyph
-  heights come from the font's `/Ascent`/`/Descent` (fallback 0.8/-0.2 em).
+  highlight boxes are axis-aligned (loose on text at other angles); the index is in memory only (a
+  200-page dense PDF took ~2 s to extract and 0.3 s to index on a desktop JVM, not measured on a
+  phone); no search in the edit screens (spec); the Edit button is hidden while searching.
 
 ### Notes from phase 4 (fill and sign)
 - Model: `EditSession.fill` (`FillContent`: `overlays`, `fields`) is part of the undo history;
@@ -275,6 +284,15 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-03 · Phase 5b: indexing is not cancelled when the search is closed: it runs once to the end
+  and the index stays in memory while the document is open (spec §5.1). "Cancellation" is a new
+  query replacing the one waiting or scanning, and closing the document (view model cleared). Resuming
+  a half-built index would need the extractor to start from a page: not worth it.
+- 2026-10-03 · Phase 5b: the first result of a query is the first in the document, not the first
+  after the page being read; results only ever append while a query stays the same, so the current
+  one never shifts under the reader. Revealing always centres the result (zoom kept), even if visible.
+- 2026-10-03 · Phase 5b: the search bar replaces the viewer's top bar (not an overlay on it) and the
+  Edit button hides while it is open; the scanned-PDF message and the progress bar sit under the bar.
 - 2026-10-03 · Phase 5a: folding is NFKD (spec says NFD) + drop `Mn` and format characters +
   per-code-point case folding + typographic apostrophes/quotes/dashes to ASCII + white space runs to
   one space; the same function for index and query. NFKD also turns ligatures ("ﬁ") into letters,

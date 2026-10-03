@@ -68,6 +68,14 @@ class ViewportBounds(
         clamp(viewport.copy(offset = viewport.offset - delta))
 
     /**
+     * Keeps the zoom and moves so that [layoutPoint] (layout pixels, see [DocumentLayout]) is at the
+     * centre of the viewport, as far as the limits allow: a search result is brought to the middle
+     * of the screen (spec §5.1).
+     */
+    fun centerOn(viewport: Viewport, layoutPoint: Offset): Viewport =
+        clamp(Viewport(viewport.zoom, layoutPoint * viewport.zoom - Offset(viewportSize.width / 2f, viewportSize.height / 2f)))
+
+    /**
      * Double tap (spec §4.2): from fit width to [DOUBLE_TAP_ZOOM] around the tapped point, from
      * any other zoom back to fit width (zoom 1). The tapped content stays under the finger as far
      * as the limits allow.

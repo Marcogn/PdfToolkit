@@ -78,4 +78,26 @@ class ViewportBoundsTest {
         assertEquals(1f, bounds.doubleTapTarget(Viewport(zoom = 3.3f), tap).zoom, 0f)
         assertEquals(1f, bounds.doubleTapTarget(Viewport(zoom = 0.6f), tap).zoom, 0f)
     }
+
+    @Test
+    fun centerOnPutsTheLayoutPointInTheMiddleAndKeepsTheZoom() {
+        // Zoom 1: the point at y = 3000 goes to the middle of a 2000 px viewport, offset 2000, which is the maximum.
+        val atFit = bounds.centerOn(Viewport(1f, Offset.Zero), Offset(500f, 3000f))
+        assertEquals(1f, atFit.zoom, 0f)
+        assertOffset(Offset(0f, 2000f), atFit.offset)
+
+        // Zoom 2: content 2000 x 8000, viewport 1000 x 2000. Point (700, 3000) → screen centre (500, 1000).
+        val zoomed = bounds.centerOn(Viewport(2f, Offset.Zero), Offset(700f, 3000f))
+        assertOffset(Offset(900f, 5000f), zoomed.offset)
+        assertEquals(500f, 700f * zoomed.zoom - zoomed.offset.x, 1e-3f)
+        assertEquals(1000f, 3000f * zoomed.zoom - zoomed.offset.y, 1e-3f)
+    }
+
+    @Test
+    fun centerOnStopsAtTheEdgesOfTheDocument() {
+        val top = bounds.centerOn(Viewport(2f, Offset(300f, 4000f)), Offset(10f, 20f))
+        assertOffset(Offset(0f, 0f), top.offset)
+        val bottom = bounds.centerOn(Viewport(2f, Offset.Zero), Offset(990f, 3990f))
+        assertOffset(Offset(1000f, 6000f), bottom.offset)
+    }
 }

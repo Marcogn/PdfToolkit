@@ -6,6 +6,18 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Search in the document.** The magnifier in the viewer's top bar turns it into a search field with
+  the count ("3 of 17") and previous / next arrows (the keyboard's search key goes to the next one).
+  Results appear while the text is being read, page by page, with a thin progress bar; typing waits
+  a quarter of a second, and a new word replaces the previous search. Case and accents don't matter
+  ("perche" finds "perché"), and a phrase broken over two lines is found. Every occurrence is
+  highlighted on the page (the current one stronger), also on turned pages and in single-page mode,
+  and the viewer scrolls to the current one and centres it. Closing the search (X or back) removes
+  the highlights; they are never written into the PDF.
+- **Documents without text.** A scanned PDF says "This document has no searchable text. It may be a
+  scan." instead of finding nothing. Password-protected PDFs are searched with the password you typed.
+- **Limits.** Text is read in PdfBox's order, so a phrase split across columns may not be found, and
+  a word hyphenated at the end of a line counts as two.
 - **Fill and sign.** "Fill and sign" (edit hub and Home) shows the pages one at a time, with zoom
   and pan. Forms with fields get a control over every field (text, check box, radio button, drop-down
   list; on a turned page the control turns with it), and the keyboard's "Next" goes to the next field. On any PDF you can tap to add **text**
