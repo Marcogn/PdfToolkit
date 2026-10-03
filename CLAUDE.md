@@ -90,7 +90,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - `pdf/render` (phase 1): `PdfDocumentRenderer`, `RenderScheduler`/`RenderPlanner`, `PageThumbnails`, caches, and
   the geometry shared by all phases (`DocumentLayout`, `Viewport`, `PageCoordinateMapper`).
   `pdf/edit` (phase 2: `PdfEditor`, `PdfBoxEditor`; phase 4: `FillWriter`, `FontSource`, `FontCoverage`),
-  `pdf/forms` (phase 4: `FormReader`), `pdf/text` from phase 5 (spec §12). `ui/fill/` is the
+  `pdf/forms` (phase 4: `FormReader`), `pdf/text` (phase 5: `PdfTextExtractor`, `PositionedTextStripper`,
+  `TextNormalizer`, `PageTextIndex`; spec §12). `ui/fill/` is the
   "Fill and sign" pane of `EditScreen`; `ui/signatures/` is "My signatures" plus the creation flow
   (draw, import) and the picker sheet that `EditScreen` reuses.
 - `di/` Hilt modules, when needed.
@@ -182,8 +183,28 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   a form saved and reopened showed each value twice, the page bitmap's widget appearance under the
   semi-transparent control; controls are now opaque white under their tint. Radio buttons drawn as
   two offset circles in Acrobat: the writer only switches `/AS` (test), the drawings are the
-  source PDF's own appearance streams (author confirmed: the original shows them the same way). **Next: phase 5a Search core (Opus).**
+  source PDF's own appearance streams (author confirmed: the original shows them the same way).
+- **5a Search core done (2026-10-03)**, PR pending; lint (0 errors), 251 unit tests and
+  `assembleDebug` green. No device checks (verified by tests). **Next: phase 5b Search complete (Sonnet).**
 - The author still has to add the signing secrets to the repository.
+
+### Handoff for 5b (from 5a, search core)
+- `pdf/text`: `PdfTextExtractor.pages(open, password): Flow<PageText>` (Hilt-bound to
+  `PdfBoxTextExtractor`; cold, on `Dispatchers.IO`, one page per emission, cancellation between
+  pages; a damaged page comes out empty, an unreadable document throws `TextExtractionException`).
+  Index each page with `PageTextIndex.build(pageText)` and drop the `PageText` (glyph objects are big).
+- `SearchQuery.of(raw)` (null when blank) → `PageTextIndex.find(query): List<TextMatch>` in reading
+  order; `TextMatch.rects` are page points (display, top-left), one per line, `bounds` for scrolling.
+  Draw with `PageCoordinateMapper.pageRectToScreen(page, rect)`; in single-page mode each viewport's
+  layout has one page, so use index 0 there and keep `TextMatch.pageIndex` for the pager.
+- `PageTextIndex.isEmpty` on every page → the scanned-PDF message (spec §5.1).
+- The viewer opens files through `PdfRenderer`; the extractor needs its own `InputStream` per run
+  (`contentResolver.openInputStream(uri)`) and the password the viewer already holds in memory.
+- Not done (5b): UI, debounce, progressive results, cancellation by a new query, "centre the
+  result" (no viewport helper for it yet), the index lives only as long as the caller keeps it.
+- Known limits: extraction order is PdfBox's (columns, tables); no de-hyphenation; RTL not handled;
+  highlight boxes are axis-aligned (fine on quarter turns, loose on text at other angles); glyph
+  heights come from the font's `/Ascent`/`/Descent` (fallback 0.8/-0.2 em).
 
 ### Notes from phase 4 (fill and sign)
 - Model: `EditSession.fill` (`FillContent`: `overlays`, `fields`) is part of the undo history;
@@ -254,6 +275,19 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-03 · Phase 5a: folding is NFKD (spec says NFD) + drop `Mn` and format characters +
+  per-code-point case folding + typographic apostrophes/quotes/dashes to ASCII + white space runs to
+  one space; the same function for index and query. NFKD also turns ligatures ("ﬁ") into letters,
+  common in PDFs; the punctuation folding makes "l'anno" (phone keyboard) find "l’anno".
+- 2026-10-03 · Phase 5a: word breaks come from the glyph geometry on the display (same line, gap
+  > 0.15 line heights), not from PdfBox's separators: PdfBox 2.0 splits words between letters on
+  pages turned by 90°/270° (seen in the tests). PdfBox still orders glyphs, merges diacritics and
+  drops fake-bold duplicates. Lines (one highlight rectangle per line) use the same geometry.
+- 2026-10-03 · Phase 5a: positions from `TextPosition.textMatrix` and `endX/endY` plus the crop box
+  corner PdfBox subtracts, then `PdfPageSpace.userToDisplay`; heights from the font descriptor in
+  thousandths (PDF 32000-1 §9.8), not `PDFont.getFontMatrix`, which PdfBox-Android reports for its
+  substitute font (1/2048 for Helvetica). Index kept compact per page (folded string, glyph per
+  character, one box and line per glyph); no disk cache (spec: only if measurements call for it).
 - 2026-10-02 · Phase 4b: the drawing canvas is my own Compose implementation (spec allows it, or
   `androidx.ink`): per-point width from finger speed (`InkWidth`, smoothed, 0.55–1.25 × base), drawn
   as round-capped segments; strokes are rendered to a transparent PNG cropped to their bounds (max

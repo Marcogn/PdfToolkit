@@ -16,7 +16,9 @@ pages with undo/redo, and save as a copy or overwrite, in the background. Adding
 PDF, blank, from images) and merging PDFs (phase 3) are in too. Fill and sign (phase 4) is complete:
 form fields, text, dates, ticks and crosses, and signatures are written into the page; signatures
 are drawn or imported into an archive ("My signatures") and every placed item can be moved, resized
-and turned with the fingers. Text search is next.
+and turned with the fingers. Text search (phase 5) has its core: text with the position of every
+glyph, accent- and case-insensitive matching, highlight rectangles on rotated pages; the search
+screen in the viewer is next.
 
 ## Features
 
@@ -63,7 +65,7 @@ app/src/main/java/com/marcogn/pdftoolkit/
   ui/        Compose screens, navigation and theme
   domain/    models with no Android dependencies
   data/      preferences (DataStore), recent documents and signatures (Room), background save (save/), picked images (images/)
-  pdf/       PDF rendering (render/), editing (edit/) and forms (forms/), later text search
+  pdf/       PDF rendering (render/), editing (edit/), forms (forms/) and text search (text/)
   di/        Hilt modules
 docs/
   spec.md    functional and technical specification (Italian)
@@ -107,6 +109,10 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   still works, and a form that also has XFA data loses it when its fields are filled, so other
   readers show the new values); "Next" on the keyboard moves between the fields of one page.
   Pages in "Fill and sign" are not tiled like in the viewer: at high zoom they look softer.
+- Text search follows the order in which PdfBox extracts the text, which may differ from the
+  reading order in columns and tables: a phrase split across columns may not be found. A word
+  hyphenated at the end of a line is two words for the search. Right-to-left scripts aren't handled.
+  Scanned PDFs have no text to search until OCR (planned).
 - Overwriting needs a file that grants write access (most local files do, some providers don't);
   otherwise only "save as copy" is offered.
 
