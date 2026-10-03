@@ -280,7 +280,14 @@ class PdfBoxFillTest {
         page.annotations.add(widget)
         if (onStates.isNotEmpty()) {
             val normal = com.tom_roush.pdfbox.cos.COSDictionary()
-            (onStates + "Off").forEach { normal.setItem(it, PDAppearanceStream(doc).cosObject) }
+            (onStates + "Off").forEach { state ->
+                // A drawing per state (an outline, plus a dot when on), so a test can tell if one is rewritten.
+                val stream = PDAppearanceStream(doc)
+                stream.bBox = PDRectangle(rect.width, rect.height)
+                val dot = if (state == "Off") "" else " 0 g 5 5 5 5 re f"
+                stream.cosObject.createOutputStream().use { it.write("0.5 G 1 1 13 13 re S$dot".toByteArray()) }
+                normal.setItem(state, stream.cosObject)
+            }
             widget.appearance = PDAppearanceDictionary().apply {
                 cosObject.setItem(COSName.N, normal)
             }
@@ -326,6 +333,27 @@ class PdfBoxFillTest {
         PDDocument.load(output).use { doc ->
             val field = doc.documentCatalog.acroForm.getField("name")
             assertNotNull(field.widgets.single().appearance?.normalAppearance)
+        }
+    }
+
+    @Test
+    fun `choosing a radio button only switches its state, the drawings stay the source's`() {
+        formDocument()
+        fun drawings(file: File) = PDDocument.load(file).use { doc ->
+            val radio = doc.documentCatalog.acroForm.getField("size")
+            radio.widgets.map { widget ->
+                val normal = widget.cosObject.getCOSDictionary(COSName.AP).getCOSDictionary(COSName.N)
+                normal.keySet().sortedBy { it.name }.associate { state ->
+                    state.name to (normal.getDictionaryObject(state) as com.tom_roush.pdfbox.cos.COSStream).createInputStream().use { it.readBytes().toList() }
+                }
+            }
+        }
+        val before = drawings(source)
+        apply(EditSession.of(1).setField("size", FieldValue.Choice("L")))
+        assertEquals(before, drawings(output))
+        PDDocument.load(output).use { doc ->
+            val widgets = doc.documentCatalog.acroForm.getField("size").widgets
+            assertEquals(listOf("Off", "L"), widgets.map { it.appearanceState.name })
         }
     }
 

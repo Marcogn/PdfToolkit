@@ -177,10 +177,12 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - **4a Fill and sign core done (2026-10-02)**, PR #8; lint, 194 unit tests and `assembleDebug`
   green; device checks passed (author). Follow-up fix: form controls on a turned page now turn with
   it (they showed the text across the field).
-- **4b Fill and sign complete done (2026-10-02)**, PR pending; lint (0 errors), 219 unit tests and
-  `assembleDebug` green; device checks pending (author). Follow-up fix (author's device test):
+- **4b Fill and sign complete done (2026-10-02)**, PR #9; lint (0 errors), 220 unit tests and
+  `assembleDebug` green; device checks passed (author). Follow-up fix (author's device test):
   a form saved and reopened showed each value twice, the page bitmap's widget appearance under the
-  semi-transparent control; controls are now opaque white under their tint. **Next: phase 5a Search core (Opus).**
+  semi-transparent control; controls are now opaque white under their tint. Radio buttons drawn as
+  two offset circles in Acrobat: the writer only switches `/AS` (test), the drawings are the
+  source PDF's own appearance streams. **Next: phase 5a Search core (Opus).**
 - The author still has to add the signing secrets to the repository.
 
 ### Notes from phase 4 (fill and sign)
