@@ -70,7 +70,7 @@ private const val HALF_TURN = 180
  * the direction the field's text runs on screen: on a turned page the control turns with it, so
  * the text runs along the field as in the saved PDF. [value] is the current value (the user's,
  * or the file's). [onChange] receives the new value; `typing` is true for keystrokes, so the edit
- * session makes one undo step of them.
+ * session makes one undo step of them. The control hides what the page shows under it.
  */
 @Composable
 internal fun FieldControl(
@@ -93,6 +93,10 @@ internal fun FieldControl(
         .offset { IntOffset(unturned.left.roundToInt(), unturned.top.roundToInt()) }
         .size(with(density) { width.toDp() }, with(density) { height.toDp() })
         .graphicsLayer { rotationZ = rotation.toFloat() }
+        // Opaque: the page bitmap already holds the widget's appearance stream (PdfRenderer draws
+        // annotations, and a saved form has the value in it), so letting it show through would
+        // draw the value twice. The control is the only picture of the field while filling.
+        .background(Color.White)
         .background(primary.copy(alpha = FIELD_FILL_ALPHA))
         .border(1.dp, primary.copy(alpha = FIELD_BORDER_ALPHA))
         .semantics { contentDescription = field.label ?: field.name }

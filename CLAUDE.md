@@ -112,6 +112,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   annotations. Overlays are stored in **PDF user space** (`OverlayBox`: centre, size, angle), so they
   turn with their page; screen and writer both go through `OverlayGeometry` + `PdfPageSpace`, and
   text layout through `TextBlock` (Noto Sans metrics as constants, kerning/ligatures off on screen).
+- Form controls in the fill pane are opaque: the rendered page already contains each widget's
+  appearance (with the saved value), and the control is the only picture of the field.
 - Overlay gestures (`ui/fill/OverlayGestures`): the overlay handler sits after `detectZoomPanFling`
   and tells it to stand down through `OverlayGrab.active` (`suppressed` parameter). Live changes are
   a local copy in `FillPage`, committed once on lift (one undo step); the maths is
@@ -176,7 +178,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   green; device checks passed (author). Follow-up fix: form controls on a turned page now turn with
   it (they showed the text across the field).
 - **4b Fill and sign complete done (2026-10-02)**, PR pending; lint (0 errors), 219 unit tests and
-  `assembleDebug` green; device checks pending (author). **Next: phase 5a Search core (Opus).**
+  `assembleDebug` green; device checks pending (author). Follow-up fix (author's device test):
+  a form saved and reopened showed each value twice, the page bitmap's widget appearance under the
+  semi-transparent control; controls are now opaque white under their tint. **Next: phase 5a Search core (Opus).**
 - The author still has to add the signing secrets to the repository.
 
 ### Notes from phase 4 (fill and sign)

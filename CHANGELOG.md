@@ -28,6 +28,9 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 - **Move, resize, rotate.** In "Fill and sign" a selected item follows one finger and is resized and
   turned with two (proportions kept; text changes its font size). **Press and hold** any placed item
   to select it and drag it into place. One gesture is one undo step.
+- **Filled forms reopened.** Reopening a form saved with "Fill and sign" no longer shows every value
+  twice (the saved value under the field and the editable one on top, slightly apart): the field
+  controls now cover what the page draws there.
 - **Limits.** XFA forms aren't supported: free filling still works.
 - **Add pages.** The edit hub's "Add pages" (also on Home) inserts pages from another PDF (pick the
   file, then select pages with "all", "none" and ranges) or blank pages (1 to 50, sized like the
