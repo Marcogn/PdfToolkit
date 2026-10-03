@@ -17,7 +17,7 @@ specification (`docs/spec.md`) explicitly asks for something different, the spec
 | Version catalog | `gradle/libs.versions.toml` (same structure in both) | Same structure, latest stable versions (see "Dependency upgrade"). Libraries used only by the references are left out (WorkManager, Credential Manager, Play Services, Coil, Palette). Room became a dependency in phase 1b (`RecentDocument`) |
 | Toolchain | `compileSdk`/`targetSdk` 36, `minSdk` 26, Java/Kotlin 17 | `compileSdk`/`targetSdk` 37, the highest API level supported by AGP 9.4 (spec §3.3). `minSdk` 26 (spec: as the reference, not below 26). Java/Kotlin bytecode 17 |
 | Signing | `signingConfigs.release` from the environment variables `RELEASE_KEYSTORE_PATH`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`; release left unsigned when missing | Same, same names. Dedicated keystore for this app, like TPGH (RSA 2048, 10,000 days, alias = app name), never committed |
-| Build types | `release` with `isMinifyEnabled = false` | Same for now. R8 gets enabled and tested in phase 6 with the PdfBox-Android rules (spec §3.2) |
+| Build types | `release` with `isMinifyEnabled = false` | R8 and resource shrinking on since phase 6; PdfBox-Android ships its own consumer rules, `proguard-rules.pro` only silences the optional JPEG 2000 decoder |
 | Packages and layering | `com.marcogn.<app>` with `ui/<feature>/`, `data/`, `domain/`, `di/` | `com.marcogn.pdftoolkit`, same scheme plus `pdf/` (spec §12). Packages are created when code that uses them arrives |
 | `applicationId` | `com.marcogn.thepatientgamerhelper`, `com.marcogn.kartlog` | `com.marcogn.pdftoolkit` (spec §2) |
 | Hilt | `@HiltAndroidApp` on the Application, `@AndroidEntryPoint` on `MainActivity` | Same. `hiltViewModel()` now comes from `androidx.hilt:hilt-lifecycle-viewmodel-compose` |
@@ -145,7 +145,7 @@ date. What each phase contains is in spec §13; here only operational notes.
 | 3 | Adding pages (PDF, blank, images) and Merge PDFs | Unit tests on page sizes |
 | 4 | Fill and sign, signature archive | Noto Sans font (OFL) bundled; verify the backup rules already in place |
 | 5 | Text search | `PageCoordinateMapper` with tests on rotated pages |
-| 6 | Polish | Animations (including the system "remove animations" setting), baseline profile, accessibility, R8, `CloudTarget` interface (spec §7.3) |
+| 6 | Polish | Animations (including the system "remove animations" setting), baseline profile, accessibility, R8, `CloudTarget` interface (spec §7.3). Done except the baseline profile (needs a device) |
 
 ## Decisions taken with the author (2026-10-01)
 

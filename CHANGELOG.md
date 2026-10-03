@@ -6,6 +6,15 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Edit button grows into the edit hub.** Tapping "Edit" in the viewer now morphs the button into
+  the edit screen (250 ms) instead of a plain slide.
+- **Pages come in one after another.** Thumbnails in the page grids fade in with a light stagger when
+  the screen opens (only then, not while scrolling). With the system animations turned off
+  (Android's "Remove animations") they appear at once.
+- **Screen readers in the viewer.** TalkBack announces "Page 3 of 200" for the document and offers
+  "Next page" / "Previous page" actions; before, the page area was silent.
+- **Smaller release app.** The release build is now minified and trimmed of unused resources (R8),
+  and CI builds it on every change.
 - **Saving large merges.** Merging or editing many large PDFs at once (for example 25 files of about
   1 GB in all) no longer fails with "Memoria insufficiente per questo documento.": the working data
   of every open file now goes to temporary files in the app's cache instead of memory.

@@ -80,6 +80,9 @@
     <!-- Viewer -->
     <string name="viewer_page_indicator">Page %1$d of %2$d</string>
     <string name="viewer_scrubber_bubble">%1$d / %2$d</string>
+    <string name="cd_viewer_page">Page %1$d of %2$d</string>
+    <string name="cd_viewer_next_page">Next page</string>
+    <string name="cd_viewer_previous_page">Previous page</string>
     <string name="cd_scrubber">Quick scroll between pages</string>
     <string name="cd_thumbnails">Page thumbnails</string>
     <string name="cd_thumbnail_page">Page %1$d</string>
