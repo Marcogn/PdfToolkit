@@ -188,8 +188,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   source PDF's own appearance streams (author confirmed: the original shows them the same way).
 - **5a Search core done (2026-10-03)**, PR #10 merged; lint (0 errors), 251 unit tests and
   `assembleDebug` green. No device checks (verified by tests).
-- **5b Search complete done (2026-10-03)**, PR pending; lint (0 errors), 277 unit tests and
-  `assembleDebug` green; device checks pending (author). **Next: phase 6 Polish (Sonnet).**
+- **5b Search complete done (2026-10-03)**, PR #11; lint (0 errors), 277 unit tests and
+  `assembleDebug` green; device checks passed (author), the 25-file merge included. **Next: phase 6 Polish (Sonnet).**
   Same PR, fix from the author's device test: merging 25 PDFs (~1 GB, 2031 pages) failed with
   `OUT_OF_MEMORY` (see Decisions, 2026-10-03, save memory).
 - The author still has to add the signing secrets to the repository.
