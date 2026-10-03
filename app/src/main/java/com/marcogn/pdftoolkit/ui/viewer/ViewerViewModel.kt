@@ -19,6 +19,8 @@ import com.marcogn.pdftoolkit.pdf.render.PdfDocumentOpener
 import com.marcogn.pdftoolkit.pdf.render.PdfDocumentRenderer
 import com.marcogn.pdftoolkit.pdf.render.RenderBudget
 import com.marcogn.pdftoolkit.pdf.render.RenderScheduler
+import com.marcogn.pdftoolkit.pdf.text.DocumentSearch
+import com.marcogn.pdftoolkit.pdf.text.PdfTextExtractor
 import com.marcogn.pdftoolkit.ui.navigation.Destination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +47,8 @@ sealed interface ViewerUiState {
         val pageSizes: List<PageSize>,
         val bitmaps: RenderScheduler<ImageBitmap>,
         val thumbnails: PageThumbnails,
+        /** Text search in this document (spec §5.1); indexing starts when the reader opens it. */
+        val search: DocumentSearch,
         /** Zero-based page to open on: the last one read, or 0. */
         val startPage: Int,
     ) : ViewerUiState
@@ -64,6 +68,7 @@ class ViewerViewModel @Inject constructor(
     private val opener: PdfDocumentOpener,
     private val recents: RecentsRepository,
     private val readingPreferences: ReadingPreferences,
+    private val textExtractor: PdfTextExtractor,
     val budget: RenderBudget,
 ) : ViewModel() {
 
@@ -138,6 +143,14 @@ class ViewerViewModel @Inject constructor(
                 pageSizes = pageSizes,
                 bitmaps = scheduler,
                 thumbnails = PageThumbnails(opened.renderer),
+                search = DocumentSearch(
+                    scope = viewModelScope,
+                    extractor = textExtractor,
+                    open = { opener.openStream(uri) },
+                    // Kept in memory only, like the viewer's own copy (never saved).
+                    password = password,
+                    pageCount = pageSizes.size,
+                ),
                 startPage = startPage,
             )
         } catch (e: PdfOpenException) {

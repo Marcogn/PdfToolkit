@@ -305,4 +305,14 @@
     <string name="signature_preview">Anteprima della firma</string>
     <string name="signature_nothing_found">Nessuna firma trovata: abbassa la soglia o ritaglia meglio.</string>
     <string name="fill_hint_move">Tieni premuto e trascina per spostare; con due dita ridimensiona e ruota.</string>
+    <string name="search_hint">Cerca nel documento</string>
+    <string name="search_counter">%1$d di %2$d</string>
+    <string name="search_no_results">Nessun risultato</string>
+    <string name="search_no_text">Questo documento non contiene testo ricercabile. Potrebbe essere una scansione.</string>
+    <string name="search_failed">Impossibile leggere il testo del documento.</string>
+    <string name="cd_search">Cerca nel documento</string>
+    <string name="cd_search_close">Chiudi la ricerca</string>
+    <string name="cd_search_previous">Risultato precedente</string>
+    <string name="cd_search_next">Risultato successivo</string>
+    <string name="cd_search_indexing">Lettura del testo del documento in corso</string>
 </resources>

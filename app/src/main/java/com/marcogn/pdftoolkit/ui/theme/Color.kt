@@ -63,3 +63,8 @@ internal val DarkColors = darkColorScheme(
     surfaceContainerHigh = Color(0xFF252B2C),
     surfaceContainerHighest = Color(0xFF303637),
 )
+
+// [ASSUMPTION] Spec §5.1: search occurrences are a translucent rectangle over the page, the current
+// one stronger. The pages are always white (spec §5), so the same two colours serve both themes.
+internal val SearchHighlightColor = Color(0x66FFC107)
+internal val SearchCurrentHighlightColor = Color(0xB3FF6D00)

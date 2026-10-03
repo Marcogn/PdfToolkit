@@ -301,4 +301,14 @@
     <string name="signature_preview">Signature preview</string>
     <string name="signature_nothing_found">No signature found: lower the threshold or crop more tightly.</string>
     <string name="fill_hint_move">Press and hold, then drag to move; use two fingers to resize and rotate.</string>
+    <string name="search_hint">Search in document</string>
+    <string name="search_counter">%1$d of %2$d</string>
+    <string name="search_no_results">No results</string>
+    <string name="search_no_text">This document has no searchable text. It may be a scan.</string>
+    <string name="search_failed">The document\'s text could not be read.</string>
+    <string name="cd_search">Search in document</string>
+    <string name="cd_search_close">Close search</string>
+    <string name="cd_search_previous">Previous result</string>
+    <string name="cd_search_next">Next result</string>
+    <string name="cd_search_indexing">Reading the document\'s text</string>
 </resources>

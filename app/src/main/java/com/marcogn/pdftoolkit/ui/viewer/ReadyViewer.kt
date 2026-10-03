@@ -12,9 +12,11 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
@@ -24,6 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.ViewCarousel
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -32,6 +35,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -49,12 +53,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.model.ReadingMode
 import com.marcogn.pdftoolkit.pdf.render.RenderBudget
+import com.marcogn.pdftoolkit.ui.search.RevealRequest
+import com.marcogn.pdftoolkit.ui.search.SearchHighlights
+import com.marcogn.pdftoolkit.ui.search.SearchNotice
+import com.marcogn.pdftoolkit.ui.search.SearchTopBar
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -66,12 +77,12 @@ private const val FAB_REAPPEAR_MS = 1_500L
 
 /**
  * The open document (spec §4.2): top bar with page indicator and menu, the pages in the chosen
- * [ReadingMode], the scrubber and the thumbnail bar. Search (phase 5) and the Edit FAB (phase 2)
- * are not here yet.
+ * [ReadingMode], the scrubber and the thumbnail bar, the Edit FAB and the text search (spec §5.1).
  *
  * [currentPage] lives here and is fed by whichever mode is on screen, so switching mode, the top
  * bar and the thumbnail bar always agree. Jumps (scrubber, thumbnails, "go to page") are sent
- * through [jumps] and executed by the mode on screen.
+ * through [jumps] and executed by the mode on screen; search results are brought to the centre of
+ * the screen through [reveals].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,6 +101,36 @@ fun ReadyViewer(
     var showGoTo by rememberSaveable { mutableStateOf(false) }
     var showInfo by rememberSaveable { mutableStateOf(false) }
     val jumps = remember { Channel<Int>(Channel.CONFLATED) }
+    val reveals = remember { Channel<RevealRequest>(Channel.CONFLATED) }
+    val search = state.search
+    val searchState by search.state.collectAsStateWithLifecycle()
+    var searchOpen by rememberSaveable { mutableStateOf(false) }
+    var searchText by rememberSaveable { mutableStateOf("") }
+    var handledFocusToken by rememberSaveable { mutableIntStateOf(searchState.focusToken) }
+    LaunchedEffect(searchOpen) {
+        if (searchOpen) {
+            search.start()
+            search.setQuery(searchText)
+        } else {
+            search.close()
+        }
+    }
+    // Scroll to the current result when the search asks for it (first result, next, previous), not
+    // when more pages get indexed or the screen turns.
+    LaunchedEffect(searchState.focusToken) {
+        if (searchOpen && searchState.focusToken != handledFocusToken) {
+            handledFocusToken = searchState.focusToken
+            searchState.currentMatch?.let { reveals.trySend(RevealRequest(searchState.focusToken, it)) }
+        }
+    }
+    val closeSearch = {
+        searchOpen = false
+        searchText = ""
+    }
+    BackHandler(enabled = searchOpen, onBack = closeSearch)
+    val highlights = remember(searchOpen, searchState.matches, searchState.current) {
+        if (searchOpen) SearchHighlights.of(searchState.matches, searchState.current) else SearchHighlights.None
+    }
     // The Edit button hides while the reader scrolls down and comes back on scrolling up or after a
     // pause (spec §4.2).
     var fabHidden by remember { mutableStateOf(false) }
@@ -115,39 +156,56 @@ fun ReadyViewer(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(state.displayName.orEmpty(), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
-                        Text(
-                            stringResource(R.string.viewer_page_indicator, currentPage + 1, pageCount),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            if (searchOpen) {
+                SearchTopBar(
+                    query = searchText,
+                    onQueryChange = {
+                        searchText = it
+                        search.setQuery(it)
+                    },
+                    state = searchState,
+                    onPrevious = search::previous,
+                    onNext = search::next,
+                    onClose = closeSearch,
+                )
+            } else {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(state.displayName.orEmpty(), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                            Text(
+                                stringResource(R.string.viewer_page_indicator, currentPage + 1, pageCount),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { searchOpen = true }) {
+                            Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.cd_search))
+                        }
+                        IconToggleButton(checked = showThumbnails, onCheckedChange = { showThumbnails = it }) {
+                            Icon(Icons.Outlined.ViewCarousel, contentDescription = stringResource(R.string.cd_thumbnails))
+                        }
+                        ViewerMenu(
+                            readingMode = readingMode,
+                            onReadingModeChange = onReadingModeChange,
+                            onGoToPage = { showGoTo = true },
+                            onInfo = { showInfo = true },
+                            uri = state.uri.toUri(),
                         )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
-                    }
-                },
-                actions = {
-                    IconToggleButton(checked = showThumbnails, onCheckedChange = { showThumbnails = it }) {
-                        Icon(Icons.Outlined.ViewCarousel, contentDescription = stringResource(R.string.cd_thumbnails))
-                    }
-                    ViewerMenu(
-                        readingMode = readingMode,
-                        onReadingModeChange = onReadingModeChange,
-                        onGoToPage = { showGoTo = true },
-                        onInfo = { showInfo = true },
-                        uri = state.uri.toUri(),
-                    )
-                },
-            )
+                    },
+                )
+            }
         },
         floatingActionButton = {
             AnimatedVisibility(
-                visible = !fabHidden && !showThumbnails,
+                visible = !fabHidden && !showThumbnails && !searchOpen,
                 enter = scaleIn(tween(PANEL_MS)) + fadeIn(tween(PANEL_MS)),
                 exit = scaleOut(tween(PANEL_MS)) + fadeOut(tween(PANEL_MS)),
             ) {
@@ -169,8 +227,21 @@ fun ReadyViewer(
                 modifier = Modifier.fillMaxSize(),
             ) { mode ->
                 when (mode) {
-                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reportPage, onScroll)
-                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reportPage)
+                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, reportPage, onScroll)
+                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, reportPage)
+                }
+            }
+
+            if (searchOpen) {
+                Column(Modifier.fillMaxWidth()) {
+                    if (searchState.isIndexing) {
+                        val indexingDescription = stringResource(R.string.cd_search_indexing)
+                        LinearProgressIndicator(
+                            progress = { searchState.indexedPages.toFloat() / pageCount.coerceAtLeast(1) },
+                            modifier = Modifier.fillMaxWidth().semantics { contentDescription = indexingDescription },
+                        )
+                    }
+                    SearchNotice(searchState, Modifier.fillMaxWidth())
                 }
             }
 
@@ -302,6 +373,8 @@ private fun ContinuousPages(
     budget: RenderBudget,
     startPage: Int,
     jumps: Channel<Int>,
+    reveals: Channel<RevealRequest>,
+    highlights: SearchHighlights,
     onPageChanged: (Int) -> Unit,
     onScroll: (Float) -> Unit,
 ) {
@@ -313,6 +386,9 @@ private fun ContinuousPages(
     }
     LaunchedEffect(viewportState, jumps) {
         jumps.receiveAsFlow().collect { viewportState.jumpToPage(it) }
+    }
+    LaunchedEffect(viewportState, reveals) {
+        reveals.receiveAsFlow().collect { viewportState.centerOnPageRect(it.match.pageIndex, it.match.bounds) }
     }
     LaunchedEffect(viewportState) {
         var previous = viewportState.viewport.offset.y
@@ -327,6 +403,7 @@ private fun ContinuousPages(
         budget = budget,
         state = viewportState,
         backgroundColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        highlights = highlights,
         modifier = Modifier.fillMaxSize(),
     )
 }
@@ -342,14 +419,24 @@ private fun SinglePages(
     budget: RenderBudget,
     startPage: Int,
     jumps: Channel<Int>,
+    reveals: Channel<RevealRequest>,
+    highlights: SearchHighlights,
     onPageChanged: (Int) -> Unit,
 ) {
+    // A search result waits here until its page is composed and has a layout, then it is centred.
+    var pendingReveal by remember { mutableStateOf<RevealRequest?>(null) }
     val pagerState = rememberPagerState(initialPage = startPage.coerceIn(0, state.pageSizes.size - 1)) { state.pageSizes.size }
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect(onPageChanged)
     }
     LaunchedEffect(pagerState, jumps) {
         jumps.receiveAsFlow().collect { pagerState.scrollToPage(it) }
+    }
+    LaunchedEffect(pagerState, reveals) {
+        reveals.receiveAsFlow().collect {
+            pendingReveal = it
+            pagerState.scrollToPage(it.match.pageIndex)
+        }
     }
     HorizontalPager(
         state = pagerState,
@@ -358,6 +445,12 @@ private fun SinglePages(
         modifier = Modifier.fillMaxSize(),
     ) { page ->
         val viewportState = rememberSaveable(page, saver = PdfViewportState.Saver) { PdfViewportState() }
+        LaunchedEffect(viewportState, pendingReveal) {
+            pendingReveal?.takeIf { it.match.pageIndex == page }?.let {
+                viewportState.centerOnPageRect(0, it.match.bounds)
+                pendingReveal = null
+            }
+        }
         PdfViewport(
             pageSizes = listOf(state.pageSizes[page]),
             bitmaps = state.bitmaps,
@@ -367,6 +460,7 @@ private fun SinglePages(
             pageIndexOffset = page,
             requestSource = page,
             yieldHorizontalToParent = true,
+            highlights = highlights,
             modifier = Modifier.fillMaxSize(),
         )
     }

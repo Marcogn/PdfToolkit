@@ -41,6 +41,9 @@ import com.marcogn.pdftoolkit.pdf.render.PageSize
 import com.marcogn.pdftoolkit.pdf.render.RenderBudget
 import com.marcogn.pdftoolkit.pdf.render.RenderPlanner
 import com.marcogn.pdftoolkit.pdf.render.RenderScheduler
+import com.marcogn.pdftoolkit.ui.search.SearchHighlights
+import com.marcogn.pdftoolkit.ui.theme.SearchCurrentHighlightColor
+import com.marcogn.pdftoolkit.ui.theme.SearchHighlightColor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -76,6 +79,8 @@ fun PdfViewport(
      * is left unconsumed, so a parent pager can take it (single-page mode).
      */
     yieldHorizontalToParent: Boolean = false,
+    /** Search occurrences to draw over the pages (spec §5.1); keyed by document page index. */
+    highlights: SearchHighlights = SearchHighlights.None,
 ) {
     val scope = rememberCoroutineScope()
     val decay = rememberSplineBasedDecay<Float>()
@@ -131,11 +136,24 @@ fun PdfViewport(
                 if (level == NO_LEVEL) continue
                 drawTiles(index, level, planner, mapper, bitmaps)
             }
+            if (!highlights.isEmpty) drawHighlights(index, pageIndexOffset + index, mapper, highlights)
         }
     }
 }
 
 private const val NO_LEVEL = Int.MIN_VALUE
+
+/** Search occurrences of one page over its bitmap: all of them, then the current one stronger. */
+private fun DrawScope.drawHighlights(localIndex: Int, documentPage: Int, mapper: PageCoordinateMapper, highlights: SearchHighlights) {
+    val all = highlights.rectsOn(documentPage)
+    val current = highlights.currentRectsOn(documentPage)
+    for ((rects, color) in listOf(all to SearchHighlightColor, current to SearchCurrentHighlightColor)) {
+        for (rect in rects) {
+            val onScreen = mapper.pageRectToScreen(localIndex, rect)
+            drawRect(color, onScreen.topLeft, onScreen.size)
+        }
+    }
+}
 
 private fun DrawScope.drawTiles(
     pageIndex: Int,

@@ -16,16 +16,15 @@ pages with undo/redo, and save as a copy or overwrite, in the background. Adding
 PDF, blank, from images) and merging PDFs (phase 3) are in too. Fill and sign (phase 4) is complete:
 form fields, text, dates, ticks and crosses, and signatures are written into the page; signatures
 are drawn or imported into an archive ("My signatures") and every placed item can be moved, resized
-and turned with the fingers. Text search (phase 5) has its core: text with the position of every
-glyph, accent- and case-insensitive matching, highlight rectangles on rotated pages; the search
-screen in the viewer is next.
+and turned with the fingers. Text search (phase 5) is in: case- and accent-insensitive, with results that appear while the
+text is read and are highlighted on the page. Polish (phase 6) is next.
 
 ## Features
 
 Planned for the first version:
 
 - reading with zoom, continuous or single-page scrolling, scrubber and thumbnails (done)
-- text search
+- text search (done)
 - merging several PDFs (done)
 - removing, reordering and rotating pages (done); adding pages from another PDF, blank, or from
   images (done)
@@ -112,7 +111,11 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
 - Text search follows the order in which PdfBox extracts the text, which may differ from the
   reading order in columns and tables: a phrase split across columns may not be found. A word
   hyphenated at the end of a line is two words for the search. Right-to-left scripts aren't handled.
-  Scanned PDFs have no text to search until OCR (planned).
+  Scanned PDFs have no text to search until OCR (planned). Reading the text of a long, dense PDF
+  takes a while on a phone (results come in as pages are read); the index is not kept on disk, so
+  it is rebuilt each time the document is opened and searched.
+- Saving works on copies in the app's cache: a large merge needs free storage of a few times the
+  total size of its files while it runs (they are deleted afterwards).
 - Overwriting needs a file that grants write access (most local files do, some providers don't);
   otherwise only "save as copy" is offered.
 

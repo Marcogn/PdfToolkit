@@ -102,7 +102,15 @@ class PdfBoxEditor @Inject constructor(
         }
     }
 
-    private fun load(file: File): PDDocument = PDDocument.load(file, MemoryUsageSetting.setupMixed(MAIN_MEMORY_BYTES))
+    /**
+     * Every document of a save is open at the same time (imported pages read their streams until
+     * the result is written), and PdfBox copies the streams it parses into each document's scratch
+     * buffer. A RAM share per document ([MemoryUsageSetting.setupMixed]) adds up: 25 PDFs of about
+     * 1 GB in all held over 500 MB of Java heap and failed with `OutOfMemoryError` on a phone. The
+     * scratch buffers go to temporary files instead (`java.io.tmpdir`, the app's cache), at no
+     * measurable cost in time.
+     */
+    private fun load(file: File): PDDocument = PDDocument.load(file, MemoryUsageSetting.setupTempFileOnly())
 
     /**
      * Detaches every page, then puts back the ones the session keeps, in its order and rotation.
