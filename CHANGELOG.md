@@ -6,6 +6,9 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Saving large merges.** Merging or editing many large PDFs at once (for example 25 files of about
+  1 GB in all) no longer fails with "Memoria insufficiente per questo documento.": the working data
+  of every open file now goes to temporary files in the app's cache instead of memory.
 - **Search in the document.** The magnifier in the viewer's top bar turns it into a search field with
   the count ("3 of 17") and previous / next arrows (the keyboard's search key goes to the next one).
   Results appear while the text is being read, page by page, with a thin progress bar; typing waits

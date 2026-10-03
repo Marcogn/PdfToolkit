@@ -190,6 +190,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   `assembleDebug` green. No device checks (verified by tests).
 - **5b Search complete done (2026-10-03)**, PR pending; lint (0 errors), 277 unit tests and
   `assembleDebug` green; device checks pending (author). **Next: phase 6 Polish (Sonnet).**
+  Same PR, fix from the author's device test: merging 25 PDFs (~1 GB, 2031 pages) failed with
+  `OUT_OF_MEMORY` (see Decisions, 2026-10-03, save memory).
 - The author still has to add the signing secrets to the repository.
 
 ### Notes from phase 5 (search)
@@ -284,6 +286,14 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-03 · Save memory: `PdfBoxEditor` loads every document of a save with
+  `MemoryUsageSetting.setupTempFileOnly()` (was `setupMixed(16 MB)` each). All the documents of a
+  merge stay open until the result is written and PdfBox 2.0 copies parsed streams into each one's
+  scratch buffer, so the RAM shares added up. Measured with 25 generated PDFs (938 MB, 2000 pages):
+  Java heap held after loading 516 MB → 121 MB, same total time (~27 s on a desktop JVM); with a
+  320 MB heap the old setting failed with `OutOfMemoryError` and the new one completed. The rest
+  (~4 MB per open file) is PdfBox's file read cache. Single-document readers (`FormReader`, text
+  extraction, `hasFormFields`) keep `setupMixed`. No unit test: it needs ~1 GB of input.
 - 2026-10-03 · Phase 5b: indexing is not cancelled when the search is closed: it runs once to the end
   and the index stays in memory while the document is open (spec §5.1). "Cancellation" is a new
   query replacing the one waiting or scanning, and closing the document (view model cleared). Resuming

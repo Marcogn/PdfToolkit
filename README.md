@@ -114,6 +114,8 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   Scanned PDFs have no text to search until OCR (planned). Reading the text of a long, dense PDF
   takes a while on a phone (results come in as pages are read); the index is not kept on disk, so
   it is rebuilt each time the document is opened and searched.
+- Saving works on copies in the app's cache: a large merge needs free storage of a few times the
+  total size of its files while it runs (they are deleted afterwards).
 - Overwriting needs a file that grants write access (most local files do, some providers don't);
   otherwise only "save as copy" is offered.
 
