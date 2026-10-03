@@ -53,13 +53,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
+import com.marcogn.pdftoolkit.ui.navigation.editContainerBounds
 import com.marcogn.pdftoolkit.domain.model.ReadingMode
 import com.marcogn.pdftoolkit.pdf.render.RenderBudget
 import com.marcogn.pdftoolkit.ui.search.RevealRequest
@@ -215,11 +218,31 @@ fun ReadyViewer(
                     text = { Text(stringResource(R.string.edit_fab)) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.editContainerBounds(),
                 )
             }
         },
     ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize()) {
+        val pageDescription = stringResource(R.string.cd_viewer_page, currentPage + 1, pageCount)
+        val nextPageLabel = stringResource(R.string.cd_viewer_next_page)
+        val previousPageLabel = stringResource(R.string.cd_viewer_previous_page)
+        // The pages are drawn on a Canvas, which TalkBack can't read: the container says where the
+        // reader is and offers page turns (the scrubber and the thumbnails still jump anywhere).
+        Box(
+            Modifier.padding(padding).fillMaxSize().semantics {
+                contentDescription = pageDescription
+                customActions = listOf(
+                    CustomAccessibilityAction(nextPageLabel) {
+                        if (currentPage < pageCount - 1) jumps.trySend(currentPage + 1)
+                        currentPage < pageCount - 1
+                    },
+                    CustomAccessibilityAction(previousPageLabel) {
+                        if (currentPage > 0) jumps.trySend(currentPage - 1)
+                        currentPage > 0
+                    },
+                )
+            },
+        ) {
             Crossfade(
                 targetState = readingMode,
                 animationSpec = tween(MODE_CROSSFADE_MS),

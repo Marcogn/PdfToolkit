@@ -2,6 +2,7 @@ package com.marcogn.pdftoolkit.ui.edit
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -85,6 +86,7 @@ fun SaveDialog(
 private fun SaveOption(title: Int, hint: Int, selected: Boolean, enabled: Boolean, onSelect: () -> Unit) {
     Row(
         modifier = Modifier
+            .heightIn(min = 48.dp)
             .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onSelect)
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

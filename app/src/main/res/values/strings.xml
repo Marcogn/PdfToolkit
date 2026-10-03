@@ -84,6 +84,9 @@
     <!-- Viewer -->
     <string name="viewer_page_indicator">Pagina %1$d di %2$d</string>
     <string name="viewer_scrubber_bubble">%1$d / %2$d</string>
+    <string name="cd_viewer_page">Pagina %1$d di %2$d</string>
+    <string name="cd_viewer_next_page">Pagina successiva</string>
+    <string name="cd_viewer_previous_page">Pagina precedente</string>
     <string name="cd_scrubber">Scorrimento rapido tra le pagine</string>
     <string name="cd_thumbnails">Miniature delle pagine</string>
     <string name="cd_thumbnail_page">Pagina %1$d</string>

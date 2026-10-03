@@ -77,6 +77,7 @@ import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
+import com.marcogn.pdftoolkit.ui.navigation.editContainerBounds
 import com.marcogn.pdftoolkit.domain.edit.PageItem
 import com.marcogn.pdftoolkit.domain.fill.FieldValue
 import com.marcogn.pdftoolkit.domain.fill.FormField
@@ -369,6 +370,8 @@ fun EditScreen(
     }
 
     Scaffold(
+        // The viewer's Edit button grows into this screen (spec §9, container transform).
+        modifier = Modifier.editContainerBounds(),
         // In the bottomBar slot, so snackbars are placed above the tools instead of covering them.
         bottomBar = {
             if (ready != null && !picking && pane == EditPane.HUB) HubToolBar(hubTools, onHubTool)
