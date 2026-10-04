@@ -59,6 +59,14 @@ release APK is built unsigned. On GitHub Actions the keystore is the `RELEASE_KE
 secret (base64), decoded by the "Build APK" and "Release" workflows; the `RELEASE_PUSH_TOKEN`
 secret lets "Release" commit the version bump to `main`.
 
+## CI and releases
+
+Android CI checks every pull request (lint, unit tests, release build with R8) and produces no APK.
+To try a branch on the phone, run **Build APK** on it (Actions → Build APK → Run workflow): it gives
+the release build signed with the persistent key, which installs over the app already there, plus
+R8's `mapping.txt` to read crash stack traces. Releases come from the **Release** workflow. Details,
+and how to reuse the workflows in another project: [`docs/ci.md`](docs/ci.md).
+
 ## Project structure
 
 ```
@@ -77,7 +85,7 @@ docs/
 ## Privacy
 
 The app does not declare the `INTERNET` permission: files stay on the phone and nothing leaves the
-device. CI checks on every build that no dependency brings the permission back.
+device. CI checks on every pull request that no dependency brings the permission back.
 
 ## Libraries and licences
 

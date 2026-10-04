@@ -97,6 +97,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   "Fill and sign" pane of `EditScreen`; `ui/signatures/` is "My signatures" plus the creation flow
   (draw, import) and the picker sheet that `EditScreen` reuses.
 - `di/` Hilt modules, when needed.
+- `.github/workflows/`: generic, shared with the author's other Android projects (only the `env`
+  block at the top is per project); how they work and how to reuse them in `docs/ci.md`.
 
 ## Non-obvious rules
 - One page open at a time per `PdfRenderer` instance: one mutex per document, rendering on
@@ -204,6 +206,11 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   `com.gemalto.jp2.*` (PdfBox's optional JPX decoder); the library's own `proguard.txt` keeps what it
   loads by reflection. Built only, **not run**: no device in the cloud, so the main flows on a release
   build are the author's check. CI builds `assembleRelease` too.
+- Workflows rewritten as generic (author's request, same PR #12; `docs/ci.md`): Android CI only verifies
+  (no APK), Build APK is the APK to try on the phone (signed release + `mapping.txt`), Release attaches
+  `mapping.txt`. Checked with actionlint (incl. shellcheck); the signature step and Release's version
+  bump and notes scripts were run locally on a test keystore and a copy of the files. Build APK and
+  Release can't run until the signing secrets are in the repository.
 - FAB → hub: `SharedTransitionLayout` around the `NavHost` (`ui/navigation/EditContainerTransform.kt`),
   `editContainerBounds()` on the viewer's Edit button and on the `EditScreen` scaffold; each nav
   destination provides its `AnimatedVisibilityScope` through `LocalDestinationScope`. Where only one
@@ -311,6 +318,10 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-04 · CI uploads no debug APK any more (author's decision; spec §13 phase 0 acceptance
+  asked for it): it needed uninstalling the app to install and wasn't minified, so it didn't test the
+  build that ships. Build APK (signed release, R8) is the APK for device checks. The four workflows
+  are generic, per-project values in their `env` block, meant to be copied into the other projects.
 - 2026-10-03 · Phase 6: `CloudTarget` (spec §7.3) is a minimal interface (`displayName`, `suspend
   upload(fileName, mimeType, content)` returning `Result<Unit>`); the spec names it without a shape,
   so the members are an assumption, easy to change since nothing uses it.
