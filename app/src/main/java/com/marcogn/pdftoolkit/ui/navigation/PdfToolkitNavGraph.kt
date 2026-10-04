@@ -4,6 +4,8 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -19,6 +21,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -109,6 +112,7 @@ private fun NavDestination.asDrawerDestination(): Destination? = drawerDestinati
 }
 
 /** Navigation graph wrapped in a drawer that is always reachable (hamburger on the left), spec §4. */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PdfToolkitNavGraph(
     startUri: Uri? = null,
@@ -156,162 +160,170 @@ fun PdfToolkitNavGraph(
         gesturesEnabled = drawerGesturesEnabled,
         drawerContent = { AppDrawerSheet(current = currentDrawerDestination, onNavigate = navigateFromDrawer) },
     ) {
-        NavHost(
-            navController = navController,
-            startDestination = Destination.Home,
-            enterTransition = navEnterTransition,
-            exitTransition = navExitTransition,
-            popEnterTransition = navPopEnterTransition,
-            popExitTransition = navPopExitTransition,
-            // System back (button or gesture) uses these instead of the pop transitions above, and
-            // Navigation's defaults scale the screen down to 70% towards the centre: back would look
-            // different from the toolbar arrow. Same transitions for both, driven by the gesture.
-            predictivePopEnterTransition = { navPopEnterTransition() },
-            predictivePopExitTransition = { navPopExitTransition() },
-        ) {
-            composable<Destination.Home> { entry ->
-                val recentsViewModel: RecentsViewModel = hiltViewModel()
-                val recents by recentsViewModel.recents.collectAsStateWithLifecycle()
-                // The picker result arrives before the entry is RESUMED again, so this navigate()
-                // can't go through the guard; it isn't a tap, so no double-tap risk. The tap that
-                // opens the picker is guarded.
-                // A page tool tapped on Home picks the file first and then opens straight on the tool (spec §4.1).
-                var pendingTool by rememberSaveable { mutableStateOf<String?>(null) }
-                // Tools that pick a second file after the PDF say so first: otherwise the PDF picker
-                // looks like the wrong one ("I wanted images").
-                var explainTool by rememberSaveable { mutableStateOf<String?>(null) }
-                val openPdf = rememberOpenPdfLauncher { uri ->
-                    val tool = pendingTool
-                    pendingTool = null
-                    navController.navigate(
-                        if (tool == null) Destination.Viewer(uri.toString()) else Destination.Edit(uri.toString(), tool),
-                    )
-                }
-                // "Merge PDFs" picks the files first, then opens the merge list (spec §6.6).
-                val mergePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-                    if (uris.isNotEmpty()) {
-                        uris.forEach { context.takePersistableAccess(it) }
-                        navController.navigate(Destination.Merge(uris.map { it.toString() }))
-                    }
-                }
-                HomeScreen(
-                    onMenuClick = openDrawer,
-                    onOpenPdfClick = {
-                        if (entry.lifecycleIsResumed()) {
+        SharedTransitionLayout {
+            CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+                NavHost(
+                    navController = navController,
+                    startDestination = Destination.Home,
+                    enterTransition = navEnterTransition,
+                    exitTransition = navExitTransition,
+                    popEnterTransition = navPopEnterTransition,
+                    popExitTransition = navPopExitTransition,
+                    // System back (button or gesture) uses these instead of the pop transitions above, and
+                    // Navigation's defaults scale the screen down to 70% towards the centre: back would look
+                    // different from the toolbar arrow. Same transitions for both, driven by the gesture.
+                    predictivePopEnterTransition = { navPopEnterTransition() },
+                    predictivePopExitTransition = { navPopExitTransition() },
+                ) {
+                    composable<Destination.Home> { entry ->
+                        val recentsViewModel: RecentsViewModel = hiltViewModel()
+                        val recents by recentsViewModel.recents.collectAsStateWithLifecycle()
+                        // The picker result arrives before the entry is RESUMED again, so this navigate()
+                        // can't go through the guard; it isn't a tap, so no double-tap risk. The tap that
+                        // opens the picker is guarded.
+                        // A page tool tapped on Home picks the file first and then opens straight on the tool (spec §4.1).
+                        var pendingTool by rememberSaveable { mutableStateOf<String?>(null) }
+                        // Tools that pick a second file after the PDF say so first: otherwise the PDF picker
+                        // looks like the wrong one ("I wanted images").
+                        var explainTool by rememberSaveable { mutableStateOf<String?>(null) }
+                        val openPdf = rememberOpenPdfLauncher { uri ->
+                            val tool = pendingTool
                             pendingTool = null
-                            openPdf()
+                            navController.navigate(
+                                if (tool == null) Destination.Viewer(uri.toString()) else Destination.Edit(uri.toString(), tool),
+                            )
                         }
-                    },
-                    recents = recents,
-                    onRecentClick = { item ->
-                        if (entry.lifecycleIsResumed()) navController.navigate(Destination.Viewer(item.document.uri))
-                    },
-                    onRecentRemove = { recentsViewModel.remove(it.document.uri) },
-                    onToolClick = { tool ->
-                        if (tool == PdfTool.MY_SIGNATURES) {
-                            // Same screen as the drawer entry, so same navigation: this way
-                            // two copies never pile up on the back stack.
-                            navigateFromDrawer(Destination.Signatures)
-                        } else if (tool == PdfTool.MERGE) {
-                            if (entry.lifecycleIsResumed()) mergePicker.launch(arrayOf("application/pdf"))
-                        } else if (tool in pageTools) {
-                            if (entry.lifecycleIsResumed()) {
-                                if (tool in toolsPickingTwice) {
-                                    explainTool = tool.name
-                                } else {
-                                    pendingTool = tool.name
+                        // "Merge PDFs" picks the files first, then opens the merge list (spec §6.6).
+                        val mergePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+                            if (uris.isNotEmpty()) {
+                                uris.forEach { context.takePersistableAccess(it) }
+                                navController.navigate(Destination.Merge(uris.map { it.toString() }))
+                            }
+                        }
+                        HomeScreen(
+                            onMenuClick = openDrawer,
+                            onOpenPdfClick = {
+                                if (entry.lifecycleIsResumed()) {
+                                    pendingTool = null
                                     openPdf()
                                 }
-                            }
-                        } else if (entry.lifecycleIsResumed()) {
-                            navController.navigate(Destination.Tool(tool.name))
-                        }
-                    },
-                )
-                explainTool?.let { name ->
-                    val tool = PdfTool.valueOf(name)
-                    AlertDialog(
-                        onDismissRequest = { explainTool = null },
-                        title = { Text(stringResource(tool.labelRes())) },
-                        text = {
-                            Text(
-                                stringResource(
-                                    if (tool == PdfTool.INSERT_IMAGES) R.string.home_pick_pdf_first_images else R.string.home_pick_pdf_first_pages,
-                                ),
-                            )
-                        },
-                        confirmButton = {
-                            TextButton(
-                                onClick = {
-                                    explainTool = null
-                                    pendingTool = name
-                                    openPdf()
+                            },
+                            recents = recents,
+                            onRecentClick = { item ->
+                                if (entry.lifecycleIsResumed()) navController.navigate(Destination.Viewer(item.document.uri))
+                            },
+                            onRecentRemove = { recentsViewModel.remove(it.document.uri) },
+                            onToolClick = { tool ->
+                                if (tool == PdfTool.MY_SIGNATURES) {
+                                    // Same screen as the drawer entry, so same navigation: this way
+                                    // two copies never pile up on the back stack.
+                                    navigateFromDrawer(Destination.Signatures)
+                                } else if (tool == PdfTool.MERGE) {
+                                    if (entry.lifecycleIsResumed()) mergePicker.launch(arrayOf("application/pdf"))
+                                } else if (tool in pageTools) {
+                                    if (entry.lifecycleIsResumed()) {
+                                        if (tool in toolsPickingTwice) {
+                                            explainTool = tool.name
+                                        } else {
+                                            pendingTool = tool.name
+                                            openPdf()
+                                        }
+                                    }
+                                } else if (entry.lifecycleIsResumed()) {
+                                    navController.navigate(Destination.Tool(tool.name))
+                                }
+                            },
+                        )
+                        explainTool?.let { name ->
+                            val tool = PdfTool.valueOf(name)
+                            AlertDialog(
+                                onDismissRequest = { explainTool = null },
+                                title = { Text(stringResource(tool.labelRes())) },
+                                text = {
+                                    Text(
+                                        stringResource(
+                                            if (tool == PdfTool.INSERT_IMAGES) R.string.home_pick_pdf_first_images else R.string.home_pick_pdf_first_pages,
+                                        ),
+                                    )
                                 },
-                            ) { Text(stringResource(R.string.home_pick_pdf_first_confirm)) }
-                        },
-                        dismissButton = { TextButton(onClick = { explainTool = null }) { Text(stringResource(R.string.save_cancel)) } },
-                    )
-                }
-            }
-            composable<Destination.Viewer> { entry ->
-                ViewerScreen(
-                    onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
-                    onEdit = {
-                        if (entry.lifecycleIsResumed()) navController.navigate(Destination.Edit(entry.toRoute<Destination.Viewer>().uri))
-                    },
-                )
-            }
-            composable<Destination.Edit> { entry ->
-                // Both results replace everything above Home: after an overwrite the viewer below
-                // still holds the old file open, and a copy is shown on its own.
-                val showResult: (String) -> Unit = { uri ->
-                    navController.navigate(Destination.Viewer(uri)) { popUpTo<Destination.Home>() }
-                }
-                EditScreen(
-                    startTool = entry.toRoute<Destination.Edit>().tool?.let { PdfTool.valueOf(it) },
-                    onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
-                    onResultReady = showResult,
-                    onOpenCopy = { uri -> if (entry.lifecycleIsResumed()) showResult(uri) },
-                )
-            }
-            composable<Destination.Merge> { entry ->
-                MergeScreen(
-                    onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
-                    onMerge = { uris, edit ->
-                        // The first file is the main document of the edit; the others are added to it.
-                        if (entry.lifecycleIsResumed() && uris.size >= 2) {
-                            navController.navigate(Destination.Edit(uri = uris.first(), mergeWith = uris.drop(1), autoSave = !edit))
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            explainTool = null
+                                            pendingTool = name
+                                            openPdf()
+                                        },
+                                    ) { Text(stringResource(R.string.home_pick_pdf_first_confirm)) }
+                                },
+                                dismissButton = { TextButton(onClick = { explainTool = null }) { Text(stringResource(R.string.save_cancel)) } },
+                            )
                         }
-                    },
-                )
-            }
-            composable<Destination.Tool> { entry ->
-                val tool = PdfTool.valueOf(entry.toRoute<Destination.Tool>().tool)
-                PlaceholderScreen(
-                    title = stringResource(tool.labelRes()),
-                    onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
-                )
-            }
-            composable<Destination.Recents> { entry ->
-                val recentsViewModel: RecentsViewModel = hiltViewModel()
-                val recents by recentsViewModel.recents.collectAsStateWithLifecycle()
-                RecentsScreen(
-                    recents = recents,
-                    onMenuClick = openDrawer,
-                    onRecentClick = { item ->
-                        if (entry.lifecycleIsResumed()) navController.navigate(Destination.Viewer(item.document.uri))
-                    },
-                    onRecentRemove = { recentsViewModel.remove(it.document.uri) },
-                )
-            }
-            composable<Destination.Signatures> {
-                SignaturesScreen(onMenuClick = openDrawer)
-            }
-            composable<Destination.Settings> {
-                SettingsScreen(onMenuClick = openDrawer)
-            }
-            composable<Destination.About> {
-                AboutScreen(onMenuClick = openDrawer)
+                    }
+                    composable<Destination.Viewer> { entry ->
+                        CompositionLocalProvider(LocalDestinationScope provides this) {
+                            ViewerScreen(
+                                onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
+                                onEdit = {
+                                    if (entry.lifecycleIsResumed()) navController.navigate(Destination.Edit(entry.toRoute<Destination.Viewer>().uri))
+                                },
+                            )
+                        }
+                    }
+                    composable<Destination.Edit> { entry ->
+                        // Both results replace everything above Home: after an overwrite the viewer below
+                        // still holds the old file open, and a copy is shown on its own.
+                        val showResult: (String) -> Unit = { uri ->
+                            navController.navigate(Destination.Viewer(uri)) { popUpTo<Destination.Home>() }
+                        }
+                        CompositionLocalProvider(LocalDestinationScope provides this) {
+                            EditScreen(
+                                startTool = entry.toRoute<Destination.Edit>().tool?.let { PdfTool.valueOf(it) },
+                                onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
+                                onResultReady = showResult,
+                                onOpenCopy = { uri -> if (entry.lifecycleIsResumed()) showResult(uri) },
+                            )
+                        }
+                    }
+                    composable<Destination.Merge> { entry ->
+                        MergeScreen(
+                            onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
+                            onMerge = { uris, edit ->
+                                // The first file is the main document of the edit; the others are added to it.
+                                if (entry.lifecycleIsResumed() && uris.size >= 2) {
+                                    navController.navigate(Destination.Edit(uri = uris.first(), mergeWith = uris.drop(1), autoSave = !edit))
+                                }
+                            },
+                        )
+                    }
+                    composable<Destination.Tool> { entry ->
+                        val tool = PdfTool.valueOf(entry.toRoute<Destination.Tool>().tool)
+                        PlaceholderScreen(
+                            title = stringResource(tool.labelRes()),
+                            onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
+                        )
+                    }
+                    composable<Destination.Recents> { entry ->
+                        val recentsViewModel: RecentsViewModel = hiltViewModel()
+                        val recents by recentsViewModel.recents.collectAsStateWithLifecycle()
+                        RecentsScreen(
+                            recents = recents,
+                            onMenuClick = openDrawer,
+                            onRecentClick = { item ->
+                                if (entry.lifecycleIsResumed()) navController.navigate(Destination.Viewer(item.document.uri))
+                            },
+                            onRecentRemove = { recentsViewModel.remove(it.document.uri) },
+                        )
+                    }
+                    composable<Destination.Signatures> {
+                        SignaturesScreen(onMenuClick = openDrawer)
+                    }
+                    composable<Destination.Settings> {
+                        SettingsScreen(onMenuClick = openDrawer)
+                    }
+                    composable<Destination.About> {
+                        AboutScreen(onMenuClick = openDrawer)
+                    }
+                }
             }
         }
     }

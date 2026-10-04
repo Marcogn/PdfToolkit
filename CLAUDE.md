@@ -81,7 +81,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   (`Destination`), NavHost and drawer; `ui/theme/` palette (`Color.kt`) and theme.
 - `domain/` models with no Android dependencies (`PdfTool`, `ThemeMode`, `domain/edit/`:
   `EditSession`, `PageItem`, `SaveFailure`; `domain/fill/`: overlays, `FieldValue`, `FormField`,
-  `TextBlock`, `MarkShape`; `domain/signature/`: `InkStroke`/`InkWidth`, `BackgroundRemoval`).
+  `TextBlock`, `MarkShape`; `domain/signature/`: `InkStroke`/`InkWidth`, `BackgroundRemoval`;
+  `domain/cloud/`: `CloudTarget`, interface only, product phase 2).
 - `data/` DataStore (`data/settings/ThemePreferences`, `ReadingPreferences`), Room
   (`data/recents/`: `AppDatabase` (v2, `MIGRATION_1_2`), `RecentDocument`, `RecentsRepository`, `ThumbnailStore`),
   signatures (`data/signatures/`: `Signature`, `SignatureDao`, `SignatureRepository`,
@@ -96,6 +97,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   "Fill and sign" pane of `EditScreen`; `ui/signatures/` is "My signatures" plus the creation flow
   (draw, import) and the picker sheet that `EditScreen` reuses.
 - `di/` Hilt modules, when needed.
+- `.github/workflows/`: generic, shared with the author's other Android projects (only the `env`
+  block at the top is per project); how they work and how to reuse them in `docs/ci.md`.
 
 ## Non-obvious rules
 - One page open at a time per `PdfRenderer` instance: one mutex per document, rendering on
@@ -189,10 +192,39 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - **5a Search core done (2026-10-03)**, PR #10 merged; lint (0 errors), 251 unit tests and
   `assembleDebug` green. No device checks (verified by tests).
 - **5b Search complete done (2026-10-03)**, PR #11; lint (0 errors), 277 unit tests and
-  `assembleDebug` green; device checks passed (author), the 25-file merge included. **Next: phase 6 Polish (Sonnet).**
+  `assembleDebug` green; device checks passed (author), the 25-file merge included. 
   Same PR, fix from the author's device test: merging 25 PDFs (~1 GB, 2031 pages) failed with
   `OUT_OF_MEMORY` (see Decisions, 2026-10-03, save memory).
+- **Phase 6 Polish done (2026-10-03), except the baseline profile**; lint, unit tests (incl. the new
+  palette contrast test) and `assembleDebug` green, `assembleRelease` (R8) builds. Needs the author's
+  device checks (below). **Next: product phase 1 is complete once those pass and the baseline profile
+  is generated locally; no further development phase.**
 - The author still has to add the signing secrets to the repository.
+
+### Notes from phase 6 (polish)
+- Release: `isMinifyEnabled` and `isShrinkResources` on; the only project rule is `-dontwarn` for
+  `com.gemalto.jp2.*` (PdfBox's optional JPX decoder); the library's own `proguard.txt` keeps what it
+  loads by reflection. Built only, **not run**: no device in the cloud, so the main flows on a release
+  build are the author's check. CI builds `assembleRelease` too.
+- Workflows rewritten as generic (author's request, same PR #12; `docs/ci.md`): Android CI only verifies
+  (no APK), Build APK is the APK to try on the phone (signed release + `mapping.txt`), Release attaches
+  `mapping.txt`. Checked with actionlint (incl. shellcheck); the signature step and Release's version
+  bump and notes scripts were run locally on a test keystore and a copy of the files. Build APK and
+  Release can't run until the signing secrets are in the repository.
+- FAB → hub: `SharedTransitionLayout` around the `NavHost` (`ui/navigation/EditContainerTransform.kt`),
+  `editContainerBounds()` on the viewer's Edit button and on the `EditScreen` scaffold; each nav
+  destination provides its `AnimatedVisibilityScope` through `LocalDestinationScope`. Where only one
+  end exists (hub opened from Home) it does nothing. Never above 250 ms.
+- Thumbnail cascade: `cascadeIn` in `PagesGrid`, only for cells composed in the first 400 ms.
+- System "remove animations": Compose animations follow the animator duration scale
+  ([release notes, Compose Animation 1.2.0-alpha05](https://developer.android.com/jetpack/androidx/releases/compose-animation));
+  everything here uses Compose `tween`/`Animatable`, and the cascade skips its delays at scale 0.
+- Accessibility: the viewer's page area has a description ("Page N of M") and next/previous page
+  actions; `ThemeContrastTest` checks WCAG 4.5:1 on the fixed palette (dynamic colour is the system's).
+  Canvas-drawn pages, overlays and form controls in the fill pane still have no per-element semantics.
+- **Baseline profile: not done.** It needs a device or emulator to record. A hand-written profile
+  would be a guess, so none is shipped; generate it locally with the `androidx.baselineprofile` Gradle
+  plugin and a macrobenchmark module (startup, open viewer, open edit hub) and commit the result.
 
 ### Notes from phase 5 (search)
 - Core (`pdf/text`): `PdfTextExtractor.pages(open, password): Flow<PageText>` (Hilt-bound to
@@ -286,6 +318,18 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-04 · CI uploads no debug APK any more (author's decision; spec §13 phase 0 acceptance
+  asked for it): it needed uninstalling the app to install and wasn't minified, so it didn't test the
+  build that ships. Build APK (signed release, R8) is the APK for device checks. The four workflows
+  are generic, per-project values in their `env` block, meant to be copied into the other projects.
+- 2026-10-03 · Phase 6: `CloudTarget` (spec §7.3) is a minimal interface (`displayName`, `suspend
+  upload(fileName, mimeType, content)` returning `Result<Unit>`); the spec names it without a shape,
+  so the members are an assumption, easy to change since nothing uses it.
+- 2026-10-03 · Phase 6: FAB → hub uses Compose shared bounds (scale-to-bounds, the default) rather than
+  re-measuring the hub every frame: cheaper with a thumbnail grid, at the cost of the content looking
+  scaled during the 250 ms. If it looks wrong on the device, switch `resizeMode` in
+  `editContainerBounds()`.
+- 2026-10-03 · Phase 6: no in-app "reduce motion" switch, only the system setting (spec §9).
 - 2026-10-03 · Save memory: `PdfBoxEditor` loads every document of a save with
   `MemoryUsageSetting.setupTempFileOnly()` (was `setupMixed(16 MB)` each). All the documents of a
   merge stay open until the result is written and PdfBox 2.0 copies parsed streams into each one's

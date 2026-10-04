@@ -1,5 +1,11 @@
 package com.marcogn.pdftoolkit.ui.edit
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.MotionDurationScale
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -120,6 +126,13 @@ fun PagesGrid(
         val index = pages.indexOfFirst { it.id == scrollToId }
         if (index >= 0) gridState.animateScrollToItem(index)
     }
+    // Cells composed while the grid is opening come in one after the other (spec §9); later ones, from
+    // scrolling or from an addition, appear as they are.
+    var opening by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        delay(OPENING_WINDOW_MS)
+        opening = false
+    }
     val reorderState = rememberReorderableLazyGridState(gridState) { from, to ->
         val list = (working ?: pages).toMutableList()
         list.add(to.index, list.removeAt(from.index))
@@ -171,10 +184,31 @@ fun PagesGrid(
                     actions = actions,
                     onTap = { onTap(page) },
                     onLongPress = { onLongPress(page) },
-                    modifier = dragModifier,
+                    modifier = dragModifier.cascadeIn(index, opening),
                 )
             }
         }
+    }
+}
+
+/**
+ * Fade and short rise of a cell that appears while [opening], staggered by its position (spec §9,
+ * "ingresso a cascata leggero, solo alla prima apparizione"). A cell composed later starts settled.
+ * With the system animations off (animator duration scale 0) there is neither delay nor movement.
+ */
+@Composable
+private fun Modifier.cascadeIn(index: Int, opening: Boolean): Modifier {
+    val progress = remember { Animatable(if (opening) 0f else 1f) }
+    LaunchedEffect(Unit) {
+        if (progress.value >= 1f) return@LaunchedEffect
+        val motionOn = (coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f) != 0f
+        if (motionOn) delay(index.coerceAtMost(CASCADE_MAX_STEPS) * CASCADE_STEP_MS)
+        progress.animateTo(1f, tween(CASCADE_MS, easing = FastOutSlowInEasing))
+    }
+    val risePx = with(LocalDensity.current) { CASCADE_RISE.toPx() }
+    return graphicsLayer {
+        alpha = progress.value
+        translationY = (1f - progress.value) * risePx
     }
 }
 
@@ -379,6 +413,11 @@ private fun RotatedThumbnail(rotation: Int, aspect: Float, content: @Composable 
     }
 }
 
+private const val OPENING_WINDOW_MS = 400L
+private const val CASCADE_STEP_MS = 25L
+private const val CASCADE_MAX_STEPS = 8
+private const val CASCADE_MS = 180
+private val CASCADE_RISE = 12.dp
 private const val DRAG_SCALE = 1.05f
 private const val HALF_TURN = 180
 private const val A4_ASPECT = 595f / 842f

@@ -17,7 +17,9 @@ PDF, blank, from images) and merging PDFs (phase 3) are in too. Fill and sign (p
 form fields, text, dates, ticks and crosses, and signatures are written into the page; signatures
 are drawn or imported into an archive ("My signatures") and every placed item can be moved, resized
 and turned with the fingers. Text search (phase 5) is in: case- and accent-insensitive, with results that appear while the
-text is read and are highlighted on the page. Polish (phase 6) is next.
+text is read and are highlighted on the page. Polish (phase 6) is done except the baseline profile,
+which has to be generated on a device: the Edit button morphs into the edit hub, thumbnails fade in, the viewer
+announces the page to screen readers, and the release build is minified (R8).
 
 ## Features
 
@@ -57,6 +59,14 @@ release APK is built unsigned. On GitHub Actions the keystore is the `RELEASE_KE
 secret (base64), decoded by the "Build APK" and "Release" workflows; the `RELEASE_PUSH_TOKEN`
 secret lets "Release" commit the version bump to `main`.
 
+## CI and releases
+
+Android CI checks every pull request (lint, unit tests, release build with R8) and produces no APK.
+To try a branch on the phone, run **Build APK** on it (Actions → Build APK → Run workflow): it gives
+the release build signed with the persistent key, which installs over the app already there, plus
+R8's `mapping.txt` to read crash stack traces. Releases come from the **Release** workflow. Details,
+and how to reuse the workflows in another project: [`docs/ci.md`](docs/ci.md).
+
 ## Project structure
 
 ```
@@ -75,7 +85,7 @@ docs/
 ## Privacy
 
 The app does not declare the `INTERNET` permission: files stay on the phone and nothing leaves the
-device. CI checks on every build that no dependency brings the permission back.
+device. CI checks on every pull request that no dependency brings the permission back.
 
 ## Libraries and licences
 

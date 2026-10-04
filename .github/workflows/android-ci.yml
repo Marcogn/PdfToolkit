@@ -1,3 +1,10 @@
+# .github/workflows/android-ci.yml
+#
+# Verification only: lint, unit tests and the release build (R8, unsigned) on every pull request
+# to main and every push to main. It produces no APK to install: the APK to try on a phone comes
+# from "Build APK" (release build signed with the persistent key, installs over the existing app).
+#
+# Shared by the author's Android projects: copy the file as is and change only the `env` block.
 name: Android CI
 
 on:
@@ -8,18 +15,37 @@ on:
     branches:
       - main
 
+# A new push to the same branch or PR cancels the run still going for the previous one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # --- Per-project configuration ---
+  # Gradle module of the application.
+  APP_MODULE: app
+  JAVA_VERSION: '17'
+  # Permissions the packaged release manifest must not declare (space separated, may be empty).
+  # PdfToolkit: no INTERNET in product phase 1 (docs/spec.md §1).
+  FORBIDDEN_PERMISSIONS: android.permission.INTERNET
+  # --- End of configuration ---
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
@@ -31,53 +57,50 @@ jobs:
         run: chmod +x gradlew
 
       - name: Lint
-        run: ./gradlew lintDebug --no-daemon --stacktrace
+        run: ./gradlew ":$APP_MODULE:lintDebug" --no-daemon --stacktrace
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+        run: ./gradlew ":$APP_MODULE:testDebugUnitTest" --no-daemon --stacktrace
 
-      - name: Assemble debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      # The build that ships: R8 and resource shrinking catch missing keep rules here, not on a
+      # phone. Unsigned (no secrets on pull requests), so nothing to install.
+      - name: Assemble release (R8)
+        run: ./gradlew ":$APP_MODULE:assembleRelease" --no-daemon --stacktrace
 
-      # Spec §1: in product phase 1 the app does not declare INTERNET. The manifest removes it with
-      # tools:node="remove"; this checks the merged manifest that actually gets packaged, so a new
-      # dependency bringing it back fails CI instead of going unnoticed.
-      - name: Check that INTERNET is not declared
+      # Checks the merged manifest that actually gets packaged in the release APK, so a dependency
+      # bringing a forbidden permission back fails CI instead of going unnoticed.
+      - name: Check forbidden permissions
+        if: env.FORBIDDEN_PERMISSIONS != ''
         run: |
-          MANIFEST=$(find app/build/intermediates/packaged_manifests/debug -name AndroidManifest.xml | head -1)
+          MANIFEST=$(find "$APP_MODULE/build/intermediates/packaged_manifests/release" -name AndroidManifest.xml | head -1)
           if [ -z "$MANIFEST" ]; then
-            echo "Packaged debug manifest not found" >&2
+            echo "Packaged release manifest not found" >&2
             exit 1
           fi
-          if grep -q 'android.permission.INTERNET' "$MANIFEST"; then
-            echo "android.permission.INTERNET found in $MANIFEST" >&2
-            exit 1
-          fi
-          echo "OK: no INTERNET permission in $MANIFEST"
-
-      # Debug APK to try a PR on the phone. Signed with the runner's ephemeral debug key (different
-      # on every run and different from the release key): installing it requires uninstalling the
-      # app first, losing its data. To install over the existing app, run the "Build APK" workflow
-      # (release build signed with the persistent key) on the PR branch.
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v7
-        with:
-          name: app-debug-uninstall-required
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          FOUND=0
+          for permission in $FORBIDDEN_PERMISSIONS; do
+            if grep -q "\"$permission\"" "$MANIFEST"; then
+              echo "$permission found in $MANIFEST" >&2
+              FOUND=1
+            fi
+          done
+          [ "$FOUND" -eq 0 ] || exit 1
+          echo "OK: none of [$FORBIDDEN_PERMISSIONS] in $MANIFEST"
 
       - name: Upload lint report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: lint-report
-          path: app/build/reports/lint-results-debug.html
+          path: ${{ env.APP_MODULE }}/build/reports/lint-results-debug.html
           if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload unit test report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: unit-test-report
-          path: app/build/reports/tests/testDebugUnitTest/
+          path: ${{ env.APP_MODULE }}/build/reports/tests/testDebugUnitTest/
           if-no-files-found: ignore
+          retention-days: 14

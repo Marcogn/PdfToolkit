@@ -41,9 +41,10 @@ android {
 
     buildTypes {
         release {
-            // R8 stays off, as in the reference projects, until PdfBox-Android is added: the
-            // minified release build gets tested in phase 6 (spec §3.2, §13).
-            isMinifyEnabled = false
+            // R8 and resource shrinking (phase 6, spec §3.2, §13). PdfBox-Android, Room, Hilt and
+            // WorkManager ship consumer rules; the project-specific ones are in proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
