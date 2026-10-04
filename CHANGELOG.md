@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-04
+
 - **Edit button grows into the edit hub.** Tapping "Edit" in the viewer now morphs the button into
   the edit screen (250 ms) instead of a plain slide.
 - **Pages come in one after another.** Thumbnails in the page grids fade in with a light stagger when
