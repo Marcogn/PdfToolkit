@@ -34,7 +34,9 @@ Planned for the first version:
   archive of signatures saved on the phone
 
 Planned for later: document scanning with OCR, cloud upload (WebDAV), highlighting, freehand
-drawing, export to OpenDocument. They already show up on Home as "Soon".
+drawing, export to OpenDocument. They already show up on Home as "Soon". Order and plan in
+[`docs/plan-v2.md`](docs/plan-v2.md): highlighting and drawing first, then scanning, then OCR,
+OpenDocument export and cloud upload.
 
 ## Requirements
 

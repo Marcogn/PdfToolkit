@@ -18,12 +18,12 @@ Every user-visible change goes into `CHANGELOG.md` right away under `## [Unrelea
   (pianificata, non implementare)" refer to the **product**.
 
 So development phase 2 (edit session and page management) has nothing to do with product
-phase 2. Never implement product phase 2 features; only the disabled "Soon" entries and the
-interfaces the spec asks for.
+phase 2. Product phase 2 is planned in `docs/plan-v2.md` as **development phases 7–12** (rows below);
+implement a product phase 2 feature only inside its own sub-phase, never ahead of it.
 
 ## Session protocol
-Phases 1, 4 and 5 are split into sub-phases **a** (Opus) and **b** (Sonnet); the others are a
-single sub-phase run by Sonnet. The table below is the plan; **Current status** names the next
+Phases 1, 4, 5, 7, 8 and 10 are split into sub-phases **a** (Opus) and **b** (Sonnet); the others
+are a single sub-phase run by Sonnet. The table below is the plan; **Current status** names the next
 sub-phase. When the author says "go on" / "next phase" (or similar):
 
 0. **Model check, before anything else.** Find the next sub-phase in Current status and the model
@@ -60,6 +60,15 @@ Haiku is not recommended for code in this project.
 | 5a Search core | **Opus** | `pdf/text`: `PDFTextStripper` subclass with positions, NFD normalisation keeping the index mapping, line breaks as spaces, match → rectangles through `PageCoordinateMapper` (rotated pages) | Unit tests on normalisation, line-break matches, rotated pages; handoff written | (none, verified by tests) |
 | 5b Search complete | Sonnet | Search UI, progressive indexing with cancellation, overlay highlights, scanned-PDF message | Spec §13 phase 5 acceptance | Results appear while indexing a 200-page PDF; "perche" finds "perché"; highlights in the right place on rotated pages; scanned PDF message |
 | 6 Polish | Sonnet | Spec §13 phase 6 | Spec §13 phase 6 acceptance | Release build with R8 on the main flows; animations; TalkBack. The baseline profile needs a device or emulator to generate: run it locally |
+| 7a Annotation core | **Opus** | `docs/plan-v2.md` 7a: read annotations (user space), annotation layer, text selection model on the search index, annotations in `EditSession` and `PdfEditor` with appearance streams, ADR 0004 | Unit tests (selection, quads on rotated pages, round trip, foreign removal); handoff written | App highlight visible in another reader; Acrobat highlight visible and removable in the app |
+| 7b Highlight complete | Sonnet | `docs/plan-v2.md` 7b: selection UI + Copy, "Annotate" pane (highlight, underline, strikeout, eraser) | Plan 7b | Two-line and turned-page selection; save, other reader; erase foreign highlight |
+| 8a Freehand core | **Opus** | `docs/plan-v2.md` 8a: `androidx.ink`, draw vs pan arbitration, Ink annotation with outline appearance, "make final" | Unit tests on stroke geometry; handoff written | Stroke lands where drawn at any zoom and on turned pages, also in another reader |
+| 8b Freehand complete | Sonnet | `docs/plan-v2.md` 8b: pen, highlighter, eraser, colours, undo/redo | Plan 8b | Finger and stylus; erase; undo/redo; rotation while drawing |
+| 9 Scan | Sonnet | `docs/plan-v2.md` 9: ML Kit Document Scanner, availability, open/add pages | Plan 9; packaged manifest still without `INTERNET` | Scan, save, add to open PDF; airplane mode |
+| 10a OCR core | **Opus** | `docs/plan-v2.md` 10a: Text Recognition v2, invisible text layer in user space | Unit tests on line geometry and search after OCR; handoff written | OCR'd scan searchable in app and other reader |
+| 10b OCR complete | Sonnet | `docs/plan-v2.md` 10b: UI, progress, cancellation, background | Plan 10b | 20-page scan; cancel halfway |
+| 11 ODF export | Sonnet | `docs/plan-v2.md` 11 | Plan 11 | Result opens in LibreOffice / Collabora |
+| 12 Cloud (WebDAV) | Sonnet (Opus reviews the credential store) | `docs/plan-v2.md` 12; adds `INTERNET` | Plan 12 | Nextcloud upload, wrong password, no network |
 
 ## Commands
 ```bash
@@ -160,7 +169,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 
 ## References
 - Specification: `docs/spec.md`. Plan, alignment with the references, upgrade steps:
-  `docs/plan.md`.
+  `docs/plan.md`. Product phase 2 plan: `docs/plan-v2.md`.
 - ADRs: `docs/adr/0001-viewer.md`, `docs/adr/0002-pdfbox-android.md`,
   `docs/adr/0003-background-save-and-edit-session.md`.
 
@@ -200,6 +209,10 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   device checks (below). **Next: product phase 1 is complete once those pass and the baseline profile
   is generated locally; no further development phase.**
 - The author still has to add the signing secrets to the repository.
+- **1.0.0 released (2026-10-04).** Baseline profile still not generated (see phase 6 notes).
+- **Product phase 2 planned (2026-10-04)** in `docs/plan-v2.md`: order 7a → 7b → 8a → 8b → 9 → 10a →
+  10b → 11 → 12. **Next: 7a Annotation core (Opus)**, after the author answers the plan's
+  "Questions for the author" (1 and 2 block 7a; 3 and 4 can wait for 10a and 11).
 
 ### Notes from phase 6 (polish)
 - Release: `isMinifyEnabled` and `isShrinkResources` on; the only project rule is `-dontwarn` for
@@ -318,6 +331,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-04 · Product phase 2 order (author): highlight and draw first, then scan, then the rest
+  (OCR, ODF, cloud last because it brings `INTERNET`). Numbered as development phases 7–12 so
+  "phase 2" keeps meaning the edit session. Plan and checked facts in `docs/plan-v2.md`.
 - 2026-10-04 · CI uploads no debug APK any more (author's decision; spec §13 phase 0 acceptance
   asked for it): it needed uninstalling the app to install and wasn't minified, so it didn't test the
   build that ships. Build APK (signed release, R8) is the APK for device checks. The four workflows
