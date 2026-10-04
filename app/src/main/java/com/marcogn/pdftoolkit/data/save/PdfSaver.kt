@@ -32,7 +32,7 @@ class PdfSaver @Inject constructor(
     /** @throws SaveException with the reason. */
     suspend fun save(request: SaveRequest, onProgress: (Float) -> Unit = {}) = withContext(Dispatchers.IO) {
         val counts = mapOf(DocRef.MAIN to request.sourcePageCount) + request.extraSources.associate { DocRef(it.docId) to it.pageCount }
-        val session = EditSession.decode(request.pages, counts, request.fill) ?: throw SaveException(SaveFailure.FAILED)
+        val session = EditSession.decode(request.pages, counts, request.fill, request.annotations) ?: throw SaveException(SaveFailure.FAILED)
         val dir = workDir(context)
         val id = UUID.randomUUID().toString()
         val sourceCopy = File(dir, "$id-source.pdf")

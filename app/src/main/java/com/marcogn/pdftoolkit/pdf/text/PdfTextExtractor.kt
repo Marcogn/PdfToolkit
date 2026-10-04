@@ -16,6 +16,13 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import java.io.Closeable
 import java.io.IOException
 import java.io.InputStream
 import java.util.IdentityHashMap
@@ -33,6 +40,27 @@ interface PdfTextExtractor {
      * fails the flow with [TextExtractionException]. [password]: for protected PDFs.
      */
     fun pages(open: () -> InputStream?, password: String? = null): Flow<PageText>
+
+    /**
+     * A reader for one page at a time (text selection, spec §7.4), on the PDF read from [open].
+     * Close it when done. The default runs [pages] up to the page each time; implementations
+     * keep the document open instead.
+     */
+    fun reader(open: () -> InputStream?, password: String? = null): PageTextReader = object : PageTextReader {
+        override suspend fun page(index: Int): PageText =
+            pages(open, password).firstOrNull { it.pageIndex == index } ?: PageText(index, emptyList())
+
+        override fun close() = Unit
+    }
+}
+
+/** The text of single pages of one open PDF; see [PdfTextExtractor.reader]. */
+interface PageTextReader : Closeable {
+    /**
+     * Page [index] (0-based), empty if it doesn't exist or can't be read.
+     * @throws TextExtractionException if the document can't be opened.
+     */
+    suspend fun page(index: Int): PageText
 }
 
 class PdfBoxTextExtractor @Inject constructor() : PdfTextExtractor {
@@ -55,8 +83,77 @@ class PdfBoxTextExtractor @Inject constructor() : PdfTextExtractor {
         }
     }.flowOn(Dispatchers.IO)
 
+    override fun reader(open: () -> InputStream?, password: String?): PageTextReader = PdfBoxPageTextReader(open, password)
+
     private companion object {
         const val MAIN_MEMORY_BYTES = 16L * 1024 * 1024
+    }
+}
+
+/**
+ * Keeps the document open between pages, opened on the first request, and the last few pages
+ * extracted: selecting text touches the same page many times. Calls are serialised.
+ */
+private class PdfBoxPageTextReader(
+    private val open: () -> InputStream?,
+    private val password: String?,
+) : PageTextReader {
+
+    private val mutex = Mutex()
+    private var document: PDDocument? = null
+    private var closed = false
+    private val stripper = PositionedTextStripper()
+    private val cache = object : LinkedHashMap<Int, PageText>(CACHED_PAGES, LOAD_FACTOR, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, PageText>?) = size > CACHED_PAGES
+    }
+
+    override suspend fun page(index: Int): PageText = mutex.withLock {
+        cache[index]?.let { return@withLock it }
+        withContext(Dispatchers.IO) {
+            val doc = document ?: load().also { document = it }
+            val text = if (index in 0 until doc.numberOfPages) stripper.extract(doc, index) else PageText(index, emptyList())
+            cache[index] = text
+            text
+        }
+    }
+
+    private fun load(): PDDocument {
+        if (closed) throw TextExtractionException(null)
+        return try {
+            val stream = open() ?: throw TextExtractionException(null)
+            stream.use { PDDocument.load(it, password.orEmpty(), MemoryUsageSetting.setupMixed(MAIN_MEMORY_BYTES)) }
+        } catch (e: IOException) {
+            throw e as? TextExtractionException ?: TextExtractionException(e)
+        } catch (e: RuntimeException) {
+            throw TextExtractionException(e)
+        }
+    }
+
+    /** Doesn't wait for a page being extracted: that one closes the document as soon as it is done. */
+    override fun close() {
+        if (mutex.tryLock()) {
+            try {
+                release()
+            } finally {
+                mutex.unlock()
+            }
+        } else {
+            closed = true
+            CoroutineScope(Dispatchers.IO).launch { mutex.withLock { release() } }
+        }
+    }
+
+    private fun release() {
+        closed = true
+        cache.clear()
+        runCatching { document?.close() }
+        document = null
+    }
+
+    private companion object {
+        const val MAIN_MEMORY_BYTES = 16L * 1024 * 1024
+        const val CACHED_PAGES = 4
+        const val LOAD_FACTOR = 0.75f
     }
 }
 

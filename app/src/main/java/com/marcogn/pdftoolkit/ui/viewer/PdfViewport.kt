@@ -41,6 +41,8 @@ import com.marcogn.pdftoolkit.pdf.render.PageSize
 import com.marcogn.pdftoolkit.pdf.render.RenderBudget
 import com.marcogn.pdftoolkit.pdf.render.RenderPlanner
 import com.marcogn.pdftoolkit.pdf.render.RenderScheduler
+import com.marcogn.pdftoolkit.ui.annotate.AnnotationLayer
+import com.marcogn.pdftoolkit.ui.annotate.drawAnnotations
 import com.marcogn.pdftoolkit.ui.search.SearchHighlights
 import com.marcogn.pdftoolkit.ui.theme.SearchCurrentHighlightColor
 import com.marcogn.pdftoolkit.ui.theme.SearchHighlightColor
@@ -60,7 +62,7 @@ private const val SETTLE_DELAY_MS = 150L
  * Continuous viewer (spec §4.2, §5): pages stacked vertically, pinch zoom, double tap, pan with
  * fling. Draws on a single Canvas only the pages on screen: white placeholder with the page
  * proportions, the page bitmap scaled to the current zoom and, once the zoom settles, the sharp
- * tiles of the visible area on top.
+ * tiles of the visible area on top; then the document's annotations and the search highlights.
  */
 @Composable
 fun PdfViewport(
@@ -81,6 +83,8 @@ fun PdfViewport(
     yieldHorizontalToParent: Boolean = false,
     /** Search occurrences to draw over the pages (spec §5.1); keyed by document page index. */
     highlights: SearchHighlights = SearchHighlights.None,
+    /** The document's annotations, which the renderer doesn't draw (spec §7.4); keyed by document page index. */
+    annotations: AnnotationLayer = AnnotationLayer.None,
 ) {
     val scope = rememberCoroutineScope()
     val decay = rememberSplineBasedDecay<Float>()
@@ -135,6 +139,9 @@ fun PdfViewport(
             for (level in intArrayOf(previousTileLevel, tileLevel)) {
                 if (level == NO_LEVEL) continue
                 drawTiles(index, level, planner, mapper, bitmaps)
+            }
+            annotations.on(pageIndexOffset + index)?.let { page ->
+                drawAnnotations(page.annotations, mapper.userToScreen(index, page.space), mapper.screenPxPerPoint)
             }
             if (!highlights.isEmpty) drawHighlights(index, pageIndexOffset + index, mapper, highlights)
         }

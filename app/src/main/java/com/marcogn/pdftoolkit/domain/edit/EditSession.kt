@@ -1,5 +1,8 @@
 package com.marcogn.pdftoolkit.domain.edit
 
+import com.marcogn.pdftoolkit.domain.annotate.AnnotationEdits
+import com.marcogn.pdftoolkit.domain.annotate.AnnotationRef
+import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
 import com.marcogn.pdftoolkit.domain.fill.FieldValue
 import com.marcogn.pdftoolkit.domain.fill.FillContent
 import com.marcogn.pdftoolkit.domain.fill.Overlay
@@ -9,8 +12,8 @@ import java.net.URLEncoder
 
 /**
  * The document being edited, kept in memory and never written until the user saves (spec §6.1):
- * the page list and what "Fill and sign" put on the pages ([fill]: overlays bound to page ids and
- * form values). Immutable: every operation returns a new session, with the previous state pushed
+ * the page list, what "Fill and sign" put on the pages ([fill]: overlays bound to page ids and
+ * form values) and what the annotate tools changed ([annotations], spec §7.4). Immutable: every operation returns a new session, with the previous state pushed
  * on the undo stack, so undo/redo are just a swap of states.
  *
  * [original] is the page list the session started from; [isModified] compares against it, so
@@ -24,15 +27,16 @@ class EditSession private constructor(
     /** Field whose text is being typed: further typing in it replaces the state instead of adding an undo step. */
     private val typingIn: String? = null,
 ) {
-    private data class State(val pages: List<PageItem>, val fill: FillContent)
+    private data class State(val pages: List<PageItem>, val fill: FillContent, val annotations: AnnotationEdits = AnnotationEdits())
 
     val pages: List<PageItem> get() = state.pages
     val fill: FillContent get() = state.fill
+    val annotations: AnnotationEdits get() = state.annotations
     val canUndo: Boolean get() = undoStack.isNotEmpty()
     val canRedo: Boolean get() = redoStack.isNotEmpty()
 
-    /** Overlays and form values only exist when the user added them, so any of them is a change. */
-    val isModified: Boolean get() = pages != original || !fill.isEmpty
+    /** Overlays, form values and annotation edits only exist when the user made them, so any of them is a change. */
+    val isModified: Boolean get() = pages != original || !fill.isEmpty || !annotations.isEmpty
     val pageCount: Int get() = pages.size
 
     /** Removes the pages with these [ids]. The last remaining page can't be removed (spec §6.3). */
@@ -70,7 +74,7 @@ class EditSession private constructor(
         return EditSession(redoStack.last(), original, undoStack + listOf(state), redoStack.dropLast(1))
     }
 
-    private fun change(newPages: List<PageItem>) = change(State(newPages, fill))
+    private fun change(newPages: List<PageItem>) = change(state.copy(pages = newPages))
 
     private fun change(newState: State, typing: String? = null) =
         EditSession(newState, original, (undoStack + listOf(state)).takeLast(MAX_HISTORY), emptyList(), typing)
@@ -80,7 +84,7 @@ class EditSession private constructor(
     /** Adds [overlay] on top of the others. Ignored if its id is taken or its page isn't in the session. */
     fun addOverlay(overlay: Overlay): EditSession {
         if (fill.overlays.any { it.id == overlay.id } || pages.none { it.id == overlay.pageId }) return this
-        return change(State(pages, fill.copy(overlays = fill.overlays + overlay)))
+        return change(state.copy(fill = fill.copy(overlays = fill.overlays + overlay)))
     }
 
     /** Replaces the overlay with the same id (new text, new box...). */
@@ -88,12 +92,12 @@ class EditSession private constructor(
         val index = fill.overlays.indexOfFirst { it.id == overlay.id }
         if (index < 0 || fill.overlays[index] == overlay) return this
         val overlays = fill.overlays.toMutableList().apply { set(index, overlay) }
-        return change(State(pages, fill.copy(overlays = overlays)))
+        return change(state.copy(fill = fill.copy(overlays = overlays)))
     }
 
     fun removeOverlay(id: String): EditSession {
         if (fill.overlays.none { it.id == id }) return this
-        return change(State(pages, fill.copy(overlays = fill.overlays.filterNot { it.id == id })))
+        return change(state.copy(fill = fill.copy(overlays = fill.overlays.filterNot { it.id == id })))
     }
 
     /**
@@ -103,7 +107,7 @@ class EditSession private constructor(
     fun setField(name: String, value: FieldValue?, typing: Boolean = false): EditSession {
         if (fill.fields[name] == value) return this
         val fields = if (value == null) fill.fields - name else fill.fields + (name to value)
-        val newState = State(pages, fill.copy(fields = fields))
+        val newState = state.copy(fill = fill.copy(fields = fields))
         if (typing && typingIn == name && undoStack.isNotEmpty()) {
             return EditSession(newState, original, undoStack, emptyList(), typingIn)
         }
@@ -112,6 +116,38 @@ class EditSession private constructor(
 
     /** The overlays and form values as JSON, alongside [encode]. */
     fun encodeFill(): String = if (fill.isEmpty) "" else json.encodeToString(FillContent.serializer(), fill)
+
+    // --- Annotate (spec §7.4) ---
+
+    /** Adds [annotation] on top of the others. Ignored if its id is taken or its page isn't in the session. */
+    fun addAnnotation(annotation: NewAnnotation): EditSession {
+        if (annotations.added.any { it.id == annotation.id } || pages.none { it.id == annotation.pageId }) return this
+        return change(state.copy(annotations = annotations.copy(added = annotations.added + annotation)))
+    }
+
+    /** Replaces the added annotation with the same id (a new colour...). */
+    fun updateAnnotation(annotation: NewAnnotation): EditSession {
+        val index = annotations.added.indexOfFirst { it.id == annotation.id }
+        if (index < 0 || annotations.added[index] == annotation) return this
+        val added = annotations.added.toMutableList().apply { set(index, annotation) }
+        return change(state.copy(annotations = annotations.copy(added = added)))
+    }
+
+    /** Removes an annotation added in this session. */
+    fun removeAnnotation(id: String): EditSession {
+        if (annotations.added.none { it.id == id }) return this
+        return change(state.copy(annotations = annotations.copy(added = annotations.added.filterNot { it.id == id })))
+    }
+
+    /** Removes an annotation that is in a source file (made by this app or any other) when saving. */
+    fun removeExistingAnnotation(ref: AnnotationRef): EditSession {
+        if (ref in annotations.removed) return this
+        return change(state.copy(annotations = annotations.copy(removed = annotations.removed + ref)))
+    }
+
+    /** The annotation edits as JSON, alongside [encode]. */
+    fun encodeAnnotations(): String =
+        if (annotations.isEmpty) "" else json.encodeToString(AnnotationEdits.serializer(), annotations)
 
     /** Puts [items] at [index] (0..pageCount), keeping their order. */
     fun insert(index: Int, items: List<PageItem>): EditSession {
@@ -171,14 +207,16 @@ class EditSession private constructor(
         }
 
         /** Same as the map form, for a session with only the main document. */
-        fun decode(encoded: String, pageCount: Int, fill: String = ""): EditSession? = decode(encoded, mapOf(DocRef.MAIN to pageCount), fill)
+        fun decode(encoded: String, pageCount: Int, fill: String = "", annotations: String = ""): EditSession? =
+            decode(encoded, mapOf(DocRef.MAIN to pageCount), fill, annotations)
 
         /**
          * Restores what [encode] wrote. [pageCounts] gives the page count of every document the
          * session may use, [DocRef.MAIN] included: the original pages are rebuilt from the main
-         * one. [fill] is what [encodeFill] wrote. Null if the strings don't match these documents.
+         * one. [fill] is what [encodeFill] wrote, [annotations] what [encodeAnnotations] wrote. Null
+         * if the strings don't match these documents.
          */
-        fun decode(encoded: String, pageCounts: Map<DocRef, Int>, fill: String = ""): EditSession? {
+        fun decode(encoded: String, pageCounts: Map<DocRef, Int>, fill: String = "", annotations: String = ""): EditSession? {
             val mainCount = pageCounts[DocRef.MAIN] ?: return null
             if (encoded.isEmpty()) return null
             val pages = encoded.split(SEPARATOR).map { entry ->
@@ -186,7 +224,18 @@ class EditSession private constructor(
             }
             if (pages.map { it.id }.toSet().size != pages.size) return null
             val content = decodeFill(fill) ?: return null
-            return EditSession(State(pages, content), of(mainCount).pages, emptyList(), emptyList())
+            val edits = decodeAnnotations(annotations) ?: return null
+            return EditSession(State(pages, content, edits), of(mainCount).pages, emptyList(), emptyList())
+        }
+
+        private fun decodeAnnotations(annotations: String): AnnotationEdits? {
+            if (annotations.isEmpty()) return AnnotationEdits()
+            return try {
+                json.decodeFromString(AnnotationEdits.serializer(), annotations)
+            } catch (e: IllegalArgumentException) {
+                // SerializationException, or a shape failing its own checks.
+                null
+            }
         }
 
         private fun decodeFill(fill: String): FillContent? {

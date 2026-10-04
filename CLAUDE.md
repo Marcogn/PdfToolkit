@@ -91,6 +91,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - `domain/` models with no Android dependencies (`PdfTool`, `ThemeMode`, `domain/edit/`:
   `EditSession`, `PageItem`, `SaveFailure`; `domain/fill/`: overlays, `FieldValue`, `FormField`,
   `TextBlock`, `MarkShape`; `domain/signature/`: `InkStroke`/`InkWidth`, `BackgroundRemoval`;
+  `domain/annotate/`: `Quad`, `AnnotationShape`, `NewAnnotation`, `AnnotationRef`, `AnnotationEdits`;
   `domain/cloud/`: `CloudTarget`, interface only, product phase 2).
 - `data/` DataStore (`data/settings/ThemePreferences`, `ReadingPreferences`), Room
   (`data/recents/`: `AppDatabase` (v2, `MIGRATION_1_2`), `RecentDocument`, `RecentsRepository`, `ThumbnailStore`),
@@ -101,7 +102,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   the geometry shared by all phases (`DocumentLayout`, `Viewport`, `PageCoordinateMapper`).
   `pdf/edit` (phase 2: `PdfEditor`, `PdfBoxEditor`; phase 4: `FillWriter`, `FontSource`, `FontCoverage`),
   `pdf/forms` (phase 4: `FormReader`), `pdf/text` (phase 5: `PdfTextExtractor`, `PositionedTextStripper`,
-  `TextNormalizer`, `PageTextIndex`, `DocumentSearch`; spec §12). `ui/search/` is the search bar, notices and
+  `TextNormalizer`, `PageTextIndex`, `DocumentSearch`; spec §12; 7a: `TextSelection`, `PageTextReader`),
+  `pdf/annotations` (7a: `AnnotationReader`, `AnnotationGeometry`, `AnnotationFingerprint`; the writer
+  is `pdf/edit/AnnotationWriter`). `ui/annotate/` draws annotations (`AnnotationLayer`, `drawAnnotations`). `ui/search/` is the search bar, notices and
   highlights used by the viewer. `ui/fill/` is the
   "Fill and sign" pane of `EditScreen`; `ui/signatures/` is "My signatures" plus the creation flow
   (draw, import) and the picker sheet that `EditScreen` reuses.
@@ -132,6 +135,11 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   and tells it to stand down through `OverlayGrab.active` (`suppressed` parameter). Live changes are
   a local copy in `FillPage`, committed once on lift (one undo step); the maths is
   `OverlayGeometry.transformed` + `UserTransform`, in user space.
+- Annotations (7a, ADR 0004): the system renderer draws none, on any API level, so the app draws
+  them (`drawAnnotations`, from `AnnotationGeometry`, the same paths the writer puts in the
+  appearance stream). New ones are standard annotations with our own appearance (not PdfBox's
+  handlers). `/QuadPoints` in Acrobat's order (`Quad`). `PdfBoxEditor` removes existing annotations
+  **before** anything else touches `/Annots` (refs are indices + fingerprint).
 - Search highlights are overlay only, never written into the PDF. Search is in the viewer only,
   not in the edit screens (spec §5.1).
 - No `INTERNET` permission in product phase 1: the manifest removes it with `tools:node="remove"`
@@ -171,7 +179,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - Specification: `docs/spec.md`. Plan, alignment with the references, upgrade steps:
   `docs/plan.md`. Product phase 2 plan: `docs/plan-v2.md`.
 - ADRs: `docs/adr/0001-viewer.md`, `docs/adr/0002-pdfbox-android.md`,
-  `docs/adr/0003-background-save-and-edit-session.md`.
+  `docs/adr/0003-background-save-and-edit-session.md`, `docs/adr/0004-annotations.md`.
 
 ## Current status
 <!-- Update at the end of every session. -->
@@ -211,8 +219,26 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - The author still has to add the signing secrets to the repository.
 - **1.0.0 released (2026-10-04).** Baseline profile still not generated (see phase 6 notes).
 - **Product phase 2 planned (2026-10-04)** in `docs/plan-v2.md`: order 7a → 7b → 8a → 8b → 9 → 10a →
-  10b → 11 → 12. **Next: 7a Annotation core (Opus)**, after the author answers the plan's
-  "Questions for the author" (1 and 2 block 7a; 3 and 4 can wait for 10a and 11).
+  10b → 11 → 12. Author's answers: Annotate pane in `EditScreen` + selection/Copy in the viewer; Play
+  services accepted, `ACCESS_NETWORK_STATE` to be removed in phase 9. Questions 3–5 still open.
+- **7a Annotation core done (2026-10-04)**, same PR as the plan (#13); lint (0 errors), 315 unit tests,
+  `assembleDebug` and `assembleRelease` green. Needs the author's device checks (below). **Next: 7b Highlight complete
+  (Sonnet).**
+
+### Handoff 7a → 7b (annotations)
+- Model `domain/annotate/`: `NewAnnotation(id, pageId, shape, style)`, shapes `TextMarkup(kind, quads)`
+  and `Ink`; `ExistingAnnotation(ref, subtype, shape?, style, bounds)` (no shape = listed, not drawn).
+- Session: `addAnnotation / updateAnnotation / removeAnnotation / removeExistingAnnotation(ref)`, already
+  saved, restored and written. `AnnotationReader.read(open, password, docId = DocRef.id)`.
+- Drawing: `drawAnnotations(list, mapper.userToScreen(page, space), mapper.screenPxPerPoint)`; the viewer
+  does it. The edit pane must draw the existing ones minus `removed`, plus `addedOn(pageId)`.
+- Selection: `PdfTextExtractor.reader()` (close it) → `TextSelection(page)`: `wordAt`, `boundaryAt`,
+  `between`, `text`, `runs` → `LineRun.toUser(space)` → quads. It works in the **source** page's
+  display points: on an edit page turned by the user, go tap → `space.displayToUser` →
+  `sourceSpace.userToDisplay`, and quads with `toUser(sourceSpace)`.
+- Eraser: `AnnotationGeometry.hits`; existing ones without a shape only by `bounds`.
+- Left for 7b: selection UI (handles, Copy) in the viewer, the Annotate pane and tools, colours
+  (`AnnotationColor` has `YELLOW`, `BLACK` only), "Highlight" enabled on Home, annotations in the edit pane.
 
 ### Notes from phase 6 (polish)
 - Release: `isMinifyEnabled` and `isShrinkResources` on; the only project rule is `-dontwarn` for
@@ -331,6 +357,14 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-04 · 7a: the app draws all annotations; the renderer draws none (checked in the platform
+  sources, ADR 0004). Our own appearance streams from `AnnotationGeometry` instead of PdfBox's
+  handlers (axis-aligned quads only). Existing annotations are referenced by `/Annots` index +
+  fingerprint (subtype and `/Rect` to 0.1 pt); a mismatch skips the removal. Removing one also
+  removes its pop-up and its replies (`/IRT`), as Acrobat does.
+- 2026-10-04 · 7a: underline thickness 1/14 of the line height (min 0.5 pt), strikeout through the
+  middle (pdfium), squiggly a zig-zag of half-waves a quarter line height long. Highlight blends with
+  Multiply (Acrobat); on screen only from API 29 (translucent before).
 - 2026-10-04 · Product phase 2 order (author): highlight and draw first, then scan, then the rest
   (OCR, ODF, cloud last because it brings `INTERNET`). Numbered as development phases 7–12 so
   "phase 2" keeps meaning the edit session. Plan and checked facts in `docs/plan-v2.md`.

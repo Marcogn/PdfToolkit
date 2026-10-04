@@ -55,6 +55,9 @@ Proposed releases: **1.1** after 7b+8b (annotations), **1.2** after 10b (scan + 
 
 ## Questions for the author (before 7a)
 
+Answered on 2026-10-04: **1** as proposed (Annotate pane, selection and Copy in the viewer);
+**2** Play services accepted, `ACCESS_NETWORK_STATE` to be removed (phase 9). 3–5 still open.
+
 1. **Where do highlight and draw live?** Proposal: a new **"Annotate"** pane of `EditScreen`
    (same session, undo history and background save as every other edit, ADR 0003), while the viewer
    gets read-only text selection with **Copy** and shows existing annotations. The alternative is
