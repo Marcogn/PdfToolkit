@@ -7,8 +7,8 @@ import org.junit.Test
 class PdfToolTest {
 
     @Test
-    fun `Home shows the Phase 1 tools in spec order`() {
-        // Spec §4.1, tool grid.
+    fun `Home shows the available tools in spec order`() {
+        // Spec §4.1, tool grid; Highlight joined them in 7b.
         assertEquals(
             listOf(
                 PdfTool.MERGE,
@@ -18,16 +18,17 @@ class PdfToolTest {
                 PdfTool.REORDER_PAGES,
                 PdfTool.FILL_AND_SIGN,
                 PdfTool.MY_SIGNATURES,
+                PdfTool.HIGHLIGHT,
             ),
             PdfTool.available,
         )
     }
 
     @Test
-    fun `Phase 2 tools are listed as coming soon`() {
-        // Spec §4.1: Scan, Upload to cloud, Highlight, Draw, Export to ODF.
+    fun `Phase 2 tools still to come are listed as coming soon`() {
+        // Spec §4.1: Scan, Upload to cloud, Draw, Export to ODF (Highlight is done).
         assertEquals(
-            listOf(PdfTool.SCAN, PdfTool.CLOUD_UPLOAD, PdfTool.HIGHLIGHT, PdfTool.DRAW, PdfTool.EXPORT_ODF),
+            listOf(PdfTool.SCAN, PdfTool.CLOUD_UPLOAD, PdfTool.DRAW, PdfTool.EXPORT_ODF),
             PdfTool.upcoming,
         )
     }

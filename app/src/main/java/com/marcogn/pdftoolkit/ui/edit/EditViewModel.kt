@@ -24,6 +24,9 @@ import com.marcogn.pdftoolkit.domain.edit.PageItem
 import com.marcogn.pdftoolkit.domain.edit.PageSizing
 import com.marcogn.pdftoolkit.domain.edit.SaveFailure
 import com.marcogn.pdftoolkit.domain.edit.SizePt
+import com.marcogn.pdftoolkit.domain.annotate.AnnotationRef
+import com.marcogn.pdftoolkit.domain.annotate.ExistingAnnotation
+import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
 import com.marcogn.pdftoolkit.domain.fill.FieldValue
 import com.marcogn.pdftoolkit.domain.fill.FormDocument
 import com.marcogn.pdftoolkit.domain.fill.FormField
@@ -34,6 +37,11 @@ import com.marcogn.pdftoolkit.domain.model.PdfOpenException
 import com.marcogn.pdftoolkit.pdf.edit.FontCoverage
 import com.marcogn.pdftoolkit.pdf.edit.PageImageLoader
 import com.marcogn.pdftoolkit.pdf.forms.FormReader
+import com.marcogn.pdftoolkit.pdf.annotations.AnnotationReader
+import com.marcogn.pdftoolkit.pdf.annotations.DocumentAnnotations
+import com.marcogn.pdftoolkit.pdf.text.PageTextReader
+import com.marcogn.pdftoolkit.pdf.text.PdfTextExtractor
+import com.marcogn.pdftoolkit.pdf.text.TextSelection
 import com.marcogn.pdftoolkit.pdf.render.PageKey
 import com.marcogn.pdftoolkit.pdf.render.PageSize
 import com.marcogn.pdftoolkit.pdf.render.PageThumbnails
@@ -56,6 +64,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.sqrt
@@ -95,11 +104,7 @@ class FillDocuments(val boxes: Map<DocRef, List<PageBox>>, val form: FormDocumen
             .mapValues { (_, fields) -> fields.distinct() }
 
     /** How [item] is shown in the session, its added rotation included; null if its document isn't read yet. */
-    fun space(item: PageItem): PdfPageSpace? = when (item) {
-        is PageItem.FromPdf -> boxes[item.docRef]?.getOrNull(item.pageIndex)?.toPageSpace()?.withAddedRotation(item.rotation)
-        is PageItem.Blank -> PdfPageSpace.ofSize(item.widthPt, item.heightPt).withAddedRotation(item.rotation)
-        is PageItem.FromImage -> PdfPageSpace.ofSize(item.widthPt, item.heightPt).withAddedRotation(item.rotation)
-    }
+    fun space(item: PageItem): PdfPageSpace? = sessionPageSpace(item) { ref, index -> boxes[ref]?.getOrNull(index) }
 
     /** The page as its source shows it, without the rotation the user added. */
     fun sourceSpace(item: PageItem): PdfPageSpace? = space(item)?.withAddedRotation(-item.rotation)
@@ -107,6 +112,41 @@ class FillDocuments(val boxes: Map<DocRef, List<PageBox>>, val form: FormDocumen
     /** Form fields with a widget on [item] (only pages of the main document have them). */
     fun fieldsOn(item: PageItem): List<FormField> =
         if (item is PageItem.FromPdf && item.docRef == DocRef.MAIN) fieldsByPage[item.pageIndex].orEmpty() else emptyList()
+}
+
+/**
+ * How [item] is shown in the session, its added rotation included: from the user-space box of its
+ * page in the source document ([boxOf]: document, page index), or from its own size for blank and
+ * image pages. Null if the box isn't known yet.
+ */
+private fun sessionPageSpace(item: PageItem, boxOf: (DocRef, Int) -> PageBox?): PdfPageSpace? = when (item) {
+    is PageItem.FromPdf -> boxOf(item.docRef, item.pageIndex)?.toPageSpace()?.withAddedRotation(item.rotation)
+    is PageItem.Blank -> PdfPageSpace.ofSize(item.widthPt, item.heightPt).withAddedRotation(item.rotation)
+    is PageItem.FromImage -> PdfPageSpace.ofSize(item.widthPt, item.heightPt).withAddedRotation(item.rotation)
+}
+
+/**
+ * What the "Annotate" pane knows about the documents of the session (spec §7.4): the annotations
+ * the source files already hold, with the box of each page to place them.
+ */
+class AnnotateDocuments(val documents: Map<DocRef, DocumentAnnotations>) {
+
+    /** How [item] is shown in the session, its added rotation included; null if its document isn't read yet. */
+    fun space(item: PageItem): PdfPageSpace? = sessionPageSpace(item) { ref, index -> documents[ref]?.pageBoxes?.getOrNull(index) }
+
+    /** The page as its source shows it, without the rotation the user added. */
+    fun sourceSpace(item: PageItem): PdfPageSpace? = space(item)?.withAddedRotation(-item.rotation)
+
+    /** The annotations the source file holds on [item] (none for blank and image pages). */
+    fun existingOn(item: PageItem): List<ExistingAnnotation> =
+        if (item is PageItem.FromPdf) documents[item.docRef]?.on(item.pageIndex).orEmpty() else emptyList()
+}
+
+/** Loading the documents for "Annotate". */
+sealed interface AnnotateLoad {
+    data object Loading : AnnotateLoad
+    data class Ready(val documents: AnnotateDocuments) : AnnotateLoad
+    data object Failed : AnnotateLoad
 }
 
 /** Loading the documents for "Fill and sign". */
@@ -150,6 +190,8 @@ class EditViewModel @Inject constructor(
     private val imageLoader: PageImageLoader,
     private val formReader: FormReader,
     private val fontCoverage: FontCoverage,
+    private val annotationReader: AnnotationReader,
+    private val textExtractor: PdfTextExtractor,
 ) : ViewModel() {
 
     private val route = savedStateHandle.toRoute<Destination.Edit>()
@@ -194,6 +236,10 @@ class EditViewModel @Inject constructor(
     /** Null until "Fill and sign" is opened. */
     val fillLoad: StateFlow<FillLoad?> = _fillLoad.asStateFlow()
 
+    private val _annotateLoad = MutableStateFlow<AnnotateLoad?>(null)
+    /** Null until "Annotate" is opened. */
+    val annotateLoad: StateFlow<AnnotateLoad?> = _annotateLoad.asStateFlow()
+
     private val _flattenChoice = MutableStateFlow<Boolean?>(null)
     /** "Make final" as chosen in the save dialog; null = the default of spec §6.5 (on with a signature). */
     val flattenChoice: StateFlow<Boolean?> = _flattenChoice.asStateFlow()
@@ -210,6 +256,8 @@ class EditViewModel @Inject constructor(
     private var savedEncoded: String? = null
     private var saveJob: Job? = null
     private var fillJob: Job? = null
+    private var annotateJob: Job? = null
+    private val textReaders = mutableMapOf<DocRef, PageTextReader>()
     private var pendingOverwrite = false
 
     init {
@@ -490,6 +538,58 @@ class EditViewModel @Inject constructor(
         return renderer.render(PageKey(item.pageIndex, width, height, scale))
     }
 
+    // --- Annotate (spec §7.4) ---
+
+    /**
+     * Reads the annotations of every document of the session, if not read yet. Called whenever
+     * "Annotate" opens: PDFs added since then are read too.
+     */
+    fun loadAnnotate() {
+        val current = (_annotateLoad.value as? AnnotateLoad.Ready)?.documents
+        val missing = sources.keys.filter { current?.documents?.containsKey(it) != true }
+        if (missing.isEmpty() || annotateJob?.isActive == true) return
+        if (current == null) _annotateLoad.value = AnnotateLoad.Loading
+        annotateJob = viewModelScope.launch {
+            val documents = current?.documents.orEmpty().toMutableMap()
+            for (ref in missing) {
+                val uri = uriOf(ref) ?: continue
+                val read = annotationReader.read({ context.contentResolver.openInputStream(uri.toUri()) }, docId = ref.id)
+                if (read == null) {
+                    if (ref == DocRef.MAIN) {
+                        _annotateLoad.value = AnnotateLoad.Failed
+                        return@launch
+                    }
+                    continue
+                }
+                documents[ref] = read
+            }
+            _annotateLoad.value = AnnotateLoad.Ready(AnnotateDocuments(documents))
+        }
+    }
+
+    private fun uriOf(ref: DocRef): String? = if (ref == DocRef.MAIN) sourceUri else extraSources.firstOrNull { it.docId == ref.id }?.uri
+
+    /** The text of [item]'s page as its source shows it, for selecting; null if it can't be read. */
+    suspend fun pageText(item: PageItem.FromPdf): TextSelection? {
+        val uri = uriOf(item.docRef) ?: return null
+        val reader = textReaders.getOrPut(item.docRef) {
+            textExtractor.reader({ context.contentResolver.openInputStream(uri.toUri()) })
+        }
+        return try {
+            TextSelection(reader.page(item.pageIndex))
+        } catch (e: IOException) {
+            null
+        }
+    }
+
+    fun newAnnotationId(): String = "a" + UUID.randomUUID().toString().take(ID_LENGTH)
+
+    fun addAnnotation(annotation: NewAnnotation) = apply { it.addAnnotation(annotation) }
+
+    fun removeAnnotation(id: String) = apply { it.removeAnnotation(id) }
+
+    fun removeExistingAnnotation(ref: AnnotationRef) = apply { it.removeExistingAnnotation(ref) }
+
     // --- Saving ---
 
     fun setOverwriteChoice(overwrite: Boolean) {
@@ -563,6 +663,7 @@ class EditViewModel @Inject constructor(
     override fun onCleared() {
         renderer?.close()
         renderers.forEach { it.close() }
+        textReaders.values.forEach { it.close() }
         pendingRenderer?.close()
         sources.values.forEach { it.thumbnails.clear() }
     }

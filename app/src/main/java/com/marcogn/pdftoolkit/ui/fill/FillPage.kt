@@ -15,7 +15,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
@@ -30,33 +29,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
-import com.marcogn.pdftoolkit.domain.edit.ImageDimensions
 import com.marcogn.pdftoolkit.domain.edit.PageItem
-import com.marcogn.pdftoolkit.domain.edit.PageSizing
-import com.marcogn.pdftoolkit.domain.edit.SizePt
 import com.marcogn.pdftoolkit.domain.fill.FieldValue
 import com.marcogn.pdftoolkit.domain.fill.FormField
 import com.marcogn.pdftoolkit.domain.fill.ImageOverlay
 import com.marcogn.pdftoolkit.domain.fill.Overlay
-import com.marcogn.pdftoolkit.pdf.render.Affine
 import com.marcogn.pdftoolkit.pdf.render.OverlayGeometry
 import com.marcogn.pdftoolkit.pdf.render.PdfPageSpace
 import com.marcogn.pdftoolkit.ui.viewer.PageGap
 import com.marcogn.pdftoolkit.ui.viewer.PdfViewportState
 import com.marcogn.pdftoolkit.ui.viewer.detectZoomPanFling
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
-import kotlin.math.abs
-import kotlin.math.sqrt
-
-/** Spec §5: re-render once the zoom has been still for a moment. */
-private const val SETTLE_MS = 150L
-
-/** At most this many pixels per page bitmap (16 MB): past that a deep zoom shows a softer page. */
-internal const val MAX_PAGE_PIXELS = 4_000_000
-
-/** A new render is asked only when the wanted resolution differs from the current one by more than this. */
-private const val RESOLUTION_SLACK = 0.15f
 
 /** How far outside an overlay a finger still grabs it, so a tick of 14 pt is not a precision job. */
 private val OVERLAY_HIT_MARGIN = 20.dp
@@ -106,8 +88,6 @@ internal fun FillPage(
     val scope = rememberCoroutineScope()
     val decay = rememberSplineBasedDecay<Float>()
     val gapPx = with(LocalDensity.current) { PageGap.toPx() }
-    var pageBitmap by remember(item) { mutableStateOf<Pair<Bitmap, Float>?>(null) }
-    var pageImage by remember(item) { mutableStateOf<Bitmap?>(null) }
     val overlayImages = remember { mutableStateMapOf<String, Bitmap>() }
     // The tap detector outlives recompositions: it must call the latest callback (current overlays, tool).
     val currentOnTap by rememberUpdatedState(onTap)
@@ -126,24 +106,7 @@ internal fun FillPage(
     val hitMarginPx = with(LocalDensity.current) { OVERLAY_HIT_MARGIN.toPx() }
     val maxSide = space.displaySize.let { maxOf(it.width, it.height) } * MAX_OVERLAY_PAGES
 
-    // The source page, sharp enough for the current zoom once it settles.
-    if (item is PageItem.FromPdf) {
-        LaunchedEffect(item, viewport) {
-            snapshotFlow { Triple(viewport.viewport.zoom, viewport.layout?.pxPerPoint, viewport.isInteracting) }
-                .collectLatest { (zoom, pxPerPoint, interacting) ->
-                    if (pxPerPoint == null || interacting) return@collectLatest
-                    if (pageBitmap != null) delay(SETTLE_MS)
-                    val size = sourceSpace.displaySize
-                    val wanted = minOf(pxPerPoint * zoom, sqrt(MAX_PAGE_PIXELS / (size.width * size.height)))
-                    val current = pageBitmap?.second
-                    if (current != null && abs(current - wanted) / wanted < RESOLUTION_SLACK) return@collectLatest
-                    content.renderPage(item, wanted)?.let { bitmap -> pageBitmap = bitmap to bitmap.width / sourceSpace.displaySize.width }
-                }
-        }
-    }
-    if (item is PageItem.FromImage) {
-        LaunchedEffect(item.imageUri) { pageImage = content.image(item.imageUri) }
-    }
+    val backdrop = rememberPageBackdrop(item, sourceSpace, viewport, content)
     val imageUris = overlays.filterIsInstance<ImageOverlay>().map { it.imageUri }.toSet()
     LaunchedEffect(imageUris) {
         imageUris.filterNot { it in overlayImages }.forEach { uri -> content.image(uri)?.let { overlayImages[uri] = it } }
@@ -205,18 +168,7 @@ internal fun FillPage(
                 val native = canvas.nativeCanvas
                 native.save()
                 native.clipRect(bounds.left, bounds.top, bounds.right, bounds.bottom)
-                pageBitmap?.let { (bitmap, pxPerPoint) ->
-                    // Bitmap pixels → the source's display points → user space → screen.
-                    val toScreen = userToScreen * sourceSpace.displayToUser * Affine.scale(1f / pxPerPoint, 1f / pxPerPoint)
-                    painter.drawBitmap(native, bitmap, toScreen)
-                }
-                pageImage?.let { bitmap ->
-                    val page = item as PageItem.FromImage
-                    val box = PageSizing.placement(ImageDimensions(bitmap.width, bitmap.height), SizePt(page.widthPt, page.heightPt))
-                    // Bitmap pixels (y down) → user space (y up), as the PDF writer places the image.
-                    val toUser = Affine(box.width / bitmap.width, 0f, 0f, -box.height / bitmap.height, box.x, box.y + box.height)
-                    painter.drawBitmap(native, bitmap, userToScreen * toUser)
-                }
+                backdrop.draw(native, item, sourceSpace, userToScreen)
                 shownOverlays.forEach { overlay ->
                     val image = (overlay as? ImageOverlay)?.let { overlayImages[it.imageUri] }
                     val selection = if (overlay.id == selectedOverlay) selectionColor.toArgb() else null

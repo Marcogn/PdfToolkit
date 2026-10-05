@@ -6,6 +6,15 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Select and copy text in the viewer.** Press and hold a word to select it, drag the two handles to
+  stretch the selection (across lines, on turned pages too) and tap Copy in the top bar. The selection
+  survives turning the screen. A page with no text (a scan) selects nothing.
+- **Highlight, underline and strike out.** "Highlight" is now on Home and in the edit hub. In the new
+  pane choose a tool and a colour, select text the same way and tap "Apply": the annotation is saved
+  in the PDF as a standard highlight, underline or strikeout, so other readers show it and can remove
+  it. Undo and redo work on it like on any edit.
+- **Eraser.** In the same pane, tap an annotation to remove it, also one made by another app (a
+  highlight from Acrobat, a note, a stamp); it goes when you save, and undo brings it back.
 - **Highlights and drawings in the viewer.** Highlights, underlines, strikeouts, squiggly lines and
   freehand drawings already in a PDF now show in the viewer, on turned pages too. Android's own
   renderer leaves them out, so before they weren't visible at all. Notes, stamps and shapes are not

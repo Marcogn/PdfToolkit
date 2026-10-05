@@ -1,8 +1,10 @@
 package com.marcogn.pdftoolkit.ui.viewer
 
 import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -24,6 +26,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Search
@@ -38,6 +42,8 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -45,13 +51,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -66,13 +76,19 @@ import com.marcogn.pdftoolkit.ui.navigation.editContainerBounds
 import com.marcogn.pdftoolkit.domain.model.ReadingMode
 import com.marcogn.pdftoolkit.pdf.render.RenderBudget
 import com.marcogn.pdftoolkit.ui.search.RevealRequest
+import com.marcogn.pdftoolkit.pdf.text.PageTextReader
+import com.marcogn.pdftoolkit.pdf.text.TextSelection
 import com.marcogn.pdftoolkit.ui.annotate.AnnotationLayer
+import com.marcogn.pdftoolkit.ui.annotate.ResolveTextSelection
+import com.marcogn.pdftoolkit.ui.annotate.TextSelectionState
+import com.marcogn.pdftoolkit.ui.annotate.rememberTextSelectionState
 import com.marcogn.pdftoolkit.ui.search.SearchHighlights
 import com.marcogn.pdftoolkit.ui.search.SearchNotice
 import com.marcogn.pdftoolkit.ui.search.SearchTopBar
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
 
 private const val MODE_CROSSFADE_MS = 200
 private const val PANEL_MS = 220
@@ -132,6 +148,40 @@ fun ReadyViewer(
         searchText = ""
     }
     BackHandler(enabled = searchOpen, onBack = closeSearch)
+
+    // Text selection and Copy (spec §7.4): a press and hold selects the word, the handles stretch it.
+    val selection = rememberTextSelectionState()
+    val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val copiedMessage = stringResource(R.string.viewer_text_copied)
+    val copyLabel = stringResource(R.string.viewer_selection_title)
+    ResolveTextSelection(selection) { key -> key.toIntOrNull()?.let { state.textReader.selectionModel(it) } }
+    LaunchedEffect(searchOpen) {
+        if (searchOpen) selection.clear()
+    }
+    BackHandler(enabled = selection.isActive) { selection.clear() }
+    val onLongPress: (Int, Offset) -> Unit = onLongPress@{ page, point ->
+        if (searchOpen) return@onLongPress
+        scope.launch {
+            val model = state.textReader.selectionModel(page) ?: return@launch
+            val word = model.wordAt(point) ?: return@launch
+            selection.select(page.toString(), model, word)
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+    val copySelection = {
+        val text = selection.clipboardText
+        if (text.isNotEmpty()) {
+            context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(copyLabel, text))
+            // Android 13 and later confirm a copy themselves.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                scope.launch { snackbarHostState.showSnackbar(copiedMessage) }
+            }
+        }
+        selection.clear()
+    }
     val highlights = remember(searchOpen, searchState.matches, searchState.current) {
         if (searchOpen) SearchHighlights.of(searchState.matches, searchState.current) else SearchHighlights.None
     }
@@ -162,7 +212,21 @@ fun ReadyViewer(
 
     Scaffold(
         topBar = {
-            if (searchOpen) {
+            if (selection.isActive && !searchOpen) {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.viewer_selection_title)) },
+                    navigationIcon = {
+                        IconButton(onClick = selection::clear) {
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.viewer_selection_clear))
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = copySelection) {
+                            Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.viewer_selection_copy))
+                        }
+                    },
+                )
+            } else if (searchOpen) {
                 SearchTopBar(
                     query = searchText,
                     onQueryChange = {
@@ -211,7 +275,7 @@ fun ReadyViewer(
         },
         floatingActionButton = {
             AnimatedVisibility(
-                visible = !fabHidden && !showThumbnails && !searchOpen,
+                visible = !fabHidden && !showThumbnails && !searchOpen && !selection.isActive,
                 enter = scaleIn(tween(PANEL_MS)) + fadeIn(tween(PANEL_MS)),
                 exit = scaleOut(tween(PANEL_MS)) + fadeOut(tween(PANEL_MS)),
             ) {
@@ -225,6 +289,7 @@ fun ReadyViewer(
                 )
             }
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         val pageDescription = stringResource(R.string.cd_viewer_page, currentPage + 1, pageCount)
         val nextPageLabel = stringResource(R.string.cd_viewer_next_page)
@@ -253,8 +318,8 @@ fun ReadyViewer(
                 modifier = Modifier.fillMaxSize(),
             ) { mode ->
                 when (mode) {
-                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, reportPage, onScroll)
-                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, reportPage)
+                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, selection, onLongPress, reportPage, onScroll)
+                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, selection, onLongPress, reportPage)
                 }
             }
 
@@ -402,6 +467,8 @@ private fun ContinuousPages(
     reveals: Channel<RevealRequest>,
     highlights: SearchHighlights,
     annotations: AnnotationLayer,
+    selection: TextSelectionState,
+    onLongPress: (Int, Offset) -> Unit,
     onPageChanged: (Int) -> Unit,
     onScroll: (Float) -> Unit,
 ) {
@@ -432,6 +499,8 @@ private fun ContinuousPages(
         backgroundColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         highlights = highlights,
         annotations = annotations,
+        selection = selection,
+        onLongPress = onLongPress,
         modifier = Modifier.fillMaxSize(),
     )
 }
@@ -450,6 +519,8 @@ private fun SinglePages(
     reveals: Channel<RevealRequest>,
     highlights: SearchHighlights,
     annotations: AnnotationLayer,
+    selection: TextSelectionState,
+    onLongPress: (Int, Offset) -> Unit,
     onPageChanged: (Int) -> Unit,
 ) {
     // A search result waits here until its page is composed and has a layout, then it is centred.
@@ -491,7 +562,17 @@ private fun SinglePages(
             yieldHorizontalToParent = true,
             highlights = highlights,
             annotations = annotations,
+            selection = selection,
+            onLongPress = onLongPress,
             modifier = Modifier.fillMaxSize(),
         )
     }
 }
+
+/** The text model of page [index] for selecting, or null if the page can't be read. */
+private suspend fun PageTextReader.selectionModel(index: Int): TextSelection? =
+    try {
+        TextSelection(page(index))
+    } catch (e: java.io.IOException) {
+        null
+    }

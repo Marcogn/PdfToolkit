@@ -89,6 +89,14 @@ import com.marcogn.pdftoolkit.ui.home.isSignatureAction
 import com.marcogn.pdftoolkit.ui.home.labelRes
 import com.marcogn.pdftoolkit.ui.fill.FILL_IMAGE_SIDE_PX
 import com.marcogn.pdftoolkit.ui.fill.FillActions
+import com.marcogn.pdftoolkit.domain.annotate.AnnotationRef
+import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
+import com.marcogn.pdftoolkit.ui.annotate.AnnotateActions
+import com.marcogn.pdftoolkit.ui.annotate.AnnotatePane
+import com.marcogn.pdftoolkit.ui.annotate.AnnotateToolBar
+import com.marcogn.pdftoolkit.ui.annotate.applySelection
+import com.marcogn.pdftoolkit.ui.annotate.rememberAnnotatePaneState
+import com.marcogn.pdftoolkit.ui.annotate.rememberTextSelectionState
 import com.marcogn.pdftoolkit.ui.fill.FillPane
 import com.marcogn.pdftoolkit.ui.fill.FillTool
 import com.marcogn.pdftoolkit.ui.fill.FillToolBar
@@ -104,12 +112,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class EditPane { HUB, REMOVE, REORDER, FILL }
+private enum class EditPane { HUB, REMOVE, REORDER, FILL, ANNOTATE }
 
 private fun PdfTool?.initialPane(): EditPane = when (this) {
     PdfTool.REMOVE_PAGES -> EditPane.REMOVE
     PdfTool.REORDER_PAGES -> EditPane.REORDER
     PdfTool.FILL_AND_SIGN -> EditPane.FILL
+    PdfTool.HIGHLIGHT -> EditPane.ANNOTATE
     else -> EditPane.HUB
 }
 
@@ -152,6 +161,9 @@ fun EditScreen(
     val fillLoad by viewModel.fillLoad.collectAsStateWithLifecycle()
     val flattenChoice by viewModel.flattenChoice.collectAsStateWithLifecycle()
     val fillState = rememberFillPaneState()
+    val annotateLoad by viewModel.annotateLoad.collectAsStateWithLifecycle()
+    val annotateState = rememberAnnotatePaneState()
+    val annotateSelection = rememberTextSelectionState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -291,6 +303,7 @@ fun EditScreen(
     val handleBack = {
         when {
             pane == EditPane.FILL && fillState.consumesBack -> fillState.back()
+            pane == EditPane.ANNOTATE && annotateSelection.isActive -> annotateSelection.clear()
             picking -> {
                 viewModel.dropPendingPdf()
                 selection = emptySet()
@@ -346,6 +359,7 @@ fun EditScreen(
             PdfTool.ADD_PAGES -> showAddSource = true
             PdfTool.INSERT_IMAGES -> showImageSource = true
             PdfTool.FILL_AND_SIGN -> pane = EditPane.FILL
+            PdfTool.HIGHLIGHT -> pane = EditPane.ANNOTATE
             else -> showMessage(resources.getString(R.string.edit_tool_unavailable, resources.getString(tool.labelRes())))
         }
     }
@@ -354,7 +368,26 @@ fun EditScreen(
     LaunchedEffect(pane, ready?.sources?.size) {
         if (pane == EditPane.FILL && ready != null) viewModel.loadFill()
     }
+    // "Annotate" reads the annotations of the documents when it opens (and again for PDFs added since).
+    LaunchedEffect(pane, ready?.sources?.size) {
+        if (pane == EditPane.ANNOTATE && ready != null) viewModel.loadAnnotate()
+    }
+    LaunchedEffect(pane) {
+        if (pane != EditPane.ANNOTATE) annotateSelection.clear()
+    }
     val currentShowMessage by rememberUpdatedState(showMessage)
+    val annotateActions = remember(viewModel) {
+        object : AnnotateActions {
+            override suspend fun renderPage(item: PageItem.FromPdf, pxPerPoint: Float) = viewModel.renderPage(item, pxPerPoint, MAX_PAGE_PIXELS)
+            override suspend fun image(uri: String) = withContext(Dispatchers.IO) { viewModel.imageThumbnail(uri, FILL_IMAGE_SIDE_PX) }
+            override fun addAnnotation(annotation: NewAnnotation) { viewModel.addAnnotation(annotation) }
+            override fun removeAnnotation(id: String) { viewModel.removeAnnotation(id) }
+            override fun removeExistingAnnotation(ref: AnnotationRef) { viewModel.removeExistingAnnotation(ref) }
+            override fun newAnnotationId() = viewModel.newAnnotationId()
+            override suspend fun pageText(item: PageItem.FromPdf) = viewModel.pageText(item)
+            override fun message(text: String) = currentShowMessage(text)
+        }
+    }
     val fillActions = remember(viewModel) {
         object : FillActions {
             override suspend fun renderPage(item: PageItem.FromPdf, pxPerPoint: Float) = viewModel.renderPage(item, pxPerPoint, MAX_PAGE_PIXELS)
@@ -377,6 +410,11 @@ fun EditScreen(
             if (ready != null && !picking && pane == EditPane.HUB) HubToolBar(hubTools, onHubTool)
             if (ready != null && !picking && pane == EditPane.FILL) {
                 FillToolBar(fillState, ready.session.fill.overlays, fillActions) { showSignatureSheet = true }
+            }
+            if (ready != null && !picking && pane == EditPane.ANNOTATE) {
+                AnnotateToolBar(annotateState, annotateSelection) { kind ->
+                    applySelection(kind, annotateState, annotateSelection, ready.session.pages, (annotateLoad as? AnnotateLoad.Ready)?.documents, annotateActions)
+                }
             }
         },
         topBar = {
@@ -477,6 +515,7 @@ fun EditScreen(
                                     when (pane) {
                                         EditPane.REMOVE -> R.string.tool_remove_pages
                                         EditPane.FILL -> R.string.tool_fill_and_sign
+                                        EditPane.ANNOTATE -> R.string.tool_highlight
                                         else -> R.string.tool_reorder_pages
                                     },
                                 ),
@@ -571,6 +610,15 @@ fun EditScreen(
                     load = fillLoad,
                     state = fillState,
                     actions = fillActions,
+                    modifier = Modifier.padding(padding),
+                )
+                EditPane.ANNOTATE -> AnnotatePane(
+                    pages = state.session.pages,
+                    edits = state.session.annotations,
+                    load = annotateLoad,
+                    state = annotateState,
+                    selection = annotateSelection,
+                    actions = annotateActions,
                     modifier = Modifier.padding(padding),
                 )
                 EditPane.REMOVE, EditPane.REORDER -> PagesPane(

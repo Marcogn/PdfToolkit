@@ -88,11 +88,6 @@ internal class OverlayPainter(typeface: Typeface) {
         canvas.restore()
     }
 
-    /** Draws [bitmap] with [toScreen] mapping its pixels to the screen. */
-    fun drawBitmap(canvas: Canvas, bitmap: Bitmap, toScreen: Affine) {
-        canvas.drawBitmap(bitmap, toScreen.toMatrix(), bitmapPaint)
-    }
-
     private fun Affine.toMatrix(): Matrix {
         values[Matrix.MSCALE_X] = a
         values[Matrix.MSKEW_X] = c

@@ -358,7 +358,7 @@ private fun MarkToolButton(kind: MarkKind, label: Int, active: Boolean, onClick:
 
 /** Icon over its label; the armed tool is in the primary colour. */
 @Composable
-private fun ToolButtonFrame(label: Int, active: Boolean, onClick: () -> Unit, icon: @Composable () -> Unit) {
+internal fun ToolButtonFrame(label: Int, active: Boolean, onClick: () -> Unit, icon: @Composable () -> Unit) {
     val color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
     TextButton(onClick = onClick, modifier = Modifier.semantics { selected = active }) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
