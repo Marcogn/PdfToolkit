@@ -19,7 +19,9 @@ are drawn or imported into an archive ("My signatures") and every placed item ca
 and turned with the fingers. Text search (phase 5) is in: case- and accent-insensitive, with results that appear while the
 text is read and are highlighted on the page. Polish (phase 6) is done except the baseline profile,
 which has to be generated on a device: the Edit button morphs into the edit hub, thumbnails fade in, the viewer
-announces the page to screen readers, and the release build is minified (R8).
+announces the page to screen readers, and the release build is minified (R8). Version 1.0.0 is
+released. Product phase 2 has started (`docs/plan-v2.md`): the annotation core (7a) is in, so the
+viewer shows the highlights and drawings already in a PDF; highlighting and drawing come in 7b and 8.
 
 ## Features
 
@@ -34,7 +36,9 @@ Planned for the first version:
   archive of signatures saved on the phone
 
 Planned for later: document scanning with OCR, cloud upload (WebDAV), highlighting, freehand
-drawing, export to OpenDocument. They already show up on Home as "Soon".
+drawing, export to OpenDocument. They already show up on Home as "Soon". Order and plan in
+[`docs/plan-v2.md`](docs/plan-v2.md): highlighting and drawing first, then scanning, then OCR,
+OpenDocument export and cloud upload.
 
 ## Requirements
 
@@ -126,6 +130,11 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   it is rebuilt each time the document is opened and searched.
 - Saving works on copies in the app's cache: a large merge needs free storage of a few times the
   total size of its files while it runs (they are deleted afterwards).
+- Annotations already in a PDF (highlights, underlines, strikeouts, freehand ink) are drawn by the
+  app from their shape, because Android's renderer doesn't draw them: one with a custom look made
+  by another app may look plainer than in that app, and notes, stamps and shapes aren't shown yet.
+  Page thumbnails don't show annotations. On Android 8 and 9 a highlight is drawn translucent over
+  the text instead of blending with it, so the text under it looks lighter.
 - Overwriting needs a file that grants write access (most local files do, some providers don't);
   otherwise only "save as copy" is offered.
 
@@ -134,6 +143,7 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
 - [`docs/spec.md`](docs/spec.md): specification and development plan
 - [`docs/plan.md`](docs/plan.md): what comes from ThePatientGamerHelper and KartLog, and how the
   dependencies were upgraded
+- [`docs/plan-v2.md`](docs/plan-v2.md): plan of product phase 2 (annotations, scan, OCR, ODF, cloud)
 - [`docs/adr/`](docs/adr/): architecture decisions
 - [`CHANGELOG.md`](CHANGELOG.md): changes per version
 - [`CLAUDE.md`](CLAUDE.md): working notes for development

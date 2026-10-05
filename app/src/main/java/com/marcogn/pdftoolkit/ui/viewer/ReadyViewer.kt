@@ -66,6 +66,7 @@ import com.marcogn.pdftoolkit.ui.navigation.editContainerBounds
 import com.marcogn.pdftoolkit.domain.model.ReadingMode
 import com.marcogn.pdftoolkit.pdf.render.RenderBudget
 import com.marcogn.pdftoolkit.ui.search.RevealRequest
+import com.marcogn.pdftoolkit.ui.annotate.AnnotationLayer
 import com.marcogn.pdftoolkit.ui.search.SearchHighlights
 import com.marcogn.pdftoolkit.ui.search.SearchNotice
 import com.marcogn.pdftoolkit.ui.search.SearchTopBar
@@ -134,6 +135,8 @@ fun ReadyViewer(
     val highlights = remember(searchOpen, searchState.matches, searchState.current) {
         if (searchOpen) SearchHighlights.of(searchState.matches, searchState.current) else SearchHighlights.None
     }
+    val documentAnnotations by state.annotations.collectAsStateWithLifecycle()
+    val annotations = remember(documentAnnotations) { AnnotationLayer.of(documentAnnotations) }
     // The Edit button hides while the reader scrolls down and comes back on scrolling up or after a
     // pause (spec §4.2).
     var fabHidden by remember { mutableStateOf(false) }
@@ -250,8 +253,8 @@ fun ReadyViewer(
                 modifier = Modifier.fillMaxSize(),
             ) { mode ->
                 when (mode) {
-                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, reportPage, onScroll)
-                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, reportPage)
+                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, reportPage, onScroll)
+                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, reportPage)
                 }
             }
 
@@ -398,6 +401,7 @@ private fun ContinuousPages(
     jumps: Channel<Int>,
     reveals: Channel<RevealRequest>,
     highlights: SearchHighlights,
+    annotations: AnnotationLayer,
     onPageChanged: (Int) -> Unit,
     onScroll: (Float) -> Unit,
 ) {
@@ -427,6 +431,7 @@ private fun ContinuousPages(
         state = viewportState,
         backgroundColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         highlights = highlights,
+        annotations = annotations,
         modifier = Modifier.fillMaxSize(),
     )
 }
@@ -444,6 +449,7 @@ private fun SinglePages(
     jumps: Channel<Int>,
     reveals: Channel<RevealRequest>,
     highlights: SearchHighlights,
+    annotations: AnnotationLayer,
     onPageChanged: (Int) -> Unit,
 ) {
     // A search result waits here until its page is composed and has a layout, then it is centred.
@@ -484,6 +490,7 @@ private fun SinglePages(
             requestSource = page,
             yieldHorizontalToParent = true,
             highlights = highlights,
+            annotations = annotations,
             modifier = Modifier.fillMaxSize(),
         )
     }

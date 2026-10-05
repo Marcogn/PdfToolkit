@@ -54,13 +54,22 @@ class PdfBoxEditor @Inject constructor(
                     others[ref] = load(extra)
                 }
                 onProgress(LOADED)
+                // First: references to existing annotations are indices into /Annots as it was read.
+                val annotations = AnnotationWriter(document)
+                session.annotations.removed.groupBy { DocRef(it.docId) to it.pageIndex }.forEach { (at, refs) ->
+                    val (doc, pageIndex) = at
+                    val source = if (doc == DocRef.MAIN) document else others[doc]
+                    if (source != null && pageIndex in 0 until source.numberOfPages) annotations.removeExisting(source.getPage(pageIndex), refs)
+                }
                 val fill = FillWriter(document, fonts, images)
                 // Values go in while every widget is still on its page; flattening and overlays
                 // work on the final pages, so removed pages cost nothing.
                 fill.fillForm(session.fill.fields)
                 val pages = rearrange(document, session, others)
                 if (options.flattenForm) fill.flattenForm()
-                fill.drawOverlays(session.fill.overlays, session.pages.map { it.id }.zip(pages).toMap())
+                val pagesById = session.pages.map { it.id }.zip(pages).toMap()
+                fill.drawOverlays(session.fill.overlays, pagesById)
+                annotations.addNew(session.annotations.added, pagesById)
                 onProgress(REARRANGED)
                 document.save(output)
             }

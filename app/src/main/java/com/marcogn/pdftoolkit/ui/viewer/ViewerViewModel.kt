@@ -12,6 +12,8 @@ import com.marcogn.pdftoolkit.data.settings.ReadingPreferences
 import com.marcogn.pdftoolkit.domain.model.OpenFailure
 import com.marcogn.pdftoolkit.domain.model.PdfOpenException
 import com.marcogn.pdftoolkit.domain.model.ReadingMode
+import com.marcogn.pdftoolkit.pdf.annotations.AnnotationReader
+import com.marcogn.pdftoolkit.pdf.annotations.DocumentAnnotations
 import com.marcogn.pdftoolkit.pdf.render.PageKey
 import com.marcogn.pdftoolkit.pdf.render.PageSize
 import com.marcogn.pdftoolkit.pdf.render.PageThumbnails
@@ -51,6 +53,11 @@ sealed interface ViewerUiState {
         val search: DocumentSearch,
         /** Zero-based page to open on: the last one read, or 0. */
         val startPage: Int,
+        /**
+         * The document's annotations, drawn by the app because the renderer doesn't (spec §7.4,
+         * ADR 0004); null until read, and if they can't be read.
+         */
+        val annotations: StateFlow<DocumentAnnotations?>,
     ) : ViewerUiState
 
     /** [inRecents]: the document is in the recents list, so "remove from recents" makes sense. */
@@ -69,6 +76,7 @@ class ViewerViewModel @Inject constructor(
     private val recents: RecentsRepository,
     private val readingPreferences: ReadingPreferences,
     private val textExtractor: PdfTextExtractor,
+    private val annotationReader: AnnotationReader,
     val budget: RenderBudget,
 ) : ViewModel() {
 
@@ -136,6 +144,12 @@ class ViewerViewModel @Inject constructor(
                 render = { key -> opened.renderer.render(key)?.asImageBitmap() },
             )
             viewModelScope.launch { saveFirstPageThumbnail(opened.renderer) }
+            val annotations = MutableStateFlow<DocumentAnnotations?>(null)
+            viewModelScope.launch {
+                // After the first pages: reading parses the whole file.
+                delay(ANNOTATIONS_DELAY_MS)
+                annotations.value = annotationReader.read({ opener.openStream(uri) }, password)
+            }
             ViewerUiState.Ready(
                 uri = uriString,
                 displayName = opened.displayName,
@@ -152,6 +166,7 @@ class ViewerViewModel @Inject constructor(
                     pageCount = pageSizes.size,
                 ),
                 startPage = startPage,
+                annotations = annotations.asStateFlow(),
             )
         } catch (e: PdfOpenException) {
             when (e.failure) {
@@ -183,6 +198,7 @@ class ViewerViewModel @Inject constructor(
     private companion object {
         const val PAGE_SAVE_DELAY_MS = 500L
         const val THUMBNAIL_DELAY_MS = 1_000L
+        const val ANNOTATIONS_DELAY_MS = 300L
         const val RECENT_THUMBNAIL_HEIGHT_PX = 360
     }
 }

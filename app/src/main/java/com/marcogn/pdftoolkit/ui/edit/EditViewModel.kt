@@ -236,7 +236,9 @@ class EditViewModel @Inject constructor(
             }
             _canOverwrite.value = !isMerge && hasWriteAccess(sourceUri.toUri())
             val counts = sources.mapValues { it.value.pageCount }
-            val restored = savedStateHandle.get<String>(KEY_PAGES)?.let { EditSession.decode(it, counts, savedStateHandle.get<String>(KEY_FILL).orEmpty()) }
+            val restored = savedStateHandle.get<String>(KEY_PAGES)?.let {
+                EditSession.decode(it, counts, savedStateHandle.get<String>(KEY_FILL).orEmpty(), savedStateHandle.get<String>(KEY_ANNOTATIONS).orEmpty())
+            }
             publish(restored ?: EditSession.ofDocuments(sources.values.map { it.pageCount }))
         } catch (e: PdfOpenException) {
             _uiState.value = EditUiState.Error(e.failure)
@@ -282,6 +284,7 @@ class EditViewModel @Inject constructor(
     private fun publish(session: EditSession) {
         savedStateHandle[KEY_PAGES] = session.encode()
         savedStateHandle[KEY_FILL] = session.encodeFill()
+        savedStateHandle[KEY_ANNOTATIONS] = session.encodeAnnotations()
         _uiState.value = EditUiState.Ready(
             displayName = displayName,
             sources = sources.toMap(),
@@ -291,7 +294,7 @@ class EditViewModel @Inject constructor(
     }
 
     /** What was saved last, to tell whether there is anything new to save. */
-    private fun savedKey(session: EditSession) = session.encode() + "\n" + session.encodeFill()
+    private fun savedKey(session: EditSession) = session.encode() + "\n" + session.encodeFill() + "\n" + session.encodeAnnotations()
 
     // --- Adding pages (spec §6.2) ---
 
@@ -510,6 +513,7 @@ class EditViewModel @Inject constructor(
             extraSources = extraSources.toList(),
             fill = ready.session.encodeFill(),
             flattenForm = flattenForm(),
+            annotations = ready.session.encodeAnnotations(),
         )
         pendingOverwrite = overwrite
         _saveState.value = SaveUiState.Saving(0f)
@@ -567,6 +571,7 @@ class EditViewModel @Inject constructor(
         const val KEY_PAGES = "pages"
         const val KEY_EXTRAS = "extras"
         const val KEY_FILL = "fill"
+        const val KEY_ANNOTATIONS = "annotations"
         const val ID_LENGTH = 8
         const val QUARTER = 90
     }

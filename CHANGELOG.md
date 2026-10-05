@@ -6,6 +6,11 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Highlights and drawings in the viewer.** Highlights, underlines, strikeouts, squiggly lines and
+  freehand drawings already in a PDF now show in the viewer, on turned pages too. Android's own
+  renderer leaves them out, so before they weren't visible at all. Notes, stamps and shapes are not
+  shown yet.
+
 ## [1.0.0] - 2026-10-04
 
 - **Edit button grows into the edit hub.** Tapping "Edit" in the viewer now morphs the button into
