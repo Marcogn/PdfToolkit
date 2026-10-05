@@ -58,7 +58,30 @@ data class AnnotationColor(val red: Float, val green: Float, val blue: Float) {
     companion object {
         val YELLOW = AnnotationColor(1f, 0.92f, 0.23f)
         val BLACK = AnnotationColor(0f, 0f, 0f)
+        val GREEN = AnnotationColor(0.45f, 0.88f, 0.4f)
+        val BLUE = AnnotationColor(0.4f, 0.75f, 1f)
+        val PINK = AnnotationColor(1f, 0.55f, 0.75f)
+        val ORANGE = AnnotationColor(1f, 0.7f, 0.25f)
+        val RED = AnnotationColor(0.88f, 0.1f, 0.1f)
+        val DARK_BLUE = AnnotationColor(0.1f, 0.3f, 0.85f)
+        val DARK_GREEN = AnnotationColor(0.1f, 0.55f, 0.2f)
     }
+}
+
+/**
+ * The colours the annotate tools offer (spec §7.4, "alcuni colori"). A highlight multiplies with
+ * the text under it, so its colours are light and a dark one would black the text out; underline
+ * and strikeout are thin lines, so theirs are strong.
+ */
+object AnnotationPalette {
+    val highlight: List<AnnotationColor> = listOf(
+        AnnotationColor.YELLOW, AnnotationColor.GREEN, AnnotationColor.BLUE, AnnotationColor.PINK, AnnotationColor.ORANGE,
+    )
+    val line: List<AnnotationColor> = listOf(
+        AnnotationColor.RED, AnnotationColor.DARK_BLUE, AnnotationColor.BLACK, AnnotationColor.DARK_GREEN,
+    )
+
+    fun of(kind: MarkupKind): List<AnnotationColor> = if (kind == MarkupKind.HIGHLIGHT) highlight else line
 }
 
 /** How an annotation is painted: colour and constant opacity (`/C`, `/CA`). */

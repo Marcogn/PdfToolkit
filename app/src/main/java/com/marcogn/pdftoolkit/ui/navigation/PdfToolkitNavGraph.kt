@@ -87,7 +87,7 @@ private val navPopExitTransition: AnimatedContentTransitionScope<NavBackStackEnt
 }
 
 /** Tools of Home that work on one open PDF and open straight on their pane or dialog (spec §4.1). */
-private val pageTools = setOf(PdfTool.ADD_PAGES, PdfTool.INSERT_IMAGES, PdfTool.REMOVE_PAGES, PdfTool.REORDER_PAGES, PdfTool.FILL_AND_SIGN)
+private val pageTools = setOf(PdfTool.ADD_PAGES, PdfTool.INSERT_IMAGES, PdfTool.REMOVE_PAGES, PdfTool.REORDER_PAGES, PdfTool.FILL_AND_SIGN, PdfTool.HIGHLIGHT)
 
 /** Page tools that, after the PDF, ask for more files (images, another PDF): a dialog explains the order first. */
 private val toolsPickingTwice = setOf(PdfTool.ADD_PAGES, PdfTool.INSERT_IMAGES)

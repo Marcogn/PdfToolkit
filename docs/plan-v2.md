@@ -96,6 +96,8 @@ Device check: a highlight written by the app shows in another reader (Acrobat, C
 in Acrobat shows in the app and can be removed.
 
 ### 7b Highlight complete — Sonnet
+Status 2026-10-05: **implemented** (see CLAUDE.md, Current status); device checks below are the
+author's.
 Scope: selection UI (long press, handles, magnifier optional), Copy in the viewer; "Annotate" pane
 with highlight (a few colours), underline, strikeout, eraser (tap an annotation); Home and hub tool
 "Highlight" enabled; strings IT/EN; README limits.

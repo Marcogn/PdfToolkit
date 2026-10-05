@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -31,6 +32,7 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -42,7 +44,13 @@ import com.marcogn.pdftoolkit.pdf.render.RenderBudget
 import com.marcogn.pdftoolkit.pdf.render.RenderPlanner
 import com.marcogn.pdftoolkit.pdf.render.RenderScheduler
 import com.marcogn.pdftoolkit.ui.annotate.AnnotationLayer
+import com.marcogn.pdftoolkit.ui.annotate.HandleMetrics
+import com.marcogn.pdftoolkit.ui.annotate.SelectionGrab
+import com.marcogn.pdftoolkit.ui.annotate.SelectionHandles
+import com.marcogn.pdftoolkit.ui.annotate.TextSelectionState
+import com.marcogn.pdftoolkit.ui.annotate.detectSelectionGestures
 import com.marcogn.pdftoolkit.ui.annotate.drawAnnotations
+import com.marcogn.pdftoolkit.ui.annotate.drawTextSelection
 import com.marcogn.pdftoolkit.ui.search.SearchHighlights
 import com.marcogn.pdftoolkit.ui.theme.SearchCurrentHighlightColor
 import com.marcogn.pdftoolkit.ui.theme.SearchHighlightColor
@@ -85,6 +93,10 @@ fun PdfViewport(
     highlights: SearchHighlights = SearchHighlights.None,
     /** The document's annotations, which the renderer doesn't draw (spec §7.4); keyed by document page index. */
     annotations: AnnotationLayer = AnnotationLayer.None,
+    /** The text selection to draw and edit (spec §7.4); null where there is none (no text to select). */
+    selection: TextSelectionState? = null,
+    /** A press and hold at [point] (page points) of document page [documentPage]: start a selection there. */
+    onLongPress: (documentPage: Int, point: Offset) -> Unit = { _, _ -> },
 ) {
     val scope = rememberCoroutineScope()
     val decay = rememberSplineBasedDecay<Float>()
@@ -96,6 +108,13 @@ fun PdfViewport(
     // until the new tiles arrive, so a zoom never flashes back to the blurry page bitmap.
     var tileLevel by remember(planner) { mutableIntStateOf(NO_LEVEL) }
     var previousTileLevel by remember(planner) { mutableIntStateOf(NO_LEVEL) }
+
+    val selectionGrab = remember { SelectionGrab() }
+    val density = LocalDensity.current
+    val handleMetrics = remember(density) { HandleMetrics(radius = with(density) { HANDLE_RADIUS.toPx() }, slop = with(density) { HANDLE_SLOP.toPx() }) }
+    val selectionFill = MaterialTheme.colorScheme.primary.copy(alpha = SELECTION_ALPHA)
+    val handleColor = MaterialTheme.colorScheme.primary
+    val currentOnLongPress by rememberUpdatedState(onLongPress)
 
     DisposableEffect(bitmaps, requestSource) { onDispose { bitmaps.release(requestSource) } }
 
@@ -123,7 +142,34 @@ fun PdfViewport(
             .pointerInput(state) {
                 detectTapGestures(onDoubleTap = { tap -> state.launchAnimation(scope) { state.animateDoubleTap(tap) } })
             }
-            .pointerInput(state, yieldHorizontalToParent) { detectZoomPanFling(state, scope, decay, yieldHorizontalToParent) },
+            .pointerInput(state, yieldHorizontalToParent) {
+                detectZoomPanFling(state, scope, decay, yieldHorizontalToParent, suppressed = { selectionGrab.active })
+            }
+            .pointerInput(state, selection) {
+                if (selection == null) return@pointerInput
+                detectSelectionGestures(
+                    grab = selectionGrab,
+                    handleAt = { screen ->
+                        val mapper = state.mapper
+                        val local = selection.key?.toIntOrNull()?.minus(pageIndexOffset)
+                        if (mapper == null || local == null || local !in mapper.layout.pageRects.indices) {
+                            null
+                        } else {
+                            SelectionHandles.grabAt(selection.runs, mapper.pageToScreenTransform(local), screen, handleMetrics)
+                        }
+                    },
+                    onLongPress = { screen ->
+                        state.mapper?.hitTest(screen)?.let { currentOnLongPress(pageIndexOffset + it.pageIndex, it.point) }
+                    },
+                    onDrag = { handle, screen ->
+                        val mapper = state.mapper
+                        val local = selection.key?.toIntOrNull()?.minus(pageIndexOffset)
+                        if (mapper != null && local != null && local in mapper.layout.pageRects.indices) {
+                            selection.drag(handle, mapper.screenToPage(local, screen))
+                        }
+                    },
+                )
+            },
     ) {
         // Read so that a new bitmap triggers a redraw.
         @Suppress("UNUSED_EXPRESSION")
@@ -144,11 +190,18 @@ fun PdfViewport(
                 drawAnnotations(page.annotations, mapper.userToScreen(index, page.space), mapper.screenPxPerPoint)
             }
             if (!highlights.isEmpty) drawHighlights(index, pageIndexOffset + index, mapper, highlights)
+            if (selection != null && selection.key == (pageIndexOffset + index).toString()) {
+                drawTextSelection(selection.runs, mapper.pageToScreenTransform(index), selectionFill, handleColor, handleMetrics)
+            }
         }
     }
 }
 
 private const val NO_LEVEL = Int.MIN_VALUE
+
+private val HANDLE_RADIUS = 9.dp
+private val HANDLE_SLOP = 14.dp
+private const val SELECTION_ALPHA = 0.3f
 
 /** Search occurrences of one page over its bitmap: all of them, then the current one stronger. */
 private fun DrawScope.drawHighlights(localIndex: Int, documentPage: Int, mapper: PageCoordinateMapper, highlights: SearchHighlights) {

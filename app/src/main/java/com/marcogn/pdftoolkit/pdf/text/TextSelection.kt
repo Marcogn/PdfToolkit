@@ -15,6 +15,12 @@ data class GlyphRange(val start: Int, val end: Int) {
     }
 
     val size: Int get() = end - start
+
+    /** This range with its start moved to [boundary], kept before the end (a handle can't cross the other one). */
+    fun withStart(boundary: Int): GlyphRange = GlyphRange(boundary.coerceIn(0, end - 1), end)
+
+    /** This range with its end moved to [boundary], kept after the start and within [glyphCount] glyphs. */
+    fun withEnd(boundary: Int, glyphCount: Int): GlyphRange = GlyphRange(start, boundary.coerceIn(start + 1, glyphCount.coerceAtLeast(start + 1)))
 }
 
 /**
@@ -53,6 +59,8 @@ class TextSelection(page: PageText) {
 
     /** Whether the page has any text to select. */
     val isEmpty: Boolean get() = glyphs.isEmpty()
+
+    val glyphCount: Int get() = glyphs.size
 
     /** The glyph whose box contains [point], or null. Later glyphs win, as they are drawn on top. */
     fun glyphAt(point: Offset): Int? = glyphs.indices.lastOrNull { contains(glyphs[it], point) }

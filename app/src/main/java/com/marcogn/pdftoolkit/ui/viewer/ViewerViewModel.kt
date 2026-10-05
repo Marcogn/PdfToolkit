@@ -22,6 +22,7 @@ import com.marcogn.pdftoolkit.pdf.render.PdfDocumentRenderer
 import com.marcogn.pdftoolkit.pdf.render.RenderBudget
 import com.marcogn.pdftoolkit.pdf.render.RenderScheduler
 import com.marcogn.pdftoolkit.pdf.text.DocumentSearch
+import com.marcogn.pdftoolkit.pdf.text.PageTextReader
 import com.marcogn.pdftoolkit.pdf.text.PdfTextExtractor
 import com.marcogn.pdftoolkit.ui.navigation.Destination
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -58,6 +59,8 @@ sealed interface ViewerUiState {
          * ADR 0004); null until read, and if they can't be read.
          */
         val annotations: StateFlow<DocumentAnnotations?>,
+        /** The text of single pages, for selecting and copying (spec §7.4); closed with the view model. */
+        val textReader: PageTextReader,
     ) : ViewerUiState
 
     /** [inRecents]: the document is in the recents list, so "remove from recents" makes sense. */
@@ -167,6 +170,7 @@ class ViewerViewModel @Inject constructor(
                 ),
                 startPage = startPage,
                 annotations = annotations.asStateFlow(),
+                textReader = textExtractor.reader({ opener.openStream(uri) }, password),
             )
         } catch (e: PdfOpenException) {
             when (e.failure) {
@@ -190,6 +194,7 @@ class ViewerViewModel @Inject constructor(
         // Non-blocking: if a page is being rendered the renderer closes right after it.
         renderer?.close()
         (_uiState.value as? ViewerUiState.Ready)?.let {
+            it.textReader.close()
             it.bitmaps.clear()
             it.thumbnails.clear()
         }

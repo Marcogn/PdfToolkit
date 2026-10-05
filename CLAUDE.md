@@ -104,7 +104,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   `pdf/forms` (phase 4: `FormReader`), `pdf/text` (phase 5: `PdfTextExtractor`, `PositionedTextStripper`,
   `TextNormalizer`, `PageTextIndex`, `DocumentSearch`; spec §12; 7a: `TextSelection`, `PageTextReader`),
   `pdf/annotations` (7a: `AnnotationReader`, `AnnotationGeometry`, `AnnotationFingerprint`; the writer
-  is `pdf/edit/AnnotationWriter`). `ui/annotate/` draws annotations (`AnnotationLayer`, `drawAnnotations`). `ui/search/` is the search bar, notices and
+  is `pdf/edit/AnnotationWriter`; 7b: `AnnotationEraser`, `MarkupFactory`). `ui/annotate/` draws annotations
+  (`AnnotationLayer`, `drawAnnotations`) and holds text selection (`TextSelectionState`, handles, gestures)
+  and the "Annotate" pane of `EditScreen` (`AnnotatePane`, `AnnotatePage`, `AnnotateToolBar`). `ui/search/` is the search bar, notices and
   highlights used by the viewer. `ui/fill/` is the
   "Fill and sign" pane of `EditScreen`; `ui/signatures/` is "My signatures" plus the creation flow
   (draw, import) and the picker sheet that `EditScreen` reuses.
@@ -140,6 +142,15 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   appearance stream). New ones are standard annotations with our own appearance (not PdfBox's
   handlers). `/QuadPoints` in Acrobat's order (`Quad`). `PdfBoxEditor` removes existing annotations
   **before** anything else touches `/Annots` (refs are indices + fingerprint).
+- Text selection (7b): one page at a time, in the **source** page's display points (`TextSelection`),
+  never in screen or layout pixels; a screen point goes through the page's mapper, and in the edit
+  pane also `space.displayToUser` → `sourceSpace.userToDisplay` (the page may be turned by the user).
+  Selection state is saved as (page key, glyph range) and the text model is read again
+  (`ResolveTextSelection`). The gesture layer (`detectSelectionGestures`) sits after
+  `detectZoomPanFling` and stops it through `SelectionGrab.active` (`suppressed` parameter), like the
+  overlay gestures; a handle is dragged by the line's middle point, offset by where it was grabbed.
+- `PageBackdrop` (`ui/fill`) is the page bitmap/image under what a pane draws; the Fill and Annotate
+  panes both use it, so the resolution logic lives once.
 - Search highlights are overlay only, never written into the PDF. Search is in the viewer only,
   not in the edit screens (spec §5.1).
 - No `INTERNET` permission in product phase 1: the manifest removes it with `tools:node="remove"`
@@ -224,6 +235,26 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - **7a Annotation core done (2026-10-04)**, same PR as the plan (#13); lint (0 errors), 315 unit tests,
   `assembleDebug` and `assembleRelease` green. Needs the author's device checks (below). **Next: 7b Highlight complete
   (Sonnet).**
+
+- **7b Highlight complete done (2026-10-05)**; lint (0 errors), 350 unit tests and `assembleDebug`
+  green. Needs the author's device checks (below). **Next: 8a Freehand core (Opus).**
+
+### Notes from 7b (for 8a onwards)
+- Viewer: long press → `TextSelectionState` (selection + handles drawn by `PdfViewport`, `onLongPress`
+  callback to `ReadyViewer`, which loads the page through `ViewerUiState.Ready.textReader`); the top bar
+  becomes "Selected text · Copy"; Android 12 and below show a snackbar after copying.
+- Edit: `EditPane.ANNOTATE` (hub tool "Highlight", Home tool `HIGHLIGHT`); `EditViewModel.loadAnnotate()`
+  reads every document's annotations (`AnnotateLoad`, `AnnotateDocuments`), `pageText(item)` serves
+  selections (one `PageTextReader` per document), `addAnnotation/removeAnnotation/removeExistingAnnotation`.
+  `AnnotatePage` is the per-page canvas (backdrop, `drawAnnotations`, selection, eraser tap): 8a's
+  drawing layer goes there, and its draw-vs-pan arbitration can copy the `SelectionGrab` pattern
+  (`detectZoomPanFling(suppressed = …)`). `AnnotatePaneState.tool` is the place for pen / highlighter tools.
+- Tools: `AnnotateTool` (highlight, underline, strikeout, eraser), one colour index for highlights and one
+  shared by the two line kinds (`AnnotationPalette`). "Apply" turns the selection into one
+  `NewAnnotation` through `MarkupFactory` (quads via `LineRun.toUser(sourceSpace)`).
+- Known limits: no colour change after adding (erase and redo); squiggly can be read and drawn but has no
+  tool; selection works on one page and in extraction order; no magnifier; the viewer can't start
+  annotating from a selection (go through Edit → Highlight); the page thumbnails still show no annotations.
 
 ### Handoff 7a → 7b (annotations)
 - Model `domain/annotate/`: `NewAnnotation(id, pageId, shape, style)`, shapes `TextMarkup(kind, quads)`
@@ -357,6 +388,17 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-05 · 7b: the markup tools **arm, select, then apply** (an "Apply" button over the tool bar)
+  instead of applying on release: a mistaken selection costs nothing, and the same long press / handle
+  gestures serve all three kinds. One undo step per annotation (session undo, as every edit).
+- 2026-10-05 · 7b: highlights get light colours (yellow, green, light blue, pink, orange) because they
+  multiply with the text; underline and strikeout get strong ones (red, blue, black, dark green).
+  Underline and strikeout share one chosen colour, the highlighter has its own.
+- 2026-10-05 · 7b: the eraser also takes annotations the app can't draw (notes, stamps) by their
+  rectangle, as the 7a handoff said; it is an explicit tool and undo brings them back.
+- 2026-10-05 · 7b: the viewer only gets selection + Copy (author's answer in the plan); annotating from
+  there would need a second save path. The page bitmap logic of `FillPage` moved to `PageBackdrop`
+  and `OverlayPainter.drawBitmap` went with it (no behaviour change).
 - 2026-10-04 · 7a: the app draws all annotations; the renderer draws none (checked in the platform
   sources, ADR 0004). Our own appearance streams from `AnnotationGeometry` instead of PdfBox's
   handlers (axis-aligned quads only). Existing annotations are referenced by `/Annots` index +

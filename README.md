@@ -20,8 +20,10 @@ and turned with the fingers. Text search (phase 5) is in: case- and accent-insen
 text is read and are highlighted on the page. Polish (phase 6) is done except the baseline profile,
 which has to be generated on a device: the Edit button morphs into the edit hub, thumbnails fade in, the viewer
 announces the page to screen readers, and the release build is minified (R8). Version 1.0.0 is
-released. Product phase 2 has started (`docs/plan-v2.md`): the annotation core (7a) is in, so the
-viewer shows the highlights and drawings already in a PDF; highlighting and drawing come in 7b and 8.
+released. Product phase 2 has started (`docs/plan-v2.md`): the viewer shows the highlights and
+drawings already in a PDF, selects and copies text (7a, 7b), and the "Highlight" tool (7b) highlights,
+underlines and strikes out text and erases annotations, also those made by other apps; freehand drawing
+comes in 8.
 
 ## Features
 
@@ -34,8 +36,10 @@ Planned for the first version:
   images (done)
 - form filling and signing (done: forms, text, date, ticks, signatures drawn or imported), with an
   archive of signatures saved on the phone
+- selecting and copying text; highlighting, underlining and striking out text, and erasing
+  annotations (done, product phase 2 / 7b)
 
-Planned for later: document scanning with OCR, cloud upload (WebDAV), highlighting, freehand
+Planned for later: document scanning with OCR, cloud upload (WebDAV), freehand
 drawing, export to OpenDocument. They already show up on Home as "Soon". Order and plan in
 [`docs/plan-v2.md`](docs/plan-v2.md): highlighting and drawing first, then scanning, then OCR,
 OpenDocument export and cloud upload.
@@ -135,6 +139,13 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   by another app may look plainer than in that app, and notes, stamps and shapes aren't shown yet.
   Page thumbnails don't show annotations. On Android 8 and 9 a highlight is drawn translucent over
   the text instead of blending with it, so the text under it looks lighter.
+- Text selection and the highlight tools work on the glyphs PdfBox extracts: a selection is one run in
+  extraction order (it can jump oddly in columns), one page at a time, and a page without text (a
+  scan) has nothing to select until OCR. Right-to-left scripts aren't handled. In "Highlight" the
+  text is selected on the page as its file shows it; the eraser takes whatever is under the finger,
+  including notes and stamps the app can't draw. Annotations aren't editable after they are added
+  (no colour change): erase and redo. Highlighting is not available on password-protected PDFs (they
+  can't be edited yet).
 - Overwriting needs a file that grants write access (most local files do, some providers don't);
   otherwise only "save as copy" is offered.
 

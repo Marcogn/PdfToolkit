@@ -314,4 +314,32 @@
     <string name="cd_search_previous">Previous result</string>
     <string name="cd_search_next">Next result</string>
     <string name="cd_search_indexing">Reading the document\'s text</string>
+
+    <!-- Text selection in the viewer and the Annotate pane (7b) -->
+    <string name="viewer_selection_title">Selected text</string>
+    <string name="viewer_selection_copy">Copy</string>
+    <string name="viewer_selection_clear">Clear selection</string>
+    <string name="viewer_text_copied">Text copied</string>
+    <string name="annotate_tool_highlight">Highlight</string>
+    <string name="annotate_tool_underline">Underline</string>
+    <string name="annotate_tool_strikeout">Strike out</string>
+    <string name="annotate_tool_eraser">Eraser</string>
+    <string name="annotate_apply_highlight">Highlight</string>
+    <string name="annotate_apply_underline">Underline</string>
+    <string name="annotate_apply_strikeout">Strike out text</string>
+    <string name="annotate_cancel">Cancel</string>
+    <string name="annotate_hint_select">Press and hold a word, then drag the handles</string>
+    <string name="annotate_hint_erase">Tap an annotation to remove it</string>
+    <string name="annotate_page_no_text">This page has no selectable text (a scan?)</string>
+    <string name="annotate_load_failed">Couldn\'t read the document\'s annotations</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_green">Green</string>
+    <string name="color_blue">Light blue</string>
+    <string name="color_pink">Pink</string>
+    <string name="color_orange">Orange</string>
+    <string name="color_red">Red</string>
+    <string name="color_dark_blue">Blue</string>
+    <string name="color_black">Black</string>
+    <string name="color_dark_green">Dark green</string>
+    <string name="color_other">Other colour</string>
 </resources>

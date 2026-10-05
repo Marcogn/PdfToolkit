@@ -19,7 +19,7 @@ enum class PdfTool(
     MY_SIGNATURES(requiresDocument = false),
     SCAN(comingSoon = true, requiresDocument = false),
     CLOUD_UPLOAD(comingSoon = true),
-    HIGHLIGHT(comingSoon = true),
+    HIGHLIGHT,
     DRAW(comingSoon = true),
     EXPORT_ODF(comingSoon = true),
     ;

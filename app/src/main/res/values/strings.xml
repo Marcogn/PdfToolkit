@@ -318,4 +318,32 @@
     <string name="cd_search_previous">Risultato precedente</string>
     <string name="cd_search_next">Risultato successivo</string>
     <string name="cd_search_indexing">Lettura del testo del documento in corso</string>
+
+    <!-- Text selection in the viewer and the Annotate pane (7b) -->
+    <string name="viewer_selection_title">Testo selezionato</string>
+    <string name="viewer_selection_copy">Copia</string>
+    <string name="viewer_selection_clear">Annulla selezione</string>
+    <string name="viewer_text_copied">Testo copiato</string>
+    <string name="annotate_tool_highlight">Evidenzia</string>
+    <string name="annotate_tool_underline">Sottolinea</string>
+    <string name="annotate_tool_strikeout">Barra</string>
+    <string name="annotate_tool_eraser">Gomma</string>
+    <string name="annotate_apply_highlight">Evidenzia</string>
+    <string name="annotate_apply_underline">Sottolinea</string>
+    <string name="annotate_apply_strikeout">Barra il testo</string>
+    <string name="annotate_cancel">Annulla</string>
+    <string name="annotate_hint_select">Tieni premuto su una parola, poi trascina le maniglie</string>
+    <string name="annotate_hint_erase">Tocca un\'annotazione per rimuoverla</string>
+    <string name="annotate_page_no_text">Questa pagina non ha testo selezionabile (è una scansione?)</string>
+    <string name="annotate_load_failed">Impossibile leggere le annotazioni del documento</string>
+    <string name="color_yellow">Giallo</string>
+    <string name="color_green">Verde</string>
+    <string name="color_blue">Azzurro</string>
+    <string name="color_pink">Rosa</string>
+    <string name="color_orange">Arancione</string>
+    <string name="color_red">Rosso</string>
+    <string name="color_dark_blue">Blu</string>
+    <string name="color_black">Nero</string>
+    <string name="color_dark_green">Verde scuro</string>
+    <string name="color_other">Altro colore</string>
 </resources>
