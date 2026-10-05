@@ -9,6 +9,8 @@ import java.io.InputStream
 data class WriteOptions(
     /** Spec §6.5 "make final": the AcroForm becomes page content and stops being a form. */
     val flattenForm: Boolean = false,
+    /** Spec §7.4 "make final" for drawings: new freehand strokes become page content instead of Ink annotations. */
+    val flattenInk: Boolean = false,
 )
 
 /**

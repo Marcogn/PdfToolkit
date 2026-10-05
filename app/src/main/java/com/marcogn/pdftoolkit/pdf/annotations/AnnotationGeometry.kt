@@ -17,7 +17,10 @@ import kotlin.math.roundToInt
  * both draw exactly this, so an annotation looks the same in the app and in other readers.
  */
 data class AnnotationPaths(
-    /** Closed polygons, filled. */
+    /**
+     * Closed polygons, filled together as one path with the nonzero winding rule: where they
+     * overlap the paint goes on once (the outlines of one freehand stroke overlap).
+     */
     val fills: List<List<UserPoint>> = emptyList(),
     /** Open polylines, stroked [strokeWidth] wide with round caps and joins. */
     val strokes: List<List<UserPoint>> = emptyList(),
@@ -37,7 +40,12 @@ object AnnotationGeometry {
      * is a wave along the bottom, each as thick as [LINE_FRACTION] of the line height.
      */
     fun paths(shape: AnnotationShape): List<AnnotationPaths> = when (shape) {
-        is AnnotationShape.Ink -> listOf(AnnotationPaths(strokes = shape.strokes, strokeWidth = shape.width))
+        is AnnotationShape.Ink ->
+            if (shape.outlines.isNotEmpty()) {
+                listOf(AnnotationPaths(fills = shape.outlines))
+            } else {
+                listOf(AnnotationPaths(strokes = shape.strokes, strokeWidth = shape.width))
+            }
         is AnnotationShape.TextMarkup -> shape.quads.map { quad ->
             when (shape.kind) {
                 MarkupKind.HIGHLIGHT -> AnnotationPaths(fills = listOf(listOf(quad.upperLeft, quad.upperRight, quad.lowerRight, quad.lowerLeft)))
@@ -46,6 +54,15 @@ object AnnotationGeometry {
                 MarkupKind.SQUIGGLY -> squiggly(quad)
             }
         }
+    }
+
+    /**
+     * Whether [shape] multiplies with the page instead of covering it: a text highlight and a
+     * freehand highlighter, so the text under them stays readable (`/BM /Multiply`, as Acrobat).
+     */
+    fun multiplies(shape: AnnotationShape): Boolean = when (shape) {
+        is AnnotationShape.TextMarkup -> shape.kind == MarkupKind.HIGHLIGHT
+        is AnnotationShape.Ink -> shape.highlighter
     }
 
     /** Line height of [quad]: the distance between its lower and upper edge. */
@@ -104,7 +121,31 @@ object AnnotationGeometry {
             val polygon = listOf(quad.lowerLeft, quad.lowerRight, quad.upperRight, quad.upperLeft)
             insideConvex(polygon, point) || distanceToPolyline(polygon + polygon.first(), point) <= tolerance
         }
-        is AnnotationShape.Ink -> shape.strokes.any { distanceToPolyline(it, point) <= shape.width / 2 + tolerance }
+        is AnnotationShape.Ink ->
+            if (shape.outlines.isNotEmpty()) {
+                windingNumber(shape.outlines, point) != 0 ||
+                    shape.outlines.any { distanceToPolyline(it + it.first(), point) <= tolerance }
+            } else {
+                shape.strokes.any { distanceToPolyline(it, point) <= shape.width / 2 + tolerance }
+            }
+    }
+
+    /** Sum of the winding numbers of the closed [polygons] around [point]: inside for the nonzero rule when not 0. */
+    private fun windingNumber(polygons: List<List<UserPoint>>, point: UserPoint): Int {
+        var winding = 0
+        for (polygon in polygons) {
+            for (i in polygon.indices) {
+                val a = polygon[i]
+                val b = polygon[(i + 1) % polygon.size]
+                val cross = (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x)
+                if (a.y <= point.y) {
+                    if (b.y > point.y && cross > 0) winding++
+                } else if (b.y <= point.y && cross < 0) {
+                    winding--
+                }
+            }
+        }
+        return winding
     }
 
     /** Whether [point] is inside the convex polygon [polygon] (either winding). */

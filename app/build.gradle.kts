@@ -132,6 +132,12 @@ dependencies {
     implementation(libs.reorderable)
     implementation(libs.androidx.work.runtime.ktx)
 
+    // Freehand drawing (spec §7.4, phase 8a): low-latency wet strokes and the brush outlines.
+    implementation(libs.ink.authoring.compose)
+    implementation(libs.ink.brush)
+    implementation(libs.ink.geometry)
+    implementation(libs.ink.strokes)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)

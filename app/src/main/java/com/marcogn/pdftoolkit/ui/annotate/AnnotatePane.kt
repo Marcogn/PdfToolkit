@@ -5,13 +5,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -21,6 +25,8 @@ import androidx.compose.material.icons.filled.FormatStrikethrough
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.outlined.BorderColor
 import androidx.compose.material.icons.outlined.AutoFixNormal
+import androidx.compose.material.icons.outlined.Brush
+import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,6 +59,7 @@ import com.marcogn.pdftoolkit.domain.annotate.AnnotationColor
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationEdits
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationPalette
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationRef
+import com.marcogn.pdftoolkit.domain.annotate.FreehandKind
 import com.marcogn.pdftoolkit.domain.annotate.MarkupKind
 import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
 import com.marcogn.pdftoolkit.domain.edit.PageItem
@@ -64,11 +71,16 @@ import com.marcogn.pdftoolkit.ui.edit.AnnotateLoad
 import com.marcogn.pdftoolkit.ui.fill.FillPageContent
 import com.marcogn.pdftoolkit.ui.fill.ToolButtonFrame
 
-/** What a gesture on a page does in the "Annotate" pane (spec §7.4). */
-enum class AnnotateTool(val kind: MarkupKind?) {
+/**
+ * What a gesture on a page does in the "Annotate" pane (spec §7.4): select text for a markup
+ * [kind], draw with a [freehand] brush, or erase (neither).
+ */
+enum class AnnotateTool(val kind: MarkupKind?, val freehand: FreehandKind? = null) {
     HIGHLIGHT(MarkupKind.HIGHLIGHT),
     UNDERLINE(MarkupKind.UNDERLINE),
     STRIKEOUT(MarkupKind.STRIKEOUT),
+    PEN(null, FreehandKind.PEN),
+    MARKER(null, FreehandKind.HIGHLIGHTER),
     ERASER(null),
 }
 
@@ -120,7 +132,8 @@ interface AnnotateActions : FillPageContent {
 /**
  * "Annotate" (spec §7.4): the session's pages one at a time, each zoomable, with the annotations
  * already in the files and the ones added in this session drawn on top. With a markup tool a press
- * and hold selects text; with the eraser a tap removes the annotation under the finger.
+ * and hold selects text; with a freehand tool a finger or a stylus draws (two fingers zoom and
+ * pan); with the eraser a tap removes the annotation under the finger.
  */
 @Composable
 fun AnnotatePane(
@@ -154,7 +167,8 @@ private fun AnnotatePages(
     val pagerState = rememberPagerState { pages.size }
     ResolveTextSelection(selection) { key -> (pages.firstOrNull { it.id == key } as? PageItem.FromPdf)?.let { actions.pageText(it) } }
     Box(modifier.fillMaxSize()) {
-        HorizontalPager(pagerState, key = { pages[it].id }, modifier = Modifier.fillMaxSize()) { index ->
+        // Drawing takes every one-finger drag, so the pages don't turn under a freehand tool.
+        HorizontalPager(pagerState, key = { pages[it].id }, userScrollEnabled = state.tool.freehand == null, modifier = Modifier.fillMaxSize()) { index ->
             val page = pages[index]
             val space = documents.space(page)
             val sourceSpace = documents.sourceSpace(page)
@@ -169,6 +183,8 @@ private fun AnnotatePages(
                 existing = documents.existingOn(page),
                 edits = edits,
                 tool = state.tool,
+                // One ink layer at a time (the library's advice): only on the page that is shown.
+                isCurrent = pagerState.settledPage == index,
                 selection = selection,
                 actions = actions,
                 pageColor = Color.White,
@@ -237,7 +253,13 @@ fun AnnotateToolBar(state: AnnotatePaneState, selection: TextSelectionState, onA
         } else {
             Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    stringResource(if (kind == null) R.string.annotate_hint_erase else R.string.annotate_hint_select),
+                    stringResource(
+                        when {
+                            kind != null -> R.string.annotate_hint_select
+                            state.tool.freehand != null -> R.string.annotate_hint_draw
+                            else -> R.string.annotate_hint_erase
+                        },
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(8.dp),
@@ -246,12 +268,19 @@ fun AnnotateToolBar(state: AnnotatePaneState, selection: TextSelectionState, onA
         }
         if (kind != null) ColorRow(kind, state)
         BottomAppBar {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                for (tool in AnnotateTool.entries) {
-                    ToolButtonFrame(tool.labelRes(), state.tool == tool, onClick = {
-                        if (state.tool != tool) selection.clear()
-                        state.tool = tool
-                    }) { Icon(tool.icon(), contentDescription = null) }
+            // Spread out when the tools fit, scrolling when they don't (six tools on a narrow phone).
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()).widthIn(min = maxWidth),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    for (tool in AnnotateTool.entries) {
+                        ToolButtonFrame(tool.labelRes(), state.tool == tool, onClick = {
+                            if (state.tool != tool) selection.clear()
+                            state.tool = tool
+                        }) { Icon(tool.icon(), contentDescription = null) }
+                    }
                 }
             }
         }
@@ -299,6 +328,8 @@ private fun AnnotateTool.labelRes(): Int = when (this) {
     AnnotateTool.HIGHLIGHT -> R.string.annotate_tool_highlight
     AnnotateTool.UNDERLINE -> R.string.annotate_tool_underline
     AnnotateTool.STRIKEOUT -> R.string.annotate_tool_strikeout
+    AnnotateTool.PEN -> R.string.annotate_tool_pen
+    AnnotateTool.MARKER -> R.string.annotate_tool_marker
     AnnotateTool.ERASER -> R.string.annotate_tool_eraser
 }
 
@@ -306,6 +337,8 @@ private fun AnnotateTool.icon(): ImageVector = when (this) {
     AnnotateTool.HIGHLIGHT -> Icons.Outlined.BorderColor
     AnnotateTool.UNDERLINE -> Icons.Filled.FormatUnderlined
     AnnotateTool.STRIKEOUT -> Icons.Filled.FormatStrikethrough
+    AnnotateTool.PEN -> Icons.Outlined.Draw
+    AnnotateTool.MARKER -> Icons.Outlined.Brush
     AnnotateTool.ERASER -> Icons.Outlined.AutoFixNormal
 }
 

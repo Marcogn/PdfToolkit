@@ -279,6 +279,8 @@
     <string name="fill_image_unreadable">Immagine non leggibile.</string>
     <string name="save_flatten">Rendi definitivo il modulo</string>
     <string name="save_flatten_hint">I campi diventano parte della pagina e non si potranno più modificare.</string>
+    <string name="save_flatten_ink">Rendi definitivi i disegni</string>
+    <string name="save_flatten_ink_hint">I tratti diventano parte della pagina e non si potranno più cancellare.</string>
     <string name="signatures_empty">Non hai ancora nessuna firma. Disegnane una o caricala da un\'immagine: potrai riusarla su ogni documento.</string>
     <string name="signature_new">Nuova firma</string>
     <string name="signature_draw">Disegna col dito</string>
@@ -328,12 +330,15 @@
     <string name="annotate_tool_underline">Sottolinea</string>
     <string name="annotate_tool_strikeout">Barra</string>
     <string name="annotate_tool_eraser">Gomma</string>
+    <string name="annotate_tool_pen">Penna</string>
+    <string name="annotate_tool_marker">Pennarello</string>
     <string name="annotate_apply_highlight">Evidenzia</string>
     <string name="annotate_apply_underline">Sottolinea</string>
     <string name="annotate_apply_strikeout">Barra il testo</string>
     <string name="annotate_cancel">Annulla</string>
     <string name="annotate_hint_select">Tieni premuto su una parola, poi trascina le maniglie</string>
     <string name="annotate_hint_erase">Tocca un\'annotazione per rimuoverla</string>
+    <string name="annotate_hint_draw">Disegna con un dito o con la penna; con due dita sposti e ingrandisci</string>
     <string name="annotate_page_no_text">Questa pagina non ha testo selezionabile (è una scansione?)</string>
     <string name="annotate_load_failed">Impossibile leggere le annotazioni del documento</string>
     <string name="color_yellow">Giallo</string>

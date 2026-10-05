@@ -101,4 +101,22 @@ class EditSessionAnnotationTest {
         // A text markup without quads fails its own check.
         assertNull(EditSession.decode(pages, 3, "", """{"added":[{"id":"x","pageId":"p0","shape":{"type":"markup","kind":"HIGHLIGHT","quads":[]},"style":{"color":{"red":1,"green":1,"blue":0}}}]}"""))
     }
+
+    @Test
+    fun `a drawn stroke keeps its outlines and highlighter through encode and decode`() {
+        val outline = (0 until 300).map { UserPoint(100f + it * 0.25f, 200f + (it % 7) * 0.5f) }
+        val drawn = NewAnnotation(
+            "d",
+            "p1",
+            AnnotationShape.Ink(listOf(listOf(UserPoint(1.5f, 2.25f), UserPoint(3f, 4f))), 2f, outlines = listOf(outline), highlighter = true),
+            AnnotationStyle(AnnotationColor.YELLOW),
+        )
+        val session = EditSession.of(3).addAnnotation(drawn)
+        assertTrue(session.annotations.hasInk)
+        assertFalse(EditSession.of(3).addAnnotation(highlight).annotations.hasInk)
+        val restored = EditSession.decode(session.encode(), 3, session.encodeFill(), session.encodeAnnotations())!!
+        assertEquals(session.annotations, restored.annotations)
+        // Compact: about 9 characters per outline point rather than ~25.
+        assertTrue(session.encodeAnnotations().length < outline.size * 12)
+    }
 }

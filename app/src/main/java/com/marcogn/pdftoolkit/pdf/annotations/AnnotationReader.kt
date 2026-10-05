@@ -15,6 +15,8 @@ import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSNumber
+import com.tom_roush.pdfbox.cos.COSObject
+import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
@@ -133,10 +135,30 @@ class PdfBoxAnnotationReader @Inject constructor() : AnnotationReader {
                     (0 until values.size / 2).map { UserPoint(values[2 * it], values[2 * it + 1]) }.takeIf { it.isNotEmpty() }
                 }
                 if (strokes.isEmpty()) return null
-                return AnnotationShape.Ink(strokes, max(borderWidth(dictionary), MIN_INK_WIDTH))
+                return AnnotationShape.Ink(strokes, max(borderWidth(dictionary), MIN_INK_WIDTH), highlighter = multipliesInAppearance(dictionary))
             }
             return null
         }
+
+        /**
+         * Whether the normal appearance paints with `/BM /Multiply` (a blend mode name, or an array
+         * of them, in one of its graphics states): a freehand highlighter, ours or Acrobat's.
+         */
+        private fun multipliesInAppearance(dictionary: COSDictionary): Boolean {
+            val appearance = dictionary.getDictionaryObject(COSName.AP) as? COSDictionary ?: return false
+            val normal = appearance.getDictionaryObject(COSName.N) as? COSStream ?: return false
+            val resources = normal.getDictionaryObject(COSName.RESOURCES) as? COSDictionary ?: return false
+            val states = resources.getDictionaryObject(COSName.EXT_G_STATE) as? COSDictionary ?: return false
+            return states.values.any { state ->
+                when (val mode = ((state as? COSObject)?.`object` ?: state).let { it as? COSDictionary }?.getDictionaryObject(COSName.BM)) {
+                    is COSName -> mode == MULTIPLY
+                    is COSArray -> (0 until mode.size()).any { mode.getObject(it) == MULTIPLY }
+                    else -> false
+                }
+            }
+        }
+
+        private val MULTIPLY: COSName = COSName.getPDFName("Multiply")
 
         private fun quadOf(r: UserRect) = Quad(
             upperLeft = UserPoint(r.left, r.top),

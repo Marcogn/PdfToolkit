@@ -22,8 +22,9 @@ which has to be generated on a device: the Edit button morphs into the edit hub,
 announces the page to screen readers, and the release build is minified (R8). Version 1.0.0 is
 released. Product phase 2 has started (`docs/plan-v2.md`): the viewer shows the highlights and
 drawings already in a PDF, selects and copies text (7a, 7b), and the "Highlight" tool (7b) highlights,
-underlines and strikes out text and erases annotations, also those made by other apps; freehand drawing
-comes in 8.
+underlines and strikes out text and erases annotations, also those made by other apps. Freehand
+drawing has its core (8a): pen and marker in the same pane, saved as ink annotations or made final;
+colours, sizes and the "Draw" tool come in 8b.
 
 ## Features
 
@@ -38,9 +39,9 @@ Planned for the first version:
   archive of signatures saved on the phone
 - selecting and copying text; highlighting, underlining and striking out text, and erasing
   annotations (done, product phase 2 / 7b)
+- freehand drawing with a pen and a marker, finger or stylus (core done, 8a; colours and sizes in 8b)
 
-Planned for later: document scanning with OCR, cloud upload (WebDAV), freehand
-drawing, export to OpenDocument. They already show up on Home as "Soon". Order and plan in
+Planned for later: document scanning with OCR, cloud upload (WebDAV), export to OpenDocument. They already show up on Home as "Soon". Order and plan in
 [`docs/plan-v2.md`](docs/plan-v2.md): highlighting and drawing first, then scanning, then OCR,
 OpenDocument export and cloud upload.
 
@@ -82,7 +83,7 @@ app/src/main/java/com/marcogn/pdftoolkit/
   ui/        Compose screens, navigation and theme
   domain/    models with no Android dependencies
   data/      preferences (DataStore), recent documents and signatures (Room), background save (save/), picked images (images/)
-  pdf/       PDF rendering (render/), editing (edit/), forms (forms/) and text search (text/)
+  pdf/       PDF rendering (render/), editing (edit/), forms (forms/), text search (text/) and annotations (annotations/)
   di/        Hilt modules
 docs/
   spec.md    functional and technical specification (Italian)
@@ -146,6 +147,13 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   including notes and stamps the app can't draw. Annotations aren't editable after they are added
   (no colour change): erase and redo. Highlighting is not available on password-protected PDFs (they
   can't be edited yet).
+- Drawing (first version): one colour and size per tool; pages don't turn while the pen or the marker
+  is chosen (pick another tool to move to another page); double tap doesn't zoom
+  while drawing, two fingers do. A drawing reopened later in the app is drawn with an even width:
+  the varying outline is in the file's appearance, which other readers show, while the app draws ink
+  from its centre line. While drawing, the marker is translucent; once lifted it blends with the text,
+  so it looks slightly different. Only the stylus ignores a resting palm: with a finger, a second
+  touch means zoom. The drawing library adds about 5 MB of native code to the APK.
 - Overwriting needs a file that grants write access (most local files do, some providers don't);
   otherwise only "save as copy" is offered.
 

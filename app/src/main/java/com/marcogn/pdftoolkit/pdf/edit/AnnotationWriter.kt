@@ -2,7 +2,6 @@ package com.marcogn.pdftoolkit.pdf.edit
 
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationRef
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationShape
-import com.marcogn.pdftoolkit.domain.annotate.MarkupKind
 import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
 import com.marcogn.pdftoolkit.domain.annotate.UserPoint
 import com.marcogn.pdftoolkit.domain.fill.UserRect
@@ -15,6 +14,7 @@ import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDAppearanceContentStream
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.graphics.blend.BlendMode
@@ -32,7 +32,8 @@ import java.util.Calendar
 /**
  * Writes what the annotate tools changed (spec §7.4, ADR 0004): removes annotations of the source
  * files and adds the new ones as standard annotations (Highlight, Underline, StrikeOut, Squiggly,
- * Ink), each with its own appearance stream so every reader shows it the same way.
+ * Ink), each with its own appearance stream so every reader shows it the same way; freehand ink
+ * can instead be drawn into the page content ("make final").
  *
  * The appearance is drawn from [AnnotationGeometry], the same paths the app draws on screen, rather
  * than by PdfBox's appearance handlers: those only handle quads that are horizontal or vertical
@@ -81,10 +82,16 @@ internal class AnnotationWriter(private val document: PDDocument) {
         page.cosObject.setItem(COSName.ANNOTS, kept)
     }
 
-    /** Adds [annotations] to the pages they belong to ([pages] by page id); annotations of pages no longer in the document are skipped. */
-    fun addNew(annotations: List<NewAnnotation>, pages: Map<String, PDPage>) {
+    /**
+     * Adds [annotations] to the pages they belong to ([pages] by page id); annotations of pages no
+     * longer in the document are skipped. With [flattenInk] ("make final", spec §7.4) freehand
+     * strokes are drawn into the page content instead, exactly as their appearance shows them:
+     * they can no longer be removed, in this app or any other.
+     */
+    fun addNew(annotations: List<NewAnnotation>, pages: Map<String, PDPage>, flattenInk: Boolean = false) {
         val now = Calendar.getInstance()
-        for (annotation in annotations) {
+        val (flattened, kept) = annotations.partition { flattenInk && it.shape is AnnotationShape.Ink }
+        for (annotation in kept) {
             val page = pages[annotation.pageId] ?: continue
             val pdAnnotation = create(annotation, now)
             pdAnnotation.setPage(page)
@@ -93,6 +100,18 @@ internal class AnnotationWriter(private val document: PDDocument) {
             (page.cosObject.getDictionaryObject(COSName.ANNOTS) as? COSArray)?.let { old -> for (i in 0 until old.size()) annots.add(old.get(i)) }
             annots.add(pdAnnotation)
             page.cosObject.setItem(COSName.ANNOTS, annots)
+        }
+        // One appended content stream per page, in the order the strokes were drawn.
+        for ((pageId, onPage) in flattened.groupBy { it.pageId }) {
+            val page = pages[pageId] ?: continue
+            PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true).use { cs ->
+                val canvas = PageCanvas(cs)
+                for (annotation in onPage) {
+                    cs.saveGraphicsState()
+                    paint(canvas, annotation)
+                    cs.restoreGraphicsState()
+                }
+            }
         }
     }
 
@@ -123,48 +142,105 @@ internal class AnnotationWriter(private val document: PDDocument) {
 
     /**
      * The normal appearance: a form whose bounding box is the annotation's `/Rect` with the identity
-     * matrix, so its space is the page's user space and the paths go in as they are. A highlight
-     * multiplies with the page (text stays readable), as in Acrobat; opacity is `/CA` on both.
+     * matrix, so its space is the page's user space and the paths go in as they are.
      */
     private fun appearanceOf(annotation: NewAnnotation, bounds: UserRect): PDAppearanceStream {
         val stream = PDAppearanceStream(document)
         stream.bBox = bounds.toPdRectangle()
         stream.resources = PDResources()
-        val isHighlight = (annotation.shape as? AnnotationShape.TextMarkup)?.kind == MarkupKind.HIGHLIGHT
-        val color = annotation.style.color.let { floatArrayOf(it.red, it.green, it.blue) }
-        PDAppearanceContentStream(stream).use { cs ->
-            val state = PDExtendedGraphicsState().apply {
-                setStrokingAlphaConstant(annotation.style.opacity)
-                setNonStrokingAlphaConstant(annotation.style.opacity)
-                if (isHighlight) setBlendMode(BlendMode.MULTIPLY)
-            }
-            cs.setGraphicsStateParameters(state)
-            cs.setNonStrokingColor(color)
-            cs.setStrokingColor(color)
-            cs.setLineCapStyle(ROUND)
-            cs.setLineJoinStyle(ROUND)
-            for (paths in AnnotationGeometry.paths(annotation.shape)) {
-                for (polygon in paths.fills) {
-                    path(cs, polygon)
-                    cs.closePath()
-                    cs.fill()
-                }
-                if (paths.strokes.isNotEmpty()) {
-                    cs.setLineWidth(paths.strokeWidth)
-                    paths.strokes.forEach { polyline ->
-                        path(cs, polyline)
-                        // A single point still shows as a dot with round caps.
-                        if (polyline.size == 1) cs.lineTo(polyline[0].x, polyline[0].y)
-                        cs.stroke()
-                    }
-                }
-            }
-        }
+        PDAppearanceContentStream(stream).use { cs -> paint(AppearanceCanvas(cs), annotation) }
         return stream
     }
 
-    private fun path(cs: PDAppearanceContentStream, points: List<UserPoint>) {
-        points.forEachIndexed { i, p -> if (i == 0) cs.moveTo(p.x, p.y) else cs.lineTo(p.x, p.y) }
+    /**
+     * Draws [annotation] from [AnnotationGeometry], in user space: the same paths the screen draws.
+     * A highlight (text or freehand) multiplies with the page, as in Acrobat; opacity is `/CA` on
+     * both. Fills of one group go in one path filled with the nonzero rule (`f`).
+     */
+    private fun paint(canvas: PathCanvas, annotation: NewAnnotation) {
+        canvas.graphicsState(
+            PDExtendedGraphicsState().apply {
+                setStrokingAlphaConstant(annotation.style.opacity)
+                setNonStrokingAlphaConstant(annotation.style.opacity)
+                if (AnnotationGeometry.multiplies(annotation.shape)) setBlendMode(BlendMode.MULTIPLY)
+            },
+        )
+        canvas.color(annotation.style.color.let { floatArrayOf(it.red, it.green, it.blue) })
+        canvas.roundCapsAndJoins()
+        for (paths in AnnotationGeometry.paths(annotation.shape)) {
+            if (paths.fills.isNotEmpty()) {
+                for (polygon in paths.fills) {
+                    path(canvas, polygon)
+                    canvas.closePath()
+                }
+                canvas.fill()
+            }
+            if (paths.strokes.isNotEmpty()) {
+                canvas.lineWidth(paths.strokeWidth)
+                paths.strokes.forEach { polyline ->
+                    path(canvas, polyline)
+                    // A single point still shows as a dot with round caps.
+                    if (polyline.size == 1) canvas.lineTo(polyline[0].x, polyline[0].y)
+                    canvas.stroke()
+                }
+            }
+        }
+    }
+
+    private fun path(canvas: PathCanvas, points: List<UserPoint>) {
+        points.forEachIndexed { i, p -> if (i == 0) canvas.moveTo(p.x, p.y) else canvas.lineTo(p.x, p.y) }
+    }
+
+    /**
+     * The drawing operations [paint] needs, over an appearance stream or a page's content stream:
+     * PdfBox 2.0's `PDPageContentStream` doesn't share a public type with `PDAppearanceContentStream`.
+     */
+    private interface PathCanvas {
+        fun graphicsState(state: PDExtendedGraphicsState)
+        fun color(rgb: FloatArray)
+        fun roundCapsAndJoins()
+        fun lineWidth(width: Float)
+        fun moveTo(x: Float, y: Float)
+        fun lineTo(x: Float, y: Float)
+        fun closePath()
+        fun fill()
+        fun stroke()
+    }
+
+    private class AppearanceCanvas(private val cs: PDAppearanceContentStream) : PathCanvas {
+        override fun graphicsState(state: PDExtendedGraphicsState) = cs.setGraphicsStateParameters(state)
+        override fun color(rgb: FloatArray) {
+            cs.setNonStrokingColor(rgb)
+            cs.setStrokingColor(rgb)
+        }
+        override fun roundCapsAndJoins() {
+            cs.setLineCapStyle(ROUND)
+            cs.setLineJoinStyle(ROUND)
+        }
+        override fun lineWidth(width: Float) = cs.setLineWidth(width)
+        override fun moveTo(x: Float, y: Float) = cs.moveTo(x, y)
+        override fun lineTo(x: Float, y: Float) = cs.lineTo(x, y)
+        override fun closePath() = cs.closePath()
+        override fun fill() = cs.fill()
+        override fun stroke() = cs.stroke()
+    }
+
+    private class PageCanvas(private val cs: PDPageContentStream) : PathCanvas {
+        override fun graphicsState(state: PDExtendedGraphicsState) = cs.setGraphicsStateParameters(state)
+        override fun color(rgb: FloatArray) {
+            cs.setNonStrokingColor(rgb[0], rgb[1], rgb[2])
+            cs.setStrokingColor(rgb[0], rgb[1], rgb[2])
+        }
+        override fun roundCapsAndJoins() {
+            cs.setLineCapStyle(ROUND)
+            cs.setLineJoinStyle(ROUND)
+        }
+        override fun lineWidth(width: Float) = cs.setLineWidth(width)
+        override fun moveTo(x: Float, y: Float) = cs.moveTo(x, y)
+        override fun lineTo(x: Float, y: Float) = cs.lineTo(x, y)
+        override fun closePath() = cs.closePath()
+        override fun fill() = cs.fill()
+        override fun stroke() = cs.stroke()
     }
 
     private fun isPopup(dictionary: COSDictionary) = dictionary.getNameAsString(COSName.SUBTYPE) == POPUP_SUBTYPE

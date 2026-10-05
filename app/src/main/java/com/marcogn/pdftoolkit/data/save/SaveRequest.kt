@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
  * What a background save needs, written as JSON in `cacheDir/work/` because the pages of a long
  * document don't fit WorkManager's 10 KB input limit. [pages] is `EditSession.encode()`, [fill]
  * `EditSession.encodeFill()` (overlays and form values); [flattenForm] is the "make final" choice;
- * [annotations] is `EditSession.encodeAnnotations()`.
+ * [annotations] is `EditSession.encodeAnnotations()`, [flattenInk] "make final" for its drawings.
  */
 @Serializable
 data class SaveRequest(
@@ -18,6 +18,7 @@ data class SaveRequest(
     val fill: String = "",
     val flattenForm: Boolean = false,
     val annotations: String = "",
+    val flattenInk: Boolean = false,
 )
 
 /** A PDF added to the session (document [docId] of its pages), read at save time. */

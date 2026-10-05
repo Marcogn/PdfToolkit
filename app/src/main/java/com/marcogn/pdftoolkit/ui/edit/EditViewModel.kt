@@ -244,6 +244,10 @@ class EditViewModel @Inject constructor(
     /** "Make final" as chosen in the save dialog; null = the default of spec §6.5 (on with a signature). */
     val flattenChoice: StateFlow<Boolean?> = _flattenChoice.asStateFlow()
 
+    private val _flattenInkChoice = MutableStateFlow(false)
+    /** "Make final" for drawings as chosen in the save dialog (spec §7.4). */
+    val flattenInkChoice: StateFlow<Boolean> = _flattenInkChoice.asStateFlow()
+
     private var renderer: PdfDocumentRenderer? = null
     private val renderersByRef = mutableMapOf<DocRef, PdfDocumentRenderer>()
     /** Documents the session draws pages from, main first. Doc `n` of [extraSources] is `DocRef(n + 1)`. */
@@ -511,6 +515,11 @@ class EditViewModel @Inject constructor(
         _flattenChoice.value = flatten
     }
 
+    /** "Make final" for the new drawings (spec §7.4): off unless the user asks, drawings stay removable. */
+    fun setFlattenInkChoice(flatten: Boolean) {
+        _flattenInkChoice.value = flatten
+    }
+
     /** "Make final" for this save: the user's choice, or on when the document carries a signature (spec §6.5). */
     fun flattenForm(): Boolean {
         val session = (_uiState.value as? EditUiState.Ready)?.session ?: return false
@@ -614,6 +623,7 @@ class EditViewModel @Inject constructor(
             fill = ready.session.encodeFill(),
             flattenForm = flattenForm(),
             annotations = ready.session.encodeAnnotations(),
+            flattenInk = _flattenInkChoice.value && ready.session.annotations.hasInk,
         )
         pendingOverwrite = overwrite
         _saveState.value = SaveUiState.Saving(0f)
