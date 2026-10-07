@@ -241,5 +241,4 @@ reuses `OverlayGeometry`. U5 depends on U1 (page in the route).
 3. U6: yes, the save dialog is the explicit confirmation.
 4. U8: yes, with a reminder on the "My signatures" screen.
 5. Before phase 9.
-
 6. (Screen space, asked later the same day) U18–U21: yes, add them to U-b.
