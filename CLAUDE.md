@@ -247,8 +247,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   `assembleDebug` green; device checks passed (author).
 - **8a Freehand core done (2026-10-05)**, PR #15; lint (0 errors), 373 unit tests, `assembleDebug` and
   `assembleRelease` (R8) green; device checks passed on the signed release build (author, 2026-10-07).
-- **8b Freehand complete done (2026-10-07)**; lint (0 errors), 375 unit tests and `assembleDebug` green.
-  Needs the author's device checks (below). **Next: 9 Scan (Sonnet).**
+- **8b Freehand complete done (2026-10-07)**, PR #18; lint (0 errors), 375 unit tests and `assembleDebug`
+  green; device checks passed (author, 2026-10-07). **Next: 9 Scan (Sonnet).**
 
 ### Notes from 8b (freehand complete)
 - `FreehandOptions` (domain): colours and widths per `FreehandKind`; `AnnotatePaneState` holds the chosen
@@ -260,7 +260,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   (`rememberAnnotatePaneState(initialTool)`). The pane title is "Annotate" (`tool_annotate`).
 - Already there from 8a and unchanged: eraser per stroke, session undo/redo, "make final" checkbox,
   stylus rule. The choices aren't persisted across app restarts (not asked for).
-- Device checks 8b: finger and stylus; each colour/size of pen and marker, in the app and another
+- Device checks 8b (passed): finger and stylus; each colour/size of pen and marker, in the app and another
   reader; erase a stroke; undo/redo; rotate the phone while drawing and with a stroke in progress;
   "Draw" from Home and from the hub opens with the pen; Highlight from Home still opens on the highlighter.
 
