@@ -245,9 +245,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   tests, `assembleDebug` and `assembleRelease` green. Its device checks are covered by 7b's (author).
 - **7b Highlight complete done (2026-10-05)**, PR #14 merged; lint (0 errors), 350 unit tests and
   `assembleDebug` green; device checks passed (author).
-- **8a Freehand core done (2026-10-05)**; lint (0 errors), 373 unit tests, `assembleDebug` and
-  `assembleRelease` (R8) green. Needs the author's device checks (8a row of the table; a release
-  build too, since R8 meets ink's native code). **Next: 8b Freehand complete (Sonnet).**
+- **8a Freehand core done (2026-10-05)**, PR #15; lint (0 errors), 373 unit tests, `assembleDebug` and
+  `assembleRelease` (R8) green; device checks passed on the signed release build (author, 2026-10-07).
+  **Next: 8b Freehand complete (Sonnet).**
 
 ### Handoff 8a → 8b (freehand)
 - Tools: `AnnotateTool.PEN` / `MARKER` (`freehand: FreehandKind`), in the Annotate tool bar (now scrollable).
