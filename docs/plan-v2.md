@@ -107,7 +107,7 @@ selecting.
 ### 8a Freehand core — Opus
 Status 2026-10-07: **implemented** (see CLAUDE.md, Current status, and ADR 0004 "Freehand ink"),
 device checks passed on the release build (author). Stylus: draws with any freehand tool armed, ignores the palm
-while drawing; whether it should also draw with the markup tools is a question for 8b.
+while drawing; with the markup tools it acts like a finger (author, 2026-10-07: no drawing there).
 Scope: `androidx.ink` (stable line) on top of the page with zoom and pan: gesture arbitration (draw
 vs pan/zoom: finger draws in draw mode, two fingers pan; stylus always draws — to confirm), strokes
 mapped to user space, saved as Ink annotations with an appearance stream that follows the brush
