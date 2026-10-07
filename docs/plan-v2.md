@@ -96,8 +96,7 @@ Device check: a highlight written by the app shows in another reader (Acrobat, C
 in Acrobat shows in the app and can be removed.
 
 ### 7b Highlight complete — Sonnet
-Status 2026-10-05: **implemented** (see CLAUDE.md, Current status); device checks below are the
-author's.
+Status 2026-10-05: **implemented**, device checks passed (author).
 Scope: selection UI (long press, handles, magnifier optional), Copy in the viewer; "Annotate" pane
 with highlight (a few colours), underline, strikeout, eraser (tap an annotation); Home and hub tool
 "Highlight" enabled; strings IT/EN; README limits.
@@ -106,6 +105,9 @@ copy and overwrite, open in another reader; erase a highlight made elsewhere; ro
 selecting.
 
 ### 8a Freehand core — Opus
+Status 2026-10-07: **implemented** (see CLAUDE.md, Current status, and ADR 0004 "Freehand ink"),
+device checks passed on the release build (author). Stylus: draws with any freehand tool armed, ignores the palm
+while drawing; whether it should also draw with the markup tools is a question for 8b.
 Scope: `androidx.ink` (stable line) on top of the page with zoom and pan: gesture arbitration (draw
 vs pan/zoom: finger draws in draw mode, two fingers pan; stylus always draws — to confirm), strokes
 mapped to user space, saved as Ink annotations with an appearance stream that follows the brush

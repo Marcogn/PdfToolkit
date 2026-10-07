@@ -275,6 +275,8 @@
     <string name="fill_image_unreadable">The image can\'t be read.</string>
     <string name="save_flatten">Make the form final</string>
     <string name="save_flatten_hint">The fields become part of the page and can no longer be changed.</string>
+    <string name="save_flatten_ink">Make drawings final</string>
+    <string name="save_flatten_ink_hint">The strokes become part of the page and can no longer be erased.</string>
     <string name="signatures_empty">You have no signatures yet. Draw one or load it from an image: you can reuse it on every document.</string>
     <string name="signature_new">New signature</string>
     <string name="signature_draw">Draw with your finger</string>
@@ -324,12 +326,15 @@
     <string name="annotate_tool_underline">Underline</string>
     <string name="annotate_tool_strikeout">Strike out</string>
     <string name="annotate_tool_eraser">Eraser</string>
+    <string name="annotate_tool_pen">Pen</string>
+    <string name="annotate_tool_marker">Marker</string>
     <string name="annotate_apply_highlight">Highlight</string>
     <string name="annotate_apply_underline">Underline</string>
     <string name="annotate_apply_strikeout">Strike out text</string>
     <string name="annotate_cancel">Cancel</string>
     <string name="annotate_hint_select">Press and hold a word, then drag the handles</string>
     <string name="annotate_hint_erase">Tap an annotation to remove it</string>
+    <string name="annotate_hint_draw">Draw with a finger or a stylus; two fingers move and zoom</string>
     <string name="annotate_page_no_text">This page has no selectable text (a scan?)</string>
     <string name="annotate_load_failed">Couldn\'t read the document\'s annotations</string>
     <string name="color_yellow">Yellow</string>

@@ -71,3 +71,54 @@ axis-aligned box per glyph to stay small.
 - Before API 29 the screen can't multiply: highlights are drawn translucent on top, the text under
   them is lighter than in the file.
 - Thumbnails and the edit screens' page grids don't show annotations.
+
+## Freehand ink (phase 8a, 2026-10-05)
+
+**Library.** `androidx.ink` 1.0.0, the stable line (`ink-authoring-compose`, `-brush`, `-geometry`,
+`-strokes`). Its `InProgressStrokes` composable draws the stroke under the finger with low latency
+(front-buffered); on lift it hands over a `Stroke` whose `PartitionedMesh` has the brush **outlines**
+(closed polygons, filled with the nonzero rule, which is how its own `CanvasStrokeRenderer` paths
+them). Stock brushes with pinned versions: `pressurePen(V1)` for the pen,
+`highlighter(SelfOverlap.DISCARD, V1)` for the marker (DISCARD so a stroke crossing itself paints
+once, as a PDF fill does). Brush size is in points of the page; epsilon is 0.1 screen pixel at the
+zoom the stroke starts at.
+
+**Stroke space = display points of the page as shown.** The pointer→stroke matrix is the inverse of
+`PageCoordinateMapper.pageToScreenTransform`, set as each stroke starts. The page on screen is
+then only scaled and moved relative to stroke space, so the brush keeps its on-screen orientation
+(the marker's chisel tip) on turned pages too. The finished stroke goes to user space through
+`PdfPageSpace.displayToUser` of the page as shown (file rotation + user rotation), like every other
+annotation (`FreehandGeometry`).
+
+**Model.** `AnnotationShape.Ink` gains `outlines` (user space) and `highlighter`. One stroke is one
+Ink annotation, so the eraser and undo work stroke by stroke. Outlines and centre line are simplified
+(Douglas–Peucker at the brush epsilon) and rounded to 0.01 pt. They are serialized compactly
+(`CompactPolylineSerializer`: integer steps in hundredths of a point in one string, about a third of
+`{"x":..,"y":..}`), because the session goes into the saved instance state, whose limit is about 1 MB.
+The 7a array form is still read.
+
+**Write path.** `/InkList` holds the centre line and `/BS /W` the brush size, so a reader that
+rebuilds the appearance still has a sensible line. The appearance stream fills the outlines in one
+path (`f`). A marker sets `/BM /Multiply`, and the reader recognises it by that blend mode in its
+appearance. "Make final" (`WriteOptions.flattenInk`, a save dialog checkbox, off by default) draws
+the same paths into the page content (one appended stream per page, `q … Q`) instead of adding
+annotations; text markup is never flattened. Drawing code is shared through a small `PathCanvas`
+interface, since PdfBox 2.0's `PDPageContentStream` and `PDAppearanceContentStream` have no public
+common type.
+
+**Gestures.** `detectFreehandGestures` runs in the **initial** pass of the page, before the ink layer
+(a child) sees the events, and decides by consuming (the ink layer cancels a stroke whose events
+arrive consumed). One finger or a stylus draws; a second finger cancels the stroke and the fingers
+zoom and pan; while a stylus draws, other touches are consumed (palm). The page's own zoom/pan
+detector stands down through `FreehandGrab.active`, as with `SelectionGrab`.
+
+**Consequences.**
+- Reading a file back gives the centre line only: the app draws reopened ink with an even width,
+  while other readers show the outline from the appearance stream. Reading our own appearance would
+  need a content stream path parser; left out.
+- The marker is translucent while wet (the ink layer can't multiply) and multiplies once lifted.
+- About 5.4 MB of native libraries in a universal APK (`libink`, `libgraphics-core`, four ABIs, stored
+  uncompressed), about 1.5 MB on one ABI.
+- The ink classes need their native library, so the unit tests cover everything after the `Stroke`
+  (`FreehandGeometry`, writer, serialization); the step from `Stroke` to `FreehandStroke` is checked
+  on the device.

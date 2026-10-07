@@ -69,7 +69,7 @@ class PdfBoxEditor @Inject constructor(
                 if (options.flattenForm) fill.flattenForm()
                 val pagesById = session.pages.map { it.id }.zip(pages).toMap()
                 fill.drawOverlays(session.fill.overlays, pagesById)
-                annotations.addNew(session.annotations.added, pagesById)
+                annotations.addNew(session.annotations.added, pagesById, options.flattenInk)
                 onProgress(REARRANGED)
                 document.save(output)
             }

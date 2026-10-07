@@ -6,6 +6,17 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Draw by hand.** "Highlight" has two new tools, Pen and Marker: draw on the page with a finger or a
+  stylus, and use two fingers to move and zoom (the line being drawn is then dropped). While a stylus
+  draws, a palm resting on the screen is ignored. Each line is saved as a standard ink annotation that
+  looks the same in other readers, varying width included. The marker blends with the text like a
+  highlight. The eraser, undo and redo work on drawings too. Colour and size are fixed for now (black
+  pen, yellow marker); choosing them comes next.
+- **Make drawings final.** When there are new drawings, the save dialog offers to write them into the
+  page. They then become part of it and can no longer be erased, in this app or any other.
+- **Larger app.** The drawing library (`androidx.ink`) comes with native code: the APK that contains
+  every processor type is about 5 MB larger, about 1.5 MB per type.
+
 - **Select and copy text in the viewer.** Press and hold a word to select it, drag the two handles to
   stretch the selection (across lines, on turned pages too) and tap Copy in the top bar. The selection
   survives turning the screen. A page with no text (a scan) selects nothing.

@@ -118,15 +118,46 @@ sealed interface AnnotationShape {
         }
     }
 
-    /** Freehand strokes (`/InkList`), each a polyline of its centre, drawn [width] points wide. */
+    /**
+     * Freehand strokes (`/InkList`), each a polyline of its centre, [width] points wide.
+     *
+     * [outlines] is the brush outline of strokes drawn in the app (phase 8a): closed polygons
+     * filled together with the nonzero winding rule, which is what the appearance shows, with the
+     * width changing along the stroke. Empty for ink read from a file, which is drawn as its
+     * centre lines stroked [width] wide. A [highlighter] stroke multiplies with the page, like a
+     * text highlight.
+     *
+     * The polylines are stored compactly ([CompactPolylineSerializer]): an outline has hundreds
+     * of points and the session goes into the saved instance state.
+     */
     @Serializable
     @SerialName("ink")
-    data class Ink(val strokes: List<List<UserPoint>>, val width: Float) : AnnotationShape {
+    data class Ink(
+        val strokes: List<@Serializable(with = CompactPolylineSerializer::class) List<UserPoint>>,
+        val width: Float,
+        val outlines: List<@Serializable(with = CompactPolylineSerializer::class) List<UserPoint>> = emptyList(),
+        val highlighter: Boolean = false,
+    ) : AnnotationShape {
         init {
             require(strokes.isNotEmpty() && strokes.all { it.isNotEmpty() }) { "An ink annotation needs strokes with points" }
             require(width > 0f) { "Stroke width must be positive: $width" }
+            require(outlines.all { it.size >= MIN_OUTLINE_POINTS }) { "An outline needs at least $MIN_OUTLINE_POINTS points" }
+        }
+
+        companion object {
+            const val MIN_OUTLINE_POINTS = 3
         }
     }
+}
+
+/**
+ * The freehand tools (spec §7.4): a pen, and a highlighter that multiplies with the page. [width]
+ * is the brush size in points of the page (it doesn't change with zoom), [color] the colour
+ * strokes get until phase 8b lets the user choose.
+ */
+enum class FreehandKind(val width: Float, val color: AnnotationColor) {
+    PEN(2f, AnnotationColor.BLACK),
+    HIGHLIGHTER(12f, AnnotationColor.YELLOW),
 }
 
 /**
@@ -173,6 +204,9 @@ data class AnnotationEdits(
     val removed: Set<AnnotationRef> = emptySet(),
 ) {
     val isEmpty: Boolean get() = added.isEmpty() && removed.isEmpty()
+
+    /** Whether freehand strokes were added, which "make final" can write into the pages. */
+    val hasInk: Boolean get() = added.any { it.shape is AnnotationShape.Ink }
 
     fun addedOn(pageId: String): List<NewAnnotation> = added.filter { it.pageId == pageId }
 }

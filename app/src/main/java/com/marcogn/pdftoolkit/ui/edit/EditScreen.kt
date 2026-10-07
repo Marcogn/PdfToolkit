@@ -160,6 +160,7 @@ fun EditScreen(
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val fillLoad by viewModel.fillLoad.collectAsStateWithLifecycle()
     val flattenChoice by viewModel.flattenChoice.collectAsStateWithLifecycle()
+    val flattenInkChoice by viewModel.flattenInkChoice.collectAsStateWithLifecycle()
     val fillState = rememberFillPaneState()
     val annotateLoad by viewModel.annotateLoad.collectAsStateWithLifecycle()
     val annotateState = rememberAnnotatePaneState()
@@ -669,6 +670,8 @@ fun EditScreen(
             onDismiss = { showSaveDialog = false },
             flatten = if (hasForm) flattenChoice ?: ready?.session?.fill?.hasSignature ?: false else null,
             onFlattenChange = viewModel::setFlattenChoice,
+            flattenInk = if (ready?.session?.annotations?.hasInk == true) flattenInkChoice else null,
+            onFlattenInkChange = viewModel::setFlattenInkChoice,
         )
     }
     if (showOverwriteConfirm) {

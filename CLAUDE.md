@@ -91,7 +91,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - `domain/` models with no Android dependencies (`PdfTool`, `ThemeMode`, `domain/edit/`:
   `EditSession`, `PageItem`, `SaveFailure`; `domain/fill/`: overlays, `FieldValue`, `FormField`,
   `TextBlock`, `MarkShape`; `domain/signature/`: `InkStroke`/`InkWidth`, `BackgroundRemoval`;
-  `domain/annotate/`: `Quad`, `AnnotationShape`, `NewAnnotation`, `AnnotationRef`, `AnnotationEdits`;
+  `domain/annotate/`: `Quad`, `AnnotationShape`, `NewAnnotation`, `AnnotationRef`, `AnnotationEdits`,
+  `FreehandKind`, `CompactPolylineSerializer`;
   `domain/cloud/`: `CloudTarget`, interface only, product phase 2).
 - `data/` DataStore (`data/settings/ThemePreferences`, `ReadingPreferences`), Room
   (`data/recents/`: `AppDatabase` (v2, `MIGRATION_1_2`), `RecentDocument`, `RecentsRepository`, `ThumbnailStore`),
@@ -104,9 +105,10 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   `pdf/forms` (phase 4: `FormReader`), `pdf/text` (phase 5: `PdfTextExtractor`, `PositionedTextStripper`,
   `TextNormalizer`, `PageTextIndex`, `DocumentSearch`; spec §12; 7a: `TextSelection`, `PageTextReader`),
   `pdf/annotations` (7a: `AnnotationReader`, `AnnotationGeometry`, `AnnotationFingerprint`; the writer
-  is `pdf/edit/AnnotationWriter`; 7b: `AnnotationEraser`, `MarkupFactory`). `ui/annotate/` draws annotations
+  is `pdf/edit/AnnotationWriter`; 7b: `AnnotationEraser`, `MarkupFactory`; 8a: `FreehandGeometry`). `ui/annotate/` draws annotations
   (`AnnotationLayer`, `drawAnnotations`) and holds text selection (`TextSelectionState`, handles, gestures)
-  and the "Annotate" pane of `EditScreen` (`AnnotatePane`, `AnnotatePage`, `AnnotateToolBar`). `ui/search/` is the search bar, notices and
+  and the "Annotate" pane of `EditScreen` (`AnnotatePane`, `AnnotatePage`, `AnnotateToolBar`); freehand
+  drawing on `androidx.ink` is `FreehandLayer`, `FreehandGestures`, `FreehandInk` (8a). `ui/search/` is the search bar, notices and
   highlights used by the viewer. `ui/fill/` is the
   "Fill and sign" pane of `EditScreen`; `ui/signatures/` is "My signatures" plus the creation flow
   (draw, import) and the picker sheet that `EditScreen` reuses.
@@ -149,6 +151,13 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   (`ResolveTextSelection`). The gesture layer (`detectSelectionGestures`) sits after
   `detectZoomPanFling` and stops it through `SelectionGrab.active` (`suppressed` parameter), like the
   overlay gestures; a handle is dragged by the line's middle point, offset by where it was grabbed.
+- Freehand (8a, ADR 0004 "Freehand ink"): ink strokes are made in **display points of the page as
+  shown** (pointer→stroke matrix = inverse of `pageToScreenTransform`, set as each stroke starts) and
+  go to user space through `space.displayToUser` (`FreehandGeometry`). `detectFreehandGestures` runs
+  in the **initial** pass and arbitrates by consuming (the ink layer cancels consumed strokes); the
+  page's zoom/pan stands down through `FreehandGrab.active`. One stroke = one Ink annotation; outlines
+  are the appearance (nonzero fill), `/InkList` the centre line. Ink brush versions are pinned (`V1`).
+  Ink polylines are serialized with `CompactPolylineSerializer` (saved state limit).
 - `PageBackdrop` (`ui/fill`) is the page bitmap/image under what a pane draws; the Fill and Annotate
   panes both use it, so the resolution logic lives once.
 - Search highlights are overlay only, never written into the PDF. Search is in the viewer only,
@@ -232,12 +241,30 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - **Product phase 2 planned (2026-10-04)** in `docs/plan-v2.md`: order 7a → 7b → 8a → 8b → 9 → 10a →
   10b → 11 → 12. Author's answers: Annotate pane in `EditScreen` + selection/Copy in the viewer; Play
   services accepted, `ACCESS_NETWORK_STATE` to be removed in phase 9. Questions 3–5 still open.
-- **7a Annotation core done (2026-10-04)**, same PR as the plan (#13); lint (0 errors), 315 unit tests,
-  `assembleDebug` and `assembleRelease` green. Needs the author's device checks (below). **Next: 7b Highlight complete
-  (Sonnet).**
+- **7a Annotation core done (2026-10-04)**, same PR as the plan (#13, merged); lint (0 errors), 315 unit
+  tests, `assembleDebug` and `assembleRelease` green. Its device checks are covered by 7b's (author).
+- **7b Highlight complete done (2026-10-05)**, PR #14 merged; lint (0 errors), 350 unit tests and
+  `assembleDebug` green; device checks passed (author).
+- **8a Freehand core done (2026-10-05)**, PR #15; lint (0 errors), 373 unit tests, `assembleDebug` and
+  `assembleRelease` (R8) green; device checks passed on the signed release build (author, 2026-10-07).
+  **Next: 8b Freehand complete (Sonnet).**
 
-- **7b Highlight complete done (2026-10-05)**; lint (0 errors), 350 unit tests and `assembleDebug`
-  green. Needs the author's device checks (below). **Next: 8a Freehand core (Opus).**
+### Handoff 8a → 8b (freehand)
+- Tools: `AnnotateTool.PEN` / `MARKER` (`freehand: FreehandKind`), in the Annotate tool bar (now scrollable).
+  `FreehandKind` holds the fixed width and colour: 8b moves colour/width into `AnnotatePaneState`
+  and passes them to `FreehandLayer` (`FreehandInk.brush(kind, color, pxPerPoint)`; width = `Brush.size`).
+- Flow: `AnnotatePage` → `FreehandLayer` (ink `InProgressStrokes`, current page only) → `FreehandStroke`
+  → `FreehandGeometry.toInk(stroke, space.displayToUser, highlighter)` → `touchesPage` →
+  `NewAnnotation` → `actions.addAnnotation` (+ local `pending` list against a one-frame flicker).
+- Erase is already per stroke (`AnnotationGeometry.hits` on outlines); undo/redo is the session's.
+- "Make final": `WriteOptions.flattenInk` ← `SaveRequest.flattenInk` ← save dialog checkbox
+  (`EditViewModel.flattenInkChoice`, off by default, shown when `AnnotationEdits.hasInk`). 8b can restyle.
+- Gestures: `detectFreehandGestures` (initial pass). Pager paging is off while a freehand tool is armed.
+- Known limits: reopened ink is drawn from its centre line (even width); the marker is translucent
+  while wet, multiply once lifted; no double-tap zoom in draw mode; `Stroke → FreehandStroke`
+  (`FreehandInk.toFreehandStroke`) has no unit test (native library); ~5.4 MB of native code (universal APK).
+- Open for the author: should the stylus draw with the markup tools too (plan: "to confirm")?
+  Palm rejection beyond "ignore other touches while the stylus draws" isn't in ink 1.0.
 
 ### Notes from 7b (for 8a onwards)
 - Viewer: long press → `TextSelectionState` (selection + handles drawn by `PdfViewport`, `onLongPress`
@@ -388,6 +415,14 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-05 · 8a: freehand on `androidx.ink` 1.0.0 (stable), outline-based appearance, stroke space =
+  display points of the page as shown, one Ink annotation per stroke, compact polyline encoding in
+  the saved session, "make final" as a save-dialog checkbox off by default (needed for the 8a device
+  check; 8b may restyle it). Details and consequences in ADR 0004, "Freehand ink".
+- 2026-10-05 · 8a: draw vs zoom: one finger or a stylus draws, a second finger cancels the stroke and
+  zooms/pans; the stylus ignores other touches while drawing; the pager doesn't turn pages while a
+  freehand tool is armed. Strokes entirely off the page are dropped; the ink layer masks the
+  background and finished annotations are clipped to the page on screen, as readers clip them.
 - 2026-10-05 · 7b: the markup tools **arm, select, then apply** (an "Apply" button over the tool bar)
   instead of applying on release: a mistaken selection costs nothing, and the same long press / handle
   gestures serve all three kinds. One undo step per annotation (session undo, as every edit).

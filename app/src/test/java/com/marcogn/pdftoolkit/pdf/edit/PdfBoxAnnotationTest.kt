@@ -19,6 +19,7 @@ import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.cos.COSNumber
 import com.tom_roush.pdfbox.pdfparser.PDFStreamParser
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
@@ -26,12 +27,14 @@ import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDColor
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationMarkup
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationPopup
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationText
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationTextMarkup
 import com.tom_roush.pdfbox.contentstream.operator.Operator
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -312,5 +315,87 @@ class PdfBoxAnnotationTest {
         assertEquals(2.5f, ink.width, 0.001f)
         assertEquals(listOf(listOf(UserPoint(1f, 2f), UserPoint(3f, 4f))), ink.strokes)
         assertNotNull(read(source).pageBoxes.getOrNull(3))
+    }
+
+    /** A freehand stroke as the app makes it: the centre line, and an outline in two overlapping parts. */
+    private val drawnInk = AnnotationShape.Ink(
+        strokes = listOf(listOf(UserPoint(50f, 60f), UserPoint(90f, 80f))),
+        width = 3f,
+        outlines = listOf(
+            listOf(UserPoint(48f, 58f), UserPoint(92f, 78f), UserPoint(91f, 82f), UserPoint(49f, 62f)),
+            listOf(UserPoint(88f, 76f), UserPoint(94f, 76f), UserPoint(94f, 84f)),
+        ),
+    )
+
+    private fun operators(tokens: List<Any>) = tokens.filterIsInstance<Operator>().map { it.name }
+
+    @Test
+    fun `a drawn stroke is an Ink annotation whose appearance fills its outline, with the centre line in InkList`() {
+        writeSource()
+        apply(EditSession.of(4).addAnnotation(NewAnnotation("d", "p1", drawnInk, AnnotationStyle(AnnotationColor.BLACK))))
+        PDDocument.load(output).use { doc ->
+            val annotation = doc.getPage(1).annotations.single() as PDAnnotationMarkup
+            assertEquals("Ink", annotation.subtype)
+            assertEquals(listOf(50f, 60f, 90f, 80f), annotation.inkList.single().toList())
+            assertEquals(3f, annotation.borderStyle.width, 0.001f)
+            val bounds = AnnotationGeometry.bounds(drawnInk)
+            assertEquals(bounds.left, annotation.rectangle.lowerLeftX, 0.001f)
+            assertEquals(bounds.bottom, annotation.rectangle.lowerLeftY, 0.001f)
+            assertEquals(bounds.right, annotation.rectangle.upperRightX, 0.001f)
+            assertEquals(bounds.top, annotation.rectangle.upperRightY, 0.001f)
+            // Both outlines in one path, filled once with the nonzero rule; no stroke.
+            val appearance = annotation.appearance.normalAppearance.appearanceStream
+            assertEquals(annotation.rectangle.lowerLeftX, appearance.bBox.lowerLeftX, 0.001f)
+            val ops = operators(PDFStreamParser(appearance).apply { parse() }.tokens).filter { it in setOf("m", "l", "h", "f", "f*", "S") }
+            assertEquals(listOf("m", "l", "l", "l", "h", "m", "l", "l", "h", "f"), ops)
+            assertTrue(appearance.resources.extGStateNames.all { appearance.resources.getExtGState(it).cosObject.getDictionaryObject(COSName.BM) == null })
+        }
+        // The file keeps the centre line; the outline is only in the appearance.
+        val readBack = read(output).on(1).single().shape as AnnotationShape.Ink
+        assertEquals(drawnInk.strokes, readBack.strokes)
+        assertEquals(3f, readBack.width, 0.001f)
+        assertTrue(readBack.outlines.isEmpty())
+        assertFalse(readBack.highlighter)
+    }
+
+    @Test
+    fun `a freehand highlighter multiplies with the page and reads back as a highlighter`() {
+        writeSource()
+        val marker = NewAnnotation("h", "p0", drawnInk.copy(highlighter = true), AnnotationStyle(AnnotationColor.YELLOW))
+        apply(EditSession.of(4).addAnnotation(marker))
+        PDDocument.load(output).use { doc ->
+            val appearance = doc.getPage(0).annotations.single().appearance.normalAppearance.appearanceStream
+            val state = appearance.resources.extGStateNames.single().let { appearance.resources.getExtGState(it) }
+            assertEquals(COSName.getPDFName("Multiply"), state.cosObject.getDictionaryObject(COSName.BM))
+        }
+        assertTrue((read(output).on(0).single().shape as AnnotationShape.Ink).highlighter)
+    }
+
+    @Test
+    fun `make final draws new strokes into the page content and leaves highlights as annotations`() {
+        writeSource()
+        val pen = NewAnnotation("pen", "p2", drawnInk, AnnotationStyle(AnnotationColor.DARK_BLUE))
+        val marker = NewAnnotation("marker", "p2", drawnInk.copy(highlighter = true), AnnotationStyle(AnnotationColor.YELLOW))
+        val session = EditSession.of(4).addAnnotation(pen).addAnnotation(marker).addAnnotation(highlight("text", "p2"))
+        runBlocking { editor.applySession(session, mapOf(DocRef.MAIN to source), output, WriteOptions(flattenInk = true)) }
+        PDDocument.load(output).use { doc ->
+            val page = doc.getPage(2)
+            assertEquals(listOf("Highlight"), subtypes(page))
+            val tokens = PDFStreamParser(page).apply { parse() }.tokens
+            val ops = operators(tokens)
+            assertEquals("one fill per stroke", 2, ops.count { it == "f" })
+            assertEquals(ops.count { it == "q" }, ops.count { it == "Q" })
+            // The first point of the outline, in user space as it is: the page content has no other transform.
+            val firstMove = tokens.indexOfFirst { it is Operator && it.name == "m" }
+            val (x, y) = tokens.subList(firstMove - 2, firstMove).map { (it as COSNumber).floatValue() }
+            assertEquals(48f, x, 0.001f)
+            assertEquals(58f, y, 0.001f)
+            // The highlighter still multiplies, now through the page's own resources.
+            val modes = page.resources.extGStateNames.map { page.resources.getExtGState(it).cosObject.getDictionaryObject(COSName.BM) }
+            assertTrue(modes.toString(), COSName.getPDFName("Multiply") in modes)
+        }
+        // Without the option the strokes stay annotations.
+        apply(session)
+        PDDocument.load(output).use { doc -> assertEquals(listOf("Ink", "Ink", "Highlight"), subtypes(doc.getPage(2))) }
     }
 }

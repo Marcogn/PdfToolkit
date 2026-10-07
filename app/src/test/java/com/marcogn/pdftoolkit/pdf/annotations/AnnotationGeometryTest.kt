@@ -100,4 +100,58 @@ class AnnotationGeometryTest {
         assertEquals(listOf(100f, 214f, 160f, 214f, 100f, 200f, 160f, 200f), values.toList())
         assertEquals(listOf(upright, turned), Quad.fromQuadPoints(values + turned.toQuadPoints() + floatArrayOf(1f, 2f)))
     }
+
+    /** A freehand stroke from (100, 100) to (140, 100) with a 4 pt wide outline around it, and a second outline over its end. */
+    private val drawn = AnnotationShape.Ink(
+        strokes = listOf(listOf(UserPoint(100f, 100f), UserPoint(140f, 100f))),
+        width = 4f,
+        outlines = listOf(
+            listOf(UserPoint(98f, 98f), UserPoint(142f, 98f), UserPoint(142f, 102f), UserPoint(98f, 102f)),
+            listOf(UserPoint(135f, 96f), UserPoint(145f, 96f), UserPoint(145f, 104f), UserPoint(135f, 104f)),
+        ),
+    )
+
+    @Test
+    fun `a drawn stroke fills its outlines together, and draws no centre line`() {
+        val paths = AnnotationGeometry.paths(drawn).single()
+        assertEquals(drawn.outlines, paths.fills)
+        assertTrue(paths.strokes.isEmpty())
+    }
+
+    @Test
+    fun `ink read from a file, without outlines, strokes its centre line`() {
+        val read = drawn.copy(outlines = emptyList())
+        val paths = AnnotationGeometry.paths(read).single()
+        assertEquals(read.strokes, paths.strokes)
+        assertEquals(4f, paths.strokeWidth)
+        assertTrue(paths.fills.isEmpty())
+    }
+
+    @Test
+    fun `the rect of a drawn stroke is its outlines plus the padding`() {
+        val bounds = AnnotationGeometry.bounds(drawn)
+        val pad = AnnotationGeometry.PADDING
+        assertEquals(98f - pad, bounds.left, 0.001f)
+        assertEquals(96f - pad, bounds.bottom, 0.001f)
+        assertEquals(145f + pad, bounds.right, 0.001f)
+        assertEquals(104f + pad, bounds.top, 0.001f)
+    }
+
+    @Test
+    fun `the eraser takes a drawn stroke inside or near its outline`() {
+        assertTrue(AnnotationGeometry.hits(drawn, UserPoint(120f, 101f), tolerance = 0f))
+        // Where the two outlines overlap the winding is 2: still inside.
+        assertTrue(AnnotationGeometry.hits(drawn, UserPoint(138f, 100f), tolerance = 0f))
+        assertTrue(AnnotationGeometry.hits(drawn, UserPoint(120f, 105f), tolerance = 3.5f))
+        assertFalse(AnnotationGeometry.hits(drawn, UserPoint(120f, 105f), tolerance = 2f))
+        assertFalse(AnnotationGeometry.hits(drawn, UserPoint(90f, 100f), tolerance = 2f))
+    }
+
+    @Test
+    fun `text highlights and freehand highlighters multiply, the rest covers the page`() {
+        assertTrue(AnnotationGeometry.multiplies(markup(MarkupKind.HIGHLIGHT, upright)))
+        assertFalse(AnnotationGeometry.multiplies(markup(MarkupKind.UNDERLINE, upright)))
+        assertTrue(AnnotationGeometry.multiplies(drawn.copy(highlighter = true)))
+        assertFalse(AnnotationGeometry.multiplies(drawn))
+    }
 }

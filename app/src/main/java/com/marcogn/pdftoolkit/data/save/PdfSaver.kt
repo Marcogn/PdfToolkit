@@ -45,7 +45,7 @@ class PdfSaver @Inject constructor(
             extraCopies.values.forEach { (file, uri) -> copyToFile(uri.toUri(), file) }
             onProgress(COPIED_SOURCE)
             val sources = mapOf(DocRef.MAIN to sourceCopy) + extraCopies.mapValues { it.value.first }
-            editor.applySession(session, sources, result, WriteOptions(request.flattenForm)) { onProgress(COPIED_SOURCE + it * (WRITTEN - COPIED_SOURCE)) }
+            editor.applySession(session, sources, result, WriteOptions(request.flattenForm, request.flattenInk)) { onProgress(COPIED_SOURCE + it * (WRITTEN - COPIED_SOURCE)) }
             copyToDestination(result, request.destinationUri.toUri())
             onProgress(1f)
         } finally {
