@@ -197,7 +197,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 
 ## References
 - Specification: `docs/spec.md`. Plan, alignment with the references, upgrade steps:
-  `docs/plan.md`. Product phase 2 plan: `docs/plan-v2.md`.
+  `docs/plan.md`. Product phase 2 plan: `docs/plan-v2.md`. Usability review and plan:
+  `docs/plan-usability.md`.
 - ADRs: `docs/adr/0001-viewer.md`, `docs/adr/0002-pdfbox-android.md`,
   `docs/adr/0003-background-save-and-edit-session.md`, `docs/adr/0004-annotations.md`.
 
@@ -248,6 +249,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - **8a Freehand core done (2026-10-05)**, PR #15; lint (0 errors), 373 unit tests, `assembleDebug` and
   `assembleRelease` (R8) green; device checks passed on the signed release build (author, 2026-10-07).
   **Next: 8b Freehand complete (Sonnet).**
+- **Usability review (2026-10-07)**, author's request while testing 8b: `docs/plan-usability.md`
+  (findings U1–U17, proposed sub-phases U-a/U-b between 8b and 9, Sonnet). Not in the table yet:
+  waiting for the author's answers to its five questions.
 
 ### Handoff 8a → 8b (freehand)
 - Tools: `AnnotateTool.PEN` / `MARKER` (`freehand: FreehandKind`), in the Annotate tool bar (now scrollable).

@@ -163,6 +163,7 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
 - [`docs/plan.md`](docs/plan.md): what comes from ThePatientGamerHelper and KartLog, and how the
   dependencies were upgraded
 - [`docs/plan-v2.md`](docs/plan-v2.md): plan of product phase 2 (annotations, scan, OCR, ODF, cloud)
+- [`docs/plan-usability.md`](docs/plan-usability.md): usability review and the changes it proposes
 - [`docs/adr/`](docs/adr/): architecture decisions
 - [`CHANGELOG.md`](CHANGELOG.md): changes per version
 - [`CLAUDE.md`](CLAUDE.md): working notes for development
