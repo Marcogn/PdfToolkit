@@ -67,6 +67,8 @@ import com.marcogn.pdftoolkit.domain.edit.PageItem
 import com.marcogn.pdftoolkit.pdf.annotations.MarkupFactory
 import com.marcogn.pdftoolkit.pdf.render.PdfPageSpace
 import com.marcogn.pdftoolkit.pdf.text.TextSelection
+import com.marcogn.pdftoolkit.ui.common.PageIndicatorChip
+import com.marcogn.pdftoolkit.ui.common.ReportCurrentPage
 import com.marcogn.pdftoolkit.ui.edit.AnnotateDocuments
 import com.marcogn.pdftoolkit.ui.edit.AnnotateLoad
 import com.marcogn.pdftoolkit.ui.fill.FillPageContent
@@ -178,6 +180,8 @@ fun AnnotatePane(
     state: AnnotatePaneState,
     selection: TextSelectionState,
     actions: AnnotateActions,
+    initialPageId: String? = null,
+    onPageChanged: (pageId: String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     when (load) {
@@ -185,7 +189,7 @@ fun AnnotatePane(
         AnnotateLoad.Failed -> Box(modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
             Text(stringResource(R.string.annotate_load_failed), textAlign = TextAlign.Center)
         }
-        is AnnotateLoad.Ready -> AnnotatePages(pages, edits, load.documents, state, selection, actions, modifier)
+        is AnnotateLoad.Ready -> AnnotatePages(pages, edits, load.documents, state, selection, actions, initialPageId, onPageChanged, modifier)
     }
 }
 
@@ -197,9 +201,12 @@ private fun AnnotatePages(
     state: AnnotatePaneState,
     selection: TextSelectionState,
     actions: AnnotateActions,
+    initialPageId: String?,
+    onPageChanged: (pageId: String) -> Unit,
     modifier: Modifier,
 ) {
-    val pagerState = rememberPagerState { pages.size }
+    val pagerState = rememberPagerState(initialPage = pages.indexOfFirst { it.id == initialPageId }.coerceAtLeast(0)) { pages.size }
+    ReportCurrentPage(pagerState, pages, onPageChanged)
     ResolveTextSelection(selection) { key -> (pages.firstOrNull { it.id == key } as? PageItem.FromPdf)?.let { actions.pageText(it) } }
     Box(modifier.fillMaxSize()) {
         // Drawing takes every one-finger drag, so the pages don't turn under a freehand tool.
@@ -229,18 +236,7 @@ private fun AnnotatePages(
                 selectionColor = MaterialTheme.colorScheme.primary,
             )
         }
-        Surface(
-            shape = MaterialTheme.shapes.small,
-            color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.8f),
-            modifier = Modifier.align(Alignment.BottomCenter).padding(8.dp),
-        ) {
-            Text(
-                stringResource(R.string.fill_page_indicator, pagerState.currentPage + 1, pages.size),
-                color = MaterialTheme.colorScheme.inverseOnSurface,
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-            )
-        }
+        PageIndicatorChip(pagerState, pages.size, Modifier.align(Alignment.BottomCenter).padding(8.dp))
     }
 }
 

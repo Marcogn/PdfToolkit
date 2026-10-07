@@ -6,6 +6,17 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Edit starts where you are reading.** Fill and sign and Annotate open on the page you were on when you
+  tapped Edit, not on page 1. The "Page X of N" chip in both is now a button: tap it, type a number and go.
+  New pages (blank, images, from another PDF) default to "after the page you were reading".
+- **Highlight from the viewer.** With text selected, a Highlight button sits next to Copy: it opens the
+  Annotate pane on that page with the same words still selected, ready to pick a colour and apply.
+- **Page number in the viewer opens "Go to page".** Tap "Page X of N" under the title (the menu entry stays).
+- **Back from a tool opened on Home goes to the hub once you changed something**, so you can combine
+  tools (fill, then highlight, then save) without saving in between. With no changes it still leaves.
+- **Saving from the exit dialog leaves.** Back, Save, pick the place: when the copy is written the edit
+  closes (a "PDF saved" message appears) instead of staying open and asking for another back.
+
 - **Draw by hand.** "Highlight" has two new tools, Pen and Marker: draw on the page with a finger or a
   stylus, and use two fingers to move and zoom (the line being drawn is then dropped). While a stylus
   draws, a palm resting on the screen is ignored. Each line is saved as a standard ink annotation that

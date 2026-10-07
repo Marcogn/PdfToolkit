@@ -164,11 +164,12 @@ fun BlankPagesDialog(
     pageCount: Int,
     referenceSize: (InsertionPoint) -> SizePt,
     mixedSizes: Boolean,
+    initialPoint: InsertionPoint = InsertionPoint.END_OF_DOCUMENT,
     onConfirm: (count: Int, point: InsertionPoint) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var count by rememberSaveable { mutableIntStateOf(1) }
-    var point by rememberSaveable(stateSaver = InsertionPointSaver) { mutableStateOf(InsertionPoint.END_OF_DOCUMENT) }
+    var point by rememberSaveable(stateSaver = InsertionPointSaver) { mutableStateOf(initialPoint) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.add_blank)) },
@@ -266,11 +267,12 @@ fun ImagesDialog(
     pageCount: Int,
     referenceSize: (InsertionPoint) -> SizePt,
     mixedSizes: Boolean,
+    initialPoint: InsertionPoint = InsertionPoint.END_OF_DOCUMENT,
     onConfirm: (mode: ImageFit, point: InsertionPoint) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var mode by rememberSaveable { mutableStateOf(ImageFit.FIT_PAGE) }
-    var point by rememberSaveable(stateSaver = InsertionPointSaver) { mutableStateOf(InsertionPoint.END_OF_DOCUMENT) }
+    var point by rememberSaveable(stateSaver = InsertionPointSaver) { mutableStateOf(initialPoint) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(pluralStringResource(R.plurals.images_dialog_title, images.size, images.size)) },
@@ -319,10 +321,11 @@ fun ImagesDialog(
 fun PickedPagesDialog(
     pickedCount: Int,
     pageCount: Int,
+    initialPoint: InsertionPoint = InsertionPoint.END_OF_DOCUMENT,
     onConfirm: (InsertionPoint) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var point by rememberSaveable(stateSaver = InsertionPointSaver) { mutableStateOf(InsertionPoint.END_OF_DOCUMENT) }
+    var point by rememberSaveable(stateSaver = InsertionPointSaver) { mutableStateOf(initialPoint) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(pluralStringResource(R.plurals.add_pdf_pages_title, pickedCount, pickedCount)) },

@@ -15,6 +15,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.BorderColor
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Edit
@@ -59,6 +61,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -112,7 +115,8 @@ fun ReadyViewer(
     readingMode: ReadingMode,
     onReadingModeChange: (ReadingMode) -> Unit,
     onPageChanged: (Int) -> Unit,
-    onEdit: () -> Unit,
+    onEdit: (page: Int) -> Unit,
+    onHighlight: (page: Int, selectionStart: Int, selectionEnd: Int) -> Unit,
     onBack: () -> Unit,
 ) {
     val pageCount = state.pageSizes.size
@@ -224,6 +228,14 @@ fun ReadyViewer(
                         IconButton(onClick = copySelection) {
                             Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.viewer_selection_copy))
                         }
+                        // Annotating goes through the edit screen, one save path (plan U5): the selection travels along.
+                        val range = selection.range
+                        val page = selection.key?.toIntOrNull()
+                        if (range != null && page != null) {
+                            IconButton(onClick = { onHighlight(page, range.start, range.end) }) {
+                                Icon(Icons.Outlined.BorderColor, contentDescription = stringResource(R.string.viewer_selection_highlight))
+                            }
+                        }
                     },
                 )
             } else if (searchOpen) {
@@ -243,10 +255,15 @@ fun ReadyViewer(
                     title = {
                         Column {
                             Text(state.displayName.orEmpty(), maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
+                            // A tap opens "Go to page" (plan U13), as in most readers; the menu entry stays.
                             Text(
                                 stringResource(R.string.viewer_page_indicator, currentPage + 1, pageCount),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .clip(MaterialTheme.shapes.small)
+                                    .clickable(onClickLabel = stringResource(R.string.viewer_menu_go_to_page)) { showGoTo = true }
+                                    .padding(vertical = 4.dp, horizontal = 2.dp),
                             )
                         }
                     },
@@ -280,7 +297,7 @@ fun ReadyViewer(
                 exit = scaleOut(tween(PANEL_MS)) + fadeOut(tween(PANEL_MS)),
             ) {
                 ExtendedFloatingActionButton(
-                    onClick = onEdit,
+                    onClick = { onEdit(currentPage) },
                     icon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
                     text = { Text(stringResource(R.string.edit_fab)) },
                     containerColor = MaterialTheme.colorScheme.primary,

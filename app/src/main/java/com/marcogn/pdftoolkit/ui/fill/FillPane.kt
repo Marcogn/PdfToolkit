@@ -61,6 +61,8 @@ import com.marcogn.pdftoolkit.domain.fill.XfaKind
 import com.marcogn.pdftoolkit.pdf.edit.FontSource
 import com.marcogn.pdftoolkit.pdf.render.OverlayGeometry
 import com.marcogn.pdftoolkit.pdf.render.PdfPageSpace
+import com.marcogn.pdftoolkit.ui.common.PageIndicatorChip
+import com.marcogn.pdftoolkit.ui.common.ReportCurrentPage
 import com.marcogn.pdftoolkit.ui.edit.FillDocuments
 import com.marcogn.pdftoolkit.ui.edit.FillLoad
 import com.marcogn.pdftoolkit.ui.edit.PickedImage
@@ -149,6 +151,8 @@ fun FillPane(
     load: FillLoad?,
     state: FillPaneState,
     actions: FillActions,
+    initialPageId: String? = null,
+    onPageChanged: (pageId: String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -158,7 +162,7 @@ fun FillPane(
         FillLoad.Failed -> Box(modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
             Text(stringResource(R.string.fill_load_failed), textAlign = TextAlign.Center)
         }
-        is FillLoad.Ready -> FillPages(pages, overlays, values, load.documents, state, actions, painter, modifier)
+        is FillLoad.Ready -> FillPages(pages, overlays, values, load.documents, state, actions, painter, initialPageId, onPageChanged, modifier)
     }
 
     state.textTarget?.let { target ->
@@ -206,9 +210,12 @@ private fun FillPages(
     state: FillPaneState,
     actions: FillActions,
     painter: OverlayPainter,
+    initialPageId: String?,
+    onPageChanged: (pageId: String) -> Unit,
     modifier: Modifier,
 ) {
-    val pagerState = rememberPagerState { pages.size }
+    val pagerState = rememberPagerState(initialPage = pages.indexOfFirst { it.id == initialPageId }.coerceAtLeast(0)) { pages.size }
+    ReportCurrentPage(pagerState, pages, onPageChanged)
     Column(modifier.fillMaxSize()) {
         if (documents.form?.xfa == XfaKind.DYNAMIC) {
             Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
@@ -244,18 +251,7 @@ private fun FillPages(
                     onFieldChange = actions::setField,
                 )
             }
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.8f),
-                modifier = Modifier.align(Alignment.BottomCenter).padding(8.dp),
-            ) {
-                Text(
-                    stringResource(R.string.fill_page_indicator, pagerState.currentPage + 1, pages.size),
-                    color = MaterialTheme.colorScheme.inverseOnSurface,
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                )
-            }
+            PageIndicatorChip(pagerState, pages.size, Modifier.align(Alignment.BottomCenter).padding(8.dp))
         }
     }
 }

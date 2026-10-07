@@ -24,7 +24,10 @@ released. Product phase 2 has started (`docs/plan-v2.md`): the viewer shows the 
 drawings already in a PDF, selects and copies text (7a, 7b), and the "Highlight" tool (7b) highlights,
 underlines and strikes out text and erases annotations, also those made by other apps. Freehand
 drawing is done (8a, 8b): the "Draw" tool opens the annotate pane with the pen; pen and marker have
-their own colours and sizes, and drawings are saved as ink annotations or made final.
+their own colours and sizes, and drawings are saved as ink annotations or made final. The usability
+review (`docs/plan-usability.md`) is under way: U-a is in (the edit panes open on the page being read and
+can jump to any page, Highlight from the viewer selection, back from a Home tool goes to the hub after
+changes, saving from the exit dialog leaves); U-b (screens) is next.
 
 ## Features
 
