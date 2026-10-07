@@ -263,8 +263,9 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - Known limits: reopened ink is drawn from its centre line (even width); the marker is translucent
   while wet, multiply once lifted; no double-tap zoom in draw mode; `Stroke → FreehandStroke`
   (`FreehandInk.toFreehandStroke`) has no unit test (native library); ~5.4 MB of native code (universal APK).
-- Open for the author: should the stylus draw with the markup tools too (plan: "to confirm")?
-  Palm rejection beyond "ignore other touches while the stylus draws" isn't in ink 1.0.
+- Stylus (author, 2026-10-07): it draws **only** with a freehand tool armed; with the markup tools it
+  behaves like a finger (select, pan), as now. Palm rejection beyond "ignore other touches while the
+  stylus draws" isn't in ink 1.0.
 
 ### Notes from 7b (for 8a onwards)
 - Viewer: long press → `TextSelectionState` (selection + handles drawn by `PdfViewport`, `onLongPress`
@@ -415,6 +416,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-07 · Stylus (author's answer to the 8a open question): it draws only with Pen/Marker armed;
+  with the markup tools a stylus selects text like a finger, so the two uses don't get mixed up.
 - 2026-10-05 · 8a: freehand on `androidx.ink` 1.0.0 (stable), outline-based appearance, stroke space =
   display points of the page as shown, one Ink annotation per stroke, compact polyline encoding in
   the saved session, "make final" as a save-dialog checkbox off by default (needed for the 8a device
