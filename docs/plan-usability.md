@@ -3,7 +3,7 @@
 Review of the app as of 8b (branch of PR "8b Freehand complete", 2026-10-07), asked by the author:
 superfluous taps, unclear dialogs and flows. This is a plan, nothing here is implemented yet.
 Items marked **[SPEC]** change something `docs/spec.md` asks for, or a recorded decision in
-`CLAUDE.md`, and need the author's yes before they are built.
+`CLAUDE.md`; the author approved them on 2026-10-07 (answers at the end).
 
 ## Method
 - Every flow was walked through in the code (`ui/navigation`, `ui/home`, `ui/viewer`, `ui/edit`,
@@ -58,32 +58,45 @@ exit dialog, leave once the copy is saved (overwrite already navigates to the re
 **U4. Rotate is hidden inside "Remove pages"; remove and reorder are two separate panes.**
 The hub grid is read-only (tap does nothing). Rotating a page means entering "Remove pages",
 selecting it and finding the rotate icon there, or "Reorder pages" → the ⋮ menu of the page.
-Two tools and one hidden action for what is one job, "organize pages". **[SPEC]** (spec §4.1 lists
-Remove and Reorder as separate tools; §6.3/§6.4 describe their gestures.) Proposal:
+Two tools and one hidden action for what is one job, "organize pages". **[SPEC, approved
+2026-10-07]**: spec §4.1 lists Remove, Reorder, Add pages and Insert images as separate tools; the
+author chose one "Organize pages" section that removes, reorders and adds.
 - The hub grid becomes the page organizer: tap selects (contextual top bar: count, select all,
   Rotate, Delete, Move to start/end), a **drag handle** on each cell reorders immediately (no long
   press), long press keeps meaning "range anchor" as in §6.3.
-- Home keeps one tool, "Organize pages" (or keeps both labels, both opening the hub, if the author
-  prefers the spec's names); the hub tool bar loses Remove/Reorder and keeps Add pages, Insert
-  images, Fill and sign, Highlight, Draw.
+- **Adding** is part of it: one "Add" button in the organizer with three sources in one sheet
+  (another PDF, blank pages, images from photos, images from files), then the existing
+  page/position dialogs. Default position: after the selected page if one is selected, else after
+  the page the viewer was on (U1), else at the end.
+- Home: "Organize pages" replaces Remove pages, Reorder pages, Add pages and Insert images; it picks
+  the PDF and opens the organizer, so the "pick the PDF first" explanation dialog (U9) disappears.
+  The hub tool bar keeps Organize pages (if the hub isn't the organizer itself, see below), Fill and
+  sign, Highlight, Draw. Whether the hub *is* the organizer or opens it is the implementer's call
+  after a look at both on the device: the hub as organizer saves one tap, but its tool bar then
+  has to share the bottom with the selection actions.
 - Cost: medium (gesture split between handle and cell in `PagesGrid`; Reorderable supports a
-  plain `draggableHandle`, to be checked against the pinned 3.1.0 API).
+  plain `draggableHandle`, to be checked against the pinned 3.1.0 API). `PdfTool` loses
+  `ADD_PAGES`, `INSERT_IMAGES`, `REMOVE_PAGES`, `REORDER_PAGES` and gains `ORGANIZE_PAGES`; spec
+  §4.1 and §6.2–6.4 get a note pointing here.
 
 **U5. Highlighting from the viewer means selecting twice.** In the viewer a long press selects
 text, but the only action is Copy; to highlight the same words the user must go Edit → Highlight,
-swipe to the page (U1) and select again. **[SPEC]**-ish: the 2026-10-05 decision kept the viewer to
-"selection + Copy" because annotating there would need a second save path. Proposal that keeps one
-save path: a "Highlight" action next to Copy opens `Destination.Edit(tool = HIGHLIGHT, page = p,
-selection = key + glyph range)`; the Annotate pane restores it (selection state is already saved
-as page key + glyph range) and the user taps the colour and "Highlight". Depends on U1.
+swipe to the page (U1) and select again. **[Decision changed, approved 2026-10-07]**: the 2026-10-05
+decision kept the viewer to "selection + Copy" because annotating there would need a second save
+path; this keeps one save path. Nothing is automatic: the selection bar offers both actions,
+**Copy** and **Highlight**, and the user picks one. "Highlight" opens
+`Destination.Edit(tool = HIGHLIGHT, page = p, selection = key + glyph range)`; the Annotate pane
+restores the selection (its state is already saved as page key + glyph range) with the highlight
+tool armed, and the user picks the colour and taps "Highlight", or adjusts the handles first.
+Depends on U1.
 
 ### Medium impact
 
 **U6. Overwrite asks twice.** Save icon → choose "Overwrite" → "Save" → "Overwrite the original?"
-→ "Overwrite". **[SPEC]** §6.7 asks for "conferma esplicita". Proposal: the save dialog itself
-is the explicit confirmation when "Overwrite" is selected: the confirm button reads "Overwrite"
-and the irreversible-warning line appears under the option (error colour). One dialog instead of
-two; the choice stays remembered.
+→ "Overwrite". **[SPEC, approved 2026-10-07]** §6.7 asks for "conferma esplicita": the author
+accepts the save dialog itself as that confirmation. When "Overwrite" is selected the confirm
+button reads "Overwrite" and the irreversible-warning line appears under the option (error
+colour). One dialog instead of two; the choice stays remembered.
 
 **U7. The Annotate pane's chrome eats the page.** With Pen armed the bottom area stacks a hint
 banner, a colour row, a width row and the tool bar, plus the top bar: roughly 250 dp of a
@@ -96,14 +109,16 @@ Same idea for the fill pane's hint row (smaller).
 
 **U8. Signature: the picker sheet even when there is nothing to pick.** Tap "Signature" with an
 empty archive opens a sheet that only says "no signatures" + "New signature": go straight to the
-creation flow. With exactly one signature, arm it directly (a long press on "Signature", or a
-"Change" chip in the hint, opens the sheet). **[SPEC]**-light: §6.5 says "si sceglie una firma
-salvata (o se ne crea una al volo)"; with one signature the choice is implicit.
+creation flow. With exactly one signature, arm it directly; a long press on "Signature", or a
+"Change" chip in the hint, opens the sheet. **[Approved 2026-10-07]**, with a reminder on the
+"My signatures" screen (author's request): a line under the list, shown when there is exactly one
+signature, saying that "Signature" in Fill and sign uses it straight away and that a long press on
+"Signature" picks or creates another.
 
 **U9. Home tools that pick twice show an explanation dialog every time.** "Add pages" / "Insert
 images" from Home: explanation dialog → PDF picker → source dialog → second picker → position
-dialog. The first dialog is useful once, then it is a tap to dismiss. Proposal: show it the first
-time only (DataStore flag, like the signature note), or with a "don't show again" checkbox.
+dialog. **Solved by U4**: "Organize pages" picks the PDF and opens the organizer, where adding
+happens; nothing picks twice from Home any more, so the dialog goes.
 
 **U10. Misleading hint in Fill and sign.** With an overlay selected the hint says "Tieni premuto e
 trascina per spostare", but a selected overlay moves with a plain drag (`OverlayGestures`: only
@@ -158,23 +173,24 @@ shrinks by itself (Highlight and Draw already left it). No change proposed.
 | Highlight a sentence read on page 37 | long press, Copy is the only option; then Edit, Highlight, (36 swipes), long press, handles, Highlight, Save… | long press, handles, Highlight → pane on page 37 with the selection, Highlight, Save… (U1, U5) |
 | Overwrite after an edit | Save, (Overwrite), Save, Overwrite = 3–4 | Save, (Overwrite), Overwrite = 2–3 (U6) |
 | Leave with changes, keep a copy | back, Save, Save, picker Save, back = 5 | back, Save, Save, picker Save = 4 (U3) |
-| Remove page 5 and rotate page 2 from the viewer | Edit, Remove pages, 5, Delete, 2, Rotate (hidden there), back = 7 | Edit, 5, Delete, 2, Rotate = 5, and rotate is visible (U4) |
+| Remove page 5 and rotate page 2 from the viewer | Edit, Remove pages, 5, Delete, 2, Rotate (hidden there), back = 7 | Edit, [Organize pages,] 5, Delete, 2, Rotate = 5–6, and rotate is visible (U4) |
 
-## Proposed order
-As a development phase between 8b and 9 (product phase 2 order unchanged otherwise), in two
-sub-phases so each fits one session and one device check:
+## Order (approved 2026-10-07: before phase 9)
+A development phase between 8b and 9, in two sub-phases so each fits one session and one device
+check:
 
 | Sub-phase | Model | Items | Check on the device |
 |---|---|---|---|
-| U-a Flows | Sonnet | U1, U2, U3, U5 (after the author's yes), U13 | Edit from page 37 opens on 37 in Fill/Annotate; page chip jumps; Home tool → change → back lands on hub; exit-dialog Save leaves; viewer selection → Highlight |
-| U-b Screens | Sonnet | U4 (after yes), U6 (after yes), U7, U8, U9, U10, U11, U12, U15, U16 | Organize pages in the hub (select, rotate, delete, drag handle); overwrite in one dialog; drawing with the compact bar; signature with 0/1/many saved; one-hand resize |
+| U-a Flows | Sonnet | U1, U2, U3, U5, U13 | Edit from page 37 opens on 37 in Fill/Annotate; page chip jumps; Home tool → change → back lands on hub; exit-dialog Save leaves; viewer selection → Copy or Highlight |
+| U-b Screens | Sonnet | U4 (incl. U9), U6, U7, U8, U10, U11, U12, U15, U16 | Organize pages (select, rotate, delete, drag handle, add from PDF / blank / images); overwrite in one dialog; drawing with the compact bar; signature with 0/1/many saved and the reminder; one-hand resize |
 
 No Opus needed: nothing here touches PDF geometry or the writer, except U11's handle, which
 reuses `OverlayGeometry`. U5 depends on U1 (page in the route).
 
-## Questions for the author
-1. U4: merge Remove and Reorder into the hub ("Organize pages")? Keep the two names on Home?
-2. U5: "Highlight" from the viewer selection, going through the edit screen (one save path)?
-3. U6: is the save dialog with an "Overwrite" button enough as the explicit confirmation of §6.7?
-4. U8: arm the only saved signature directly, without the sheet?
-5. Insert this as a phase before 9, or after the product phase 2 features?
+## Author's answers (2026-10-07)
+1. U4: yes, one "Organize pages" section is enough for reordering, removing and also adding.
+2. U5: yes, add Highlight. (Asked whether it is automatic: no, the selection bar shows Copy and
+   Highlight side by side.)
+3. U6: yes, the save dialog is the explicit confirmation.
+4. U8: yes, with a reminder on the "My signatures" screen.
+5. Before phase 9.
