@@ -8,6 +8,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationColor
+import com.marcogn.pdftoolkit.domain.annotate.FreehandKind
+import com.marcogn.pdftoolkit.domain.annotate.FreehandOptions
 import com.marcogn.pdftoolkit.domain.annotate.MarkupKind
 import com.marcogn.pdftoolkit.pdf.text.GlyphRange
 import com.marcogn.pdftoolkit.pdf.text.PageText
@@ -15,6 +17,7 @@ import com.marcogn.pdftoolkit.pdf.text.TextSelection
 import com.marcogn.pdftoolkit.ui.theme.PdfToolkitTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -86,4 +89,27 @@ class AnnotateToolBarTest {
         assertFalse(selection.isActive)
     }
 
+    @Test
+    fun `the pen offers its colours and widths and remembers the choice`() {
+        val state = AnnotatePaneState(tool = AnnotateTool.PEN)
+        setBar(state)
+        composeRule.onNodeWithContentDescription("Nero").assertIsSelected()
+        composeRule.onNodeWithContentDescription("Spessore 2 pt").assertIsSelected()
+        composeRule.onNodeWithContentDescription("Rosso").performClick()
+        composeRule.onNodeWithContentDescription("Spessore 6 pt").performClick()
+        composeRule.waitForIdle()
+        assertEquals(AnnotationColor.RED, state.colorFor(FreehandKind.PEN))
+        assertEquals(6f, state.widthFor(FreehandKind.PEN))
+        // The marker keeps its own.
+        assertEquals(AnnotationColor.YELLOW, state.colorFor(FreehandKind.HIGHLIGHTER))
+        assertEquals(12f, state.widthFor(FreehandKind.HIGHLIGHTER))
+    }
+
+    @Test
+    fun `every freehand default is one of its options`() {
+        for (kind in FreehandKind.entries) {
+            assertTrue(FreehandOptions.defaultColorIndex(kind) >= 0)
+            assertTrue(FreehandOptions.defaultWidthIndex(kind) >= 0)
+        }
+    }
 }

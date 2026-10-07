@@ -247,7 +247,22 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   `assembleDebug` green; device checks passed (author).
 - **8a Freehand core done (2026-10-05)**, PR #15; lint (0 errors), 373 unit tests, `assembleDebug` and
   `assembleRelease` (R8) green; device checks passed on the signed release build (author, 2026-10-07).
-  **Next: 8b Freehand complete (Sonnet).**
+- **8b Freehand complete done (2026-10-07)**; lint (0 errors), 375 unit tests and `assembleDebug` green.
+  Needs the author's device checks (below). **Next: 9 Scan (Sonnet).**
+
+### Notes from 8b (freehand complete)
+- `FreehandOptions` (domain): colours and widths per `FreehandKind`; `AnnotatePaneState` holds the chosen
+  indices (pen/marker colour and width, saved across rotation) and `colorFor/widthFor(FreehandKind)`.
+  `FreehandKind.width/color` are only the defaults. Brush colour and width go `AnnotatePane` →
+  `AnnotatePage(brushColor, brushWidth)` → `FreehandLayer` → `FreehandInk.brush`; the annotation style
+  takes the chosen colour. Changing colour or width applies to the next stroke only.
+- `PdfTool.DRAW` is available (Home + hub): same `EditPane.ANNOTATE` as Highlight, with the pen armed
+  (`rememberAnnotatePaneState(initialTool)`). The pane title is "Annotate" (`tool_annotate`).
+- Already there from 8a and unchanged: eraser per stroke, session undo/redo, "make final" checkbox,
+  stylus rule. The choices aren't persisted across app restarts (not asked for).
+- Device checks 8b: finger and stylus; each colour/size of pen and marker, in the app and another
+  reader; erase a stroke; undo/redo; rotate the phone while drawing and with a stroke in progress;
+  "Draw" from Home and from the hub opens with the pen; Highlight from Home still opens on the highlighter.
 
 ### Handoff 8a → 8b (freehand)
 - Tools: `AnnotateTool.PEN` / `MARKER` (`freehand: FreehandKind`), in the Annotate tool bar (now scrollable).
@@ -416,6 +431,10 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-07 · 8b: pen colours are black, red, blue, green, orange (not the light highlight palette:
+  a pen doesn't multiply); marker colours are the highlight palette. Sizes 1/2/4/6 pt (pen) and
+  8/12/18/26 pt (marker), the 8a defaults being among them. "Draw" shares the Annotate pane rather than
+  getting its own, since tools, undo and save are the same; it only arms the pen.
 - 2026-10-07 · Stylus (author's answer to the 8a open question): it draws only with Pen/Marker armed;
   with the markup tools a stylus selects text like a finger, so the two uses don't get mixed up.
 - 2026-10-05 · 8a: freehand on `androidx.ink` 1.0.0 (stable), outline-based appearance, stroke space =

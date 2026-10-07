@@ -19,6 +19,7 @@ class PdfToolTest {
                 PdfTool.FILL_AND_SIGN,
                 PdfTool.MY_SIGNATURES,
                 PdfTool.HIGHLIGHT,
+                PdfTool.DRAW,
             ),
             PdfTool.available,
         )
@@ -26,9 +27,9 @@ class PdfToolTest {
 
     @Test
     fun `Phase 2 tools still to come are listed as coming soon`() {
-        // Spec §4.1: Scan, Upload to cloud, Draw, Export to ODF (Highlight is done).
+        // Spec §4.1: Scan, Upload to cloud, Export to ODF (Highlight and Draw are done).
         assertEquals(
-            listOf(PdfTool.SCAN, PdfTool.CLOUD_UPLOAD, PdfTool.DRAW, PdfTool.EXPORT_ODF),
+            listOf(PdfTool.SCAN, PdfTool.CLOUD_UPLOAD, PdfTool.EXPORT_ODF),
             PdfTool.upcoming,
         )
     }

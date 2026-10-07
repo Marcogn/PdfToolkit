@@ -60,6 +60,7 @@ import com.marcogn.pdftoolkit.domain.annotate.AnnotationEdits
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationPalette
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationRef
 import com.marcogn.pdftoolkit.domain.annotate.FreehandKind
+import com.marcogn.pdftoolkit.domain.annotate.FreehandOptions
 import com.marcogn.pdftoolkit.domain.annotate.MarkupKind
 import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
 import com.marcogn.pdftoolkit.domain.edit.PageItem
@@ -85,15 +86,27 @@ enum class AnnotateTool(val kind: MarkupKind?, val freehand: FreehandKind? = nul
 }
 
 /**
- * UI state of "Annotate" that the edit session doesn't hold: the armed tool and the colour chosen
- * for highlights and for lines (underline and strikeout share one), as positions in
- * [AnnotationPalette]. Survives rotation.
+ * UI state of "Annotate" that the edit session doesn't hold: the armed tool, the colour chosen for
+ * highlights and for lines (underline and strikeout share one), and the colour and width of each
+ * freehand brush, all as positions in [AnnotationPalette] and [FreehandOptions]. Survives rotation.
  */
 @Stable
-class AnnotatePaneState(tool: AnnotateTool = AnnotateTool.HIGHLIGHT, highlightColor: Int = 0, lineColor: Int = 0) {
+class AnnotatePaneState(
+    tool: AnnotateTool = AnnotateTool.HIGHLIGHT,
+    highlightColor: Int = 0,
+    lineColor: Int = 0,
+    penColor: Int = FreehandOptions.defaultColorIndex(FreehandKind.PEN),
+    penWidth: Int = FreehandOptions.defaultWidthIndex(FreehandKind.PEN),
+    markerColor: Int = FreehandOptions.defaultColorIndex(FreehandKind.HIGHLIGHTER),
+    markerWidth: Int = FreehandOptions.defaultWidthIndex(FreehandKind.HIGHLIGHTER),
+) {
     var tool by mutableStateOf(tool)
     var highlightColor by mutableIntStateOf(highlightColor)
     var lineColor by mutableIntStateOf(lineColor)
+    var penColor by mutableIntStateOf(penColor)
+    var penWidth by mutableIntStateOf(penWidth)
+    var markerColor by mutableIntStateOf(markerColor)
+    var markerWidth by mutableIntStateOf(markerWidth)
 
     /** The colour new annotations of [kind] get. */
     fun colorFor(kind: MarkupKind): AnnotationColor {
@@ -106,16 +119,38 @@ class AnnotatePaneState(tool: AnnotateTool = AnnotateTool.HIGHLIGHT, highlightCo
         if (kind == MarkupKind.HIGHLIGHT) highlightColor = index else lineColor = index
     }
 
+    private fun colorIndex(kind: FreehandKind) = if (kind == FreehandKind.PEN) penColor else markerColor
+    private fun widthIndex(kind: FreehandKind) = if (kind == FreehandKind.PEN) penWidth else markerWidth
+
+    /** The colour strokes of [kind] get. */
+    fun colorFor(kind: FreehandKind): AnnotationColor =
+        FreehandOptions.colors(kind).let { it[colorIndex(kind).coerceIn(it.indices)] }
+
+    /** The brush size, in points of the page, of strokes of [kind]. */
+    fun widthFor(kind: FreehandKind): Float =
+        FreehandOptions.widths(kind).let { it[widthIndex(kind).coerceIn(it.indices)] }
+
+    fun setColor(kind: FreehandKind, index: Int) {
+        if (kind == FreehandKind.PEN) penColor = index else markerColor = index
+    }
+
+    fun setWidth(kind: FreehandKind, index: Int) {
+        if (kind == FreehandKind.PEN) penWidth = index else markerWidth = index
+    }
+
     companion object {
         val Saver = listSaver<AnnotatePaneState, Any>(
-            save = { listOf(it.tool.name, it.highlightColor, it.lineColor) },
-            restore = { AnnotatePaneState(AnnotateTool.valueOf(it[0] as String), it[1] as Int, it[2] as Int) },
+            save = { listOf(it.tool.name, it.highlightColor, it.lineColor, it.penColor, it.penWidth, it.markerColor, it.markerWidth) },
+            restore = {
+                AnnotatePaneState(AnnotateTool.valueOf(it[0] as String), it[1] as Int, it[2] as Int, it[3] as Int, it[4] as Int, it[5] as Int, it[6] as Int)
+            },
         )
     }
 }
 
 @Composable
-fun rememberAnnotatePaneState(): AnnotatePaneState = rememberSaveable(saver = AnnotatePaneState.Saver) { AnnotatePaneState() }
+fun rememberAnnotatePaneState(initialTool: AnnotateTool = AnnotateTool.HIGHLIGHT): AnnotatePaneState =
+    rememberSaveable(saver = AnnotatePaneState.Saver) { AnnotatePaneState(initialTool) }
 
 /** What the pane asks of the edit screen. */
 interface AnnotateActions : FillPageContent {
@@ -183,6 +218,8 @@ private fun AnnotatePages(
                 existing = documents.existingOn(page),
                 edits = edits,
                 tool = state.tool,
+                brushColor = state.tool.freehand?.let(state::colorFor) ?: AnnotationColor.BLACK,
+                brushWidth = state.tool.freehand?.let(state::widthFor) ?: 0f,
                 // One ink layer at a time (the library's advice): only on the page that is shown.
                 isCurrent = pagerState.settledPage == index,
                 selection = selection,
@@ -266,7 +303,14 @@ fun AnnotateToolBar(state: AnnotatePaneState, selection: TextSelectionState, onA
                 )
             }
         }
-        if (kind != null) ColorRow(kind, state)
+        if (kind != null) {
+            ColorRow(AnnotationPalette.of(kind), state.colorFor(kind)) { state.setColor(kind, it) }
+        }
+        val brush = state.tool.freehand
+        if (brush != null) {
+            ColorRow(FreehandOptions.colors(brush), state.colorFor(brush)) { state.setColor(brush, it) }
+            WidthRow(brush, state)
+        }
         BottomAppBar {
             // Spread out when the tools fit, scrolling when they don't (six tools on a narrow phone).
             BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -288,9 +332,7 @@ fun AnnotateToolBar(state: AnnotatePaneState, selection: TextSelectionState, onA
 }
 
 @Composable
-private fun ColorRow(kind: MarkupKind, state: AnnotatePaneState) {
-    val palette = AnnotationPalette.of(kind)
-    val chosen = state.colorFor(kind)
+private fun ColorRow(palette: List<AnnotationColor>, chosen: AnnotationColor, onPick: (Int) -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
         Row(
             Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -309,7 +351,7 @@ private fun ColorRow(kind: MarkupKind, state: AnnotatePaneState) {
                             BorderStroke(if (selected) SELECTED_RIM else THIN_RIM, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
                             CircleShape,
                         )
-                        .clickable { state.setColor(kind, index) }
+                        .clickable { onPick(index) }
                         .semantics {
                             this.selected = selected
                             contentDescription = name
@@ -320,7 +362,45 @@ private fun ColorRow(kind: MarkupKind, state: AnnotatePaneState) {
     }
 }
 
+/** The brush sizes of [kind]: a dot as wide as the stroke would be (capped to fit), one to pick. */
+@Composable
+private fun WidthRow(kind: FreehandKind, state: AnnotatePaneState) {
+    val widths = FreehandOptions.widths(kind)
+    val chosen = state.widthFor(kind)
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            widths.forEachIndexed { index, width ->
+                val selected = width == chosen
+                val name = stringResource(R.string.annotate_width, width.toInt())
+                Box(
+                    Modifier
+                        .size(WIDTH_CELL)
+                        .clip(CircleShape)
+                        .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                        .clickable { state.setWidth(kind, index) }
+                        .semantics {
+                            this.selected = selected
+                            contentDescription = name
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val dot = (width * WIDTH_DOT_PER_POINT).coerceIn(MIN_DOT, MAX_DOT)
+                    Box(Modifier.size(dot.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface))
+                }
+            }
+        }
+    }
+}
+
 private val SWATCH_SIZE = 32.dp
+private val WIDTH_CELL = 40.dp
+private const val WIDTH_DOT_PER_POINT = 1.2f
+private const val MIN_DOT = 3f
+private const val MAX_DOT = 30f
 private val SELECTED_RIM = 3.dp
 private val THIN_RIM = 1.dp
 

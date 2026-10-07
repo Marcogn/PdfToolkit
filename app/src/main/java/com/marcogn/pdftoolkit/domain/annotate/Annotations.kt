@@ -152,12 +152,34 @@ sealed interface AnnotationShape {
 
 /**
  * The freehand tools (spec §7.4): a pen, and a highlighter that multiplies with the page. [width]
- * is the brush size in points of the page (it doesn't change with zoom), [color] the colour
- * strokes get until phase 8b lets the user choose.
+ * is the default brush size in points of the page (it doesn't change with zoom), [color] the
+ * default colour; the user picks others from [FreehandOptions].
  */
 enum class FreehandKind(val width: Float, val color: AnnotationColor) {
     PEN(2f, AnnotationColor.BLACK),
     HIGHLIGHTER(12f, AnnotationColor.YELLOW),
+}
+
+/**
+ * What the user can choose for each [FreehandKind] (phase 8b): colours and brush sizes in points of
+ * the page. The default of the kind is one of them.
+ */
+object FreehandOptions {
+    fun colors(kind: FreehandKind): List<AnnotationColor> = when (kind) {
+        FreehandKind.PEN -> listOf(
+            AnnotationColor.BLACK, AnnotationColor.RED, AnnotationColor.DARK_BLUE, AnnotationColor.DARK_GREEN, AnnotationColor.ORANGE,
+        )
+        // Light colours, like text highlights: the stroke multiplies with the page.
+        FreehandKind.HIGHLIGHTER -> AnnotationPalette.highlight
+    }
+
+    fun widths(kind: FreehandKind): List<Float> = when (kind) {
+        FreehandKind.PEN -> listOf(1f, 2f, 4f, 6f)
+        FreehandKind.HIGHLIGHTER -> listOf(8f, 12f, 18f, 26f)
+    }
+
+    fun defaultColorIndex(kind: FreehandKind): Int = colors(kind).indexOf(kind.color)
+    fun defaultWidthIndex(kind: FreehandKind): Int = widths(kind).indexOf(kind.width)
 }
 
 /**

@@ -20,7 +20,7 @@ enum class PdfTool(
     SCAN(comingSoon = true, requiresDocument = false),
     CLOUD_UPLOAD(comingSoon = true),
     HIGHLIGHT,
-    DRAW(comingSoon = true),
+    DRAW,
     EXPORT_ODF(comingSoon = true),
     ;
 

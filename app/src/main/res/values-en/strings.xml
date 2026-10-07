@@ -31,6 +31,7 @@
     <string name="tool_scan">Scan</string>
     <string name="tool_cloud_upload">Upload to cloud</string>
     <string name="tool_highlight">Highlight</string>
+    <string name="tool_annotate">Annotate</string>
     <string name="tool_draw">Draw</string>
     <string name="tool_export_odf">Export to ODF</string>
 
@@ -326,6 +327,7 @@
     <string name="annotate_tool_underline">Underline</string>
     <string name="annotate_tool_strikeout">Strike out</string>
     <string name="annotate_tool_eraser">Eraser</string>
+    <string name="annotate_width">Width %1$d pt</string>
     <string name="annotate_tool_pen">Pen</string>
     <string name="annotate_tool_marker">Marker</string>
     <string name="annotate_apply_highlight">Highlight</string>

@@ -92,6 +92,7 @@ import com.marcogn.pdftoolkit.ui.fill.FillActions
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationRef
 import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
 import com.marcogn.pdftoolkit.ui.annotate.AnnotateActions
+import com.marcogn.pdftoolkit.ui.annotate.AnnotateTool
 import com.marcogn.pdftoolkit.ui.annotate.AnnotatePane
 import com.marcogn.pdftoolkit.ui.annotate.AnnotateToolBar
 import com.marcogn.pdftoolkit.ui.annotate.applySelection
@@ -118,7 +119,7 @@ private fun PdfTool?.initialPane(): EditPane = when (this) {
     PdfTool.REMOVE_PAGES -> EditPane.REMOVE
     PdfTool.REORDER_PAGES -> EditPane.REORDER
     PdfTool.FILL_AND_SIGN -> EditPane.FILL
-    PdfTool.HIGHLIGHT -> EditPane.ANNOTATE
+    PdfTool.HIGHLIGHT, PdfTool.DRAW -> EditPane.ANNOTATE
     else -> EditPane.HUB
 }
 
@@ -163,7 +164,7 @@ fun EditScreen(
     val flattenInkChoice by viewModel.flattenInkChoice.collectAsStateWithLifecycle()
     val fillState = rememberFillPaneState()
     val annotateLoad by viewModel.annotateLoad.collectAsStateWithLifecycle()
-    val annotateState = rememberAnnotatePaneState()
+    val annotateState = rememberAnnotatePaneState(if (startTool == PdfTool.DRAW) AnnotateTool.PEN else AnnotateTool.HIGHLIGHT)
     val annotateSelection = rememberTextSelectionState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -360,7 +361,14 @@ fun EditScreen(
             PdfTool.ADD_PAGES -> showAddSource = true
             PdfTool.INSERT_IMAGES -> showImageSource = true
             PdfTool.FILL_AND_SIGN -> pane = EditPane.FILL
-            PdfTool.HIGHLIGHT -> pane = EditPane.ANNOTATE
+            PdfTool.HIGHLIGHT -> {
+                annotateState.tool = AnnotateTool.HIGHLIGHT
+                pane = EditPane.ANNOTATE
+            }
+            PdfTool.DRAW -> {
+                annotateState.tool = AnnotateTool.PEN
+                pane = EditPane.ANNOTATE
+            }
             else -> showMessage(resources.getString(R.string.edit_tool_unavailable, resources.getString(tool.labelRes())))
         }
     }
@@ -516,7 +524,7 @@ fun EditScreen(
                                     when (pane) {
                                         EditPane.REMOVE -> R.string.tool_remove_pages
                                         EditPane.FILL -> R.string.tool_fill_and_sign
-                                        EditPane.ANNOTATE -> R.string.tool_highlight
+                                        EditPane.ANNOTATE -> R.string.tool_annotate
                                         else -> R.string.tool_reorder_pages
                                     },
                                 ),
