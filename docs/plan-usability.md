@@ -229,7 +229,7 @@ check:
 | Sub-phase | Model | Items | Check on the device |
 |---|---|---|---|
 | U-a Flows | Sonnet | U1, U2, U3, U5, U13 | Edit from page 37 opens on 37 in Fill/Annotate; page chip jumps; Home tool → change → back lands on hub; exit-dialog Save leaves; viewer selection → Copy or Highlight |
-| U-b Screens | Sonnet | U4 (incl. U9), U6, U7, U8, U10, U11, U12, U15, U16; U18–U21 if approved | Organize pages (select, rotate, delete, drag handle, add from PDF / blank / images); overwrite in one dialog; drawing with the compact bar; signature with 0/1/many saved and the reminder; one-hand resize |
+| U-b Screens | Sonnet | U4 (incl. U9), U6, U7, U8, U10, U11, U12, U15, U16, U18, U19, U20, U21 | Organize pages (select, rotate, delete, drag handle, add from PDF / blank / images); overwrite in one dialog; drawing with the compact bar; signature with 0/1/many saved and the reminder; one-hand resize; Annotate/Fill in landscape (side rail); colour swatches easy to hit; tap for full-screen reading; Undo/Redo at the bottom; floating Copy/Highlight bar |
 
 No Opus needed: nothing here touches PDF geometry or the writer, except U11's handle, which
 reuses `OverlayGeometry`. U5 depends on U1 (page in the route).
@@ -242,6 +242,4 @@ reuses `OverlayGeometry`. U5 depends on U1 (page in the route).
 4. U8: yes, with a reminder on the "My signatures" screen.
 5. Before phase 9.
 
-## Open questions (2026-10-07, screen space)
-6. U18–U21 (landscape rail, 48 dp touch targets, tap for full screen, Undo/Redo at the bottom and a
-   floating Copy/Highlight bar): add them to U-b?
+6. (Screen space, asked later the same day) U18–U21: yes, add them to U-b.

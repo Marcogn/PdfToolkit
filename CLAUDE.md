@@ -65,7 +65,7 @@ Haiku is not recommended for code in this project.
 | 8a Freehand core | **Opus** | `docs/plan-v2.md` 8a: `androidx.ink`, draw vs pan arbitration, Ink annotation with outline appearance, "make final" | Unit tests on stroke geometry; handoff written | Stroke lands where drawn at any zoom and on turned pages, also in another reader |
 | 8b Freehand complete | Sonnet | `docs/plan-v2.md` 8b: pen, highlighter, eraser, colours, undo/redo | Plan 8b | Finger and stylus; erase; undo/redo; rotation while drawing |
 | U-a Usability flows | Sonnet | `docs/plan-usability.md` U-a: U1, U2, U3, U5, U13 (edit panes start on the viewer's page and can jump; back to hub; leave after exit-dialog save; Highlight from the viewer selection; page indicator → go to page) | Plan U-a | Edit from page 37 opens on 37; page jump; Home tool → back → hub; exit-dialog save leaves; viewer selection → Copy or Highlight |
-| U-b Usability screens | Sonnet | `docs/plan-usability.md` U-b: U4 (Organize pages, incl. U9), U6, U7, U8, U10, U11, U12, U15, U16 | Plan U-b | Organize pages (select, rotate, delete, drag, add); overwrite in one dialog; compact draw bar; signature 0/1/many + reminder; one-hand resize |
+| U-b Usability screens | Sonnet | `docs/plan-usability.md` U-b: U4 (Organize pages, incl. U9), U6, U7, U8, U10, U11, U12, U15, U16, U18–U21 (landscape side rail, 48 dp touch targets, tap for full-screen viewer, Undo/Redo at the bottom, floating selection bar) | Plan U-b | Organize pages (select, rotate, delete, drag, add); overwrite in one dialog; compact draw bar; signature 0/1/many + reminder; one-hand resize; Annotate/Fill in landscape; full-screen tap; Undo/Redo at the bottom |
 | 9 Scan | Sonnet | `docs/plan-v2.md` 9: ML Kit Document Scanner, availability, open/add pages | Plan 9; packaged manifest still without `INTERNET` | Scan, save, add to open PDF; airplane mode |
 | 10a OCR core | **Opus** | `docs/plan-v2.md` 10a: Text Recognition v2, invisible text layer in user space | Unit tests on line geometry and search after OCR; handoff written | OCR'd scan searchable in app and other reader |
 | 10b OCR complete | Sonnet | `docs/plan-v2.md` 10b: UI, progress, cancellation, background | Plan 10b | 20-page scan; cancel halfway |
@@ -427,7 +427,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   selection offers Copy and Highlight side by side (Highlight goes through the edit screen, one save
   path; replaces the 2026-10-05 "selection + Copy only"); the save dialog with an "Overwrite" button
   is §6.7's explicit confirmation (no second dialog); with one saved signature "Signature" arms it
-  directly, with a reminder on "My signatures"; phase U-a/U-b before 9.
+  directly, with a reminder on "My signatures"; phase U-a/U-b before 9; later the same day U18–U21 (screen space and ergonomics) added to U-b.
 - 2026-10-07 · Stylus (author's answer to the 8a open question): it draws only with Pen/Marker armed;
   with the markup tools a stylus selects text like a finger, so the two uses don't get mixed up.
 - 2026-10-05 · 8a: freehand on `androidx.ink` 1.0.0 (stable), outline-based appearance, stroke space =
