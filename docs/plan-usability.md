@@ -99,8 +99,8 @@ button reads "Overwrite" and the irreversible-warning line appears under the opt
 colour). One dialog instead of two; the choice stays remembered.
 
 **U7. The Annotate pane's chrome eats the page.** With Pen armed the bottom area stacks a hint
-banner, a colour row, a width row and the tool bar, plus the top bar: roughly 250 dp of a
-~700 dp phone screen, while drawing is where room matters most. Proposal:
+banner, a colour row, a width row and the tool bar, plus the top bar: about 280 dp (see "Screen
+space" below), while drawing is where room matters most. Proposal:
 - the hint banner shows only the first times a tool is armed (or as a one-shot snackbar), not
   permanently; the selection "Cancel / Highlight" row keeps its place;
 - colours and widths in one row (swatches + width dots, or a single "current style" button that
@@ -156,6 +156,53 @@ the hub shows it only once something changed, the panes show it disabled. A text
 **U17. "Coming up" tools on Home.** Spec §4.1 wants them visible; as features land the section
 shrinks by itself (Highlight and Draw already left it). No change proposed.
 
+### Screen space and ergonomics (added 2026-10-07, author's question)
+Heights from the code, with Material 3 defaults where the code doesn't set them (top app bar
+64 dp, bottom app bar 80 dp; hint rows ≈ 40 dp: 8 dp padding around one line of bodyMedium).
+Estimates, not measurements: the device check is the real number. Reference phone: a 411 × 914 dp
+screen (e.g. 1080 × 2400 px at 420 dpi), about 840 dp left after status and navigation bars in
+portrait and about 340 dp in landscape.
+
+| Screen (state) | App chrome | Portrait: page area left | Landscape |
+|---|---|---|---|
+| Viewer | top bar 64 (FAB and scrubber float over the page) | ~776 dp (92%) | ~276 dp |
+| Edit hub | top bar 64 + tool bar ~100 (76 dp buttons, two-line labels) | ~676 dp | ~176 dp |
+| Fill and sign, tool armed | top bar 64 + hint 40 + bottom bar 80 | ~656 dp (78%) | ~156 dp |
+| Annotate, markup tool | top bar 64 + hint 40 + colours 48 + bottom bar 80 = 232 | ~608 dp (72%) | ~108 dp |
+| Annotate, Pen/Marker | + widths 48 = 280 | ~560 dp (67%) | **~60 dp** |
+
+Portrait is acceptable everywhere except Annotate. In landscape, Annotate and Fill are close to
+unusable. Proposals:
+
+**U18. Annotate and Fill in landscape.** Move the tool bar and the style rows to a vertical rail at
+the side (NavigationRail-like) when the window is wider than tall, so the page keeps its full
+height. Together with U7 (one style row, hint not permanent) this brings Annotate in portrait to
+about 64 + 48 + 80 = 192 dp (~77%).
+
+**U19. Touch targets under 48 dp.** Android recommends at least 48 × 48 dp for every touch target
+and notes that custom clickable elements must set it themselves
+([Android Developers, accessibility](https://developer.android.com/guide/topics/ui/accessibility/apps)).
+Custom ones below it: the colour swatches of Annotate (`SWATCH_SIZE` 32 dp, plain `clickable`),
+the width cells (`WIDTH_CELL` 40 dp) and the scrubber thumb (28 dp wide; the narrow edge strip is
+a deliberate trade-off against the system back gesture, decision of 2026-10-01, so it stays).
+Fix: keep the drawn size, make the touch area 48 dp (`sizeIn(minWidth = 48.dp, minHeight = 48.dp)`
+or `minimumInteractiveComponentSize()`). Material components (`IconButton`, `TextButton`) already
+enforce it.
+
+**U20. Viewer: no full-screen reading.** A single tap on the page does nothing
+(`detectTapGestures` only has `onDoubleTap`). Proposal: a single tap hides and shows the top bar,
+the FAB and the system bars (immersive), giving the page the full screen (+64 dp, plus the status
+bar). Common in readers; the double tap stays zoom, so the single tap fires after the double-tap
+timeout (a short delay the user doesn't notice on a reading tap).
+
+**U21. Reach: the main actions sit at the top.** Save, Undo and Redo are in the top bar, the
+hardest area to reach with the thumb on a tall phone, while the tools are at the bottom. The
+viewer's Copy (selection) is also in the top bar, far from the selected text. Proposals, lighter
+than moving everything: in the edit panes put Undo/Redo in the bottom tool bar's end (where the
+thumb already is) and keep Save at the top (one tap per session, deliberate); in the viewer show
+Copy / Highlight (U5) in a small floating bar next to the selection, as Android's own text
+selection does, instead of replacing the top bar.
+
 ### Considered and not proposed
 - **Highlight by dragging over text** (no long press, no Apply), as some readers do: it would
   conflict with one-finger pan, and the "arm, select, apply" decision of 7b was made for good
@@ -182,7 +229,7 @@ check:
 | Sub-phase | Model | Items | Check on the device |
 |---|---|---|---|
 | U-a Flows | Sonnet | U1, U2, U3, U5, U13 | Edit from page 37 opens on 37 in Fill/Annotate; page chip jumps; Home tool → change → back lands on hub; exit-dialog Save leaves; viewer selection → Copy or Highlight |
-| U-b Screens | Sonnet | U4 (incl. U9), U6, U7, U8, U10, U11, U12, U15, U16 | Organize pages (select, rotate, delete, drag handle, add from PDF / blank / images); overwrite in one dialog; drawing with the compact bar; signature with 0/1/many saved and the reminder; one-hand resize |
+| U-b Screens | Sonnet | U4 (incl. U9), U6, U7, U8, U10, U11, U12, U15, U16; U18–U21 if approved | Organize pages (select, rotate, delete, drag handle, add from PDF / blank / images); overwrite in one dialog; drawing with the compact bar; signature with 0/1/many saved and the reminder; one-hand resize |
 
 No Opus needed: nothing here touches PDF geometry or the writer, except U11's handle, which
 reuses `OverlayGeometry`. U5 depends on U1 (page in the route).
@@ -194,3 +241,7 @@ reuses `OverlayGeometry`. U5 depends on U1 (page in the route).
 3. U6: yes, the save dialog is the explicit confirmation.
 4. U8: yes, with a reminder on the "My signatures" screen.
 5. Before phase 9.
+
+## Open questions (2026-10-07, screen space)
+6. U18–U21 (landscape rail, 48 dp touch targets, tap for full screen, Undo/Redo at the bottom and a
+   floating Copy/Highlight bar): add them to U-b?
