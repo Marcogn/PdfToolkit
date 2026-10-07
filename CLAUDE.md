@@ -250,10 +250,25 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   `assembleDebug` green; device checks passed (author).
 - **8a Freehand core done (2026-10-05)**, PR #15; lint (0 errors), 373 unit tests, `assembleDebug` and
   `assembleRelease` (R8) green; device checks passed on the signed release build (author, 2026-10-07).
-  **Next: 8b Freehand complete (Sonnet).**
+- **8b Freehand complete done (2026-10-07)**, PR #18; lint (0 errors), 375 unit tests and `assembleDebug`
+  green; device checks passed (author, 2026-10-07). **Next: U-a (Sonnet), see the usability review below.**
 - **Usability review (2026-10-07)**, author's request while testing 8b: `docs/plan-usability.md`
   (findings U1–U17). Author's answers recorded there; sub-phases U-a and U-b (Sonnet) go after 8b
-  and before 9. Order now: 8b → U-a → U-b → 9 → 10a → 10b → 11 → 12.
+  (done) and before 9. Order now: 8b → U-a → U-b → 9 → 10a → 10b → 11 → 12.
+
+### Notes from 8b (freehand complete)
+- `FreehandOptions` (domain): colours and widths per `FreehandKind`; `AnnotatePaneState` holds the chosen
+  indices (pen/marker colour and width, saved across rotation) and `colorFor/widthFor(FreehandKind)`.
+  `FreehandKind.width/color` are only the defaults. Brush colour and width go `AnnotatePane` →
+  `AnnotatePage(brushColor, brushWidth)` → `FreehandLayer` → `FreehandInk.brush`; the annotation style
+  takes the chosen colour. Changing colour or width applies to the next stroke only.
+- `PdfTool.DRAW` is available (Home + hub): same `EditPane.ANNOTATE` as Highlight, with the pen armed
+  (`rememberAnnotatePaneState(initialTool)`). The pane title is "Annotate" (`tool_annotate`).
+- Already there from 8a and unchanged: eraser per stroke, session undo/redo, "make final" checkbox,
+  stylus rule. The choices aren't persisted across app restarts (not asked for).
+- Device checks 8b (passed): finger and stylus; each colour/size of pen and marker, in the app and another
+  reader; erase a stroke; undo/redo; rotate the phone while drawing and with a stroke in progress;
+  "Draw" from Home and from the hub opens with the pen; Highlight from Home still opens on the highlighter.
 
 ### Handoff 8a → 8b (freehand)
 - Tools: `AnnotateTool.PEN` / `MARKER` (`freehand: FreehandKind`), in the Annotate tool bar (now scrollable).
@@ -422,6 +437,10 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-07 · 8b: pen colours are black, red, blue, green, orange (not the light highlight palette:
+  a pen doesn't multiply); marker colours are the highlight palette. Sizes 1/2/4/6 pt (pen) and
+  8/12/18/26 pt (marker), the 8a defaults being among them. "Draw" shares the Annotate pane rather than
+  getting its own, since tools, undo and save are the same; it only arms the pen.
 - 2026-10-07 · Usability plan (author's answers, `docs/plan-usability.md`): one "Organize pages"
   section replaces Remove, Reorder, Add pages and Insert images (spec §4.1 deviation); the viewer
   selection offers Copy and Highlight side by side (Highlight goes through the edit screen, one save

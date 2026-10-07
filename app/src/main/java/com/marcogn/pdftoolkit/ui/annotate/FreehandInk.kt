@@ -36,13 +36,13 @@ internal object FreehandInk {
         FreehandKind.HIGHLIGHTER -> StockBrushes.highlighter(SelfOverlap.DISCARD, StockBrushes.HighlighterVersion.V1)
     }
 
-    /** The brush for a new stroke of [kind] in [color], when one point of the page is [pxPerPoint] screen pixels. */
-    fun brush(kind: FreehandKind, color: AnnotationColor, pxPerPoint: Float): Brush {
+    /** The brush for a new stroke of [kind] in [color], [width] points wide, when one point of the page is [pxPerPoint] screen pixels. */
+    fun brush(kind: FreehandKind, color: AnnotationColor, width: Float, pxPerPoint: Float): Brush {
         val alpha = if (kind == FreehandKind.HIGHLIGHTER) HIGHLIGHTER_WET_ALPHA else 1f
         return Brush.createWithColorIntArgb(
             family = family(kind),
             colorIntArgb = argb(color, alpha),
-            size = kind.width,
+            size = width,
             epsilon = EPSILON_PX / pxPerPoint,
         )
     }

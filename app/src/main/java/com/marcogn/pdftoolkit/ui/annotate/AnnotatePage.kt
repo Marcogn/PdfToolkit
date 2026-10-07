@@ -29,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import com.marcogn.pdftoolkit.R
+import com.marcogn.pdftoolkit.domain.annotate.AnnotationColor
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationEdits
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationStyle
 import com.marcogn.pdftoolkit.domain.annotate.ExistingAnnotation
@@ -70,6 +71,8 @@ internal fun AnnotatePage(
     existing: List<ExistingAnnotation>,
     edits: AnnotationEdits,
     tool: AnnotateTool,
+    brushColor: AnnotationColor,
+    brushWidth: Float,
     isCurrent: Boolean,
     selection: TextSelectionState,
     actions: AnnotateActions,
@@ -218,11 +221,13 @@ internal fun AnnotatePage(
             FreehandLayer(
                 viewport = viewport,
                 kind = freehand,
+                color = brushColor,
+                width = brushWidth,
                 pointerToStroke = pointerToStroke,
                 onStroke = { stroke ->
                     val ink = FreehandGeometry.toInk(stroke, space.displayToUser, highlighter = freehand == FreehandKind.HIGHLIGHTER)
                     if (ink != null && FreehandGeometry.touchesPage(ink, space)) {
-                        val annotation = NewAnnotation(currentActions.newAnnotationId(), item.id, ink, AnnotationStyle(freehand.color))
+                        val annotation = NewAnnotation(currentActions.newAnnotationId(), item.id, ink, AnnotationStyle(brushColor))
                         pending += annotation
                         currentActions.addAnnotation(annotation)
                     }

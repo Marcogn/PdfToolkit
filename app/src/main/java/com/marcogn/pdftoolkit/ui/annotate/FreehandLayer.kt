@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.ink.authoring.compose.InProgressStrokes
+import com.marcogn.pdftoolkit.domain.annotate.AnnotationColor
 import com.marcogn.pdftoolkit.domain.annotate.FreehandKind
 import com.marcogn.pdftoolkit.pdf.annotations.FreehandStroke
 import com.marcogn.pdftoolkit.pdf.render.Affine
@@ -32,10 +33,14 @@ private const val FAR = 1e6f
 internal fun FreehandLayer(
     viewport: PdfViewportState,
     kind: FreehandKind,
+    color: AnnotationColor,
+    width: Float,
     pointerToStroke: Matrix,
     onStroke: (FreehandStroke) -> Unit,
 ) {
     val currentKind by rememberUpdatedState(kind)
+    val currentColor by rememberUpdatedState(color)
+    val currentWidth by rememberUpdatedState(width)
     val currentOnStroke by rememberUpdatedState(onStroke)
     // Read in composition on purpose: the mask follows zoom and pan. Only this layer recomposes.
     val page = viewport.mapper?.pageBoundsOnScreen(0)
@@ -44,7 +49,7 @@ internal fun FreehandLayer(
         defaultBrush = null,
         nextBrush = {
             val pxPerPoint = viewport.mapper?.screenPxPerPoint ?: 1f
-            FreehandInk.brush(currentKind, currentKind.color, pxPerPoint)
+            FreehandInk.brush(currentKind, currentColor, currentWidth, pxPerPoint)
         },
         pointerEventToWorldTransform = pointerToStroke,
         maskPath = mask,

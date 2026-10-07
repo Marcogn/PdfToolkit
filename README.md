@@ -23,8 +23,8 @@ announces the page to screen readers, and the release build is minified (R8). Ve
 released. Product phase 2 has started (`docs/plan-v2.md`): the viewer shows the highlights and
 drawings already in a PDF, selects and copies text (7a, 7b), and the "Highlight" tool (7b) highlights,
 underlines and strikes out text and erases annotations, also those made by other apps. Freehand
-drawing has its core (8a): pen and marker in the same pane, saved as ink annotations or made final;
-colours, sizes and the "Draw" tool come in 8b.
+drawing is done (8a, 8b): the "Draw" tool opens the annotate pane with the pen; pen and marker have
+their own colours and sizes, and drawings are saved as ink annotations or made final.
 
 ## Features
 
@@ -39,7 +39,7 @@ Planned for the first version:
   archive of signatures saved on the phone
 - selecting and copying text; highlighting, underlining and striking out text, and erasing
   annotations (done, product phase 2 / 7b)
-- freehand drawing with a pen and a marker, finger or stylus (core done, 8a; colours and sizes in 8b)
+- freehand drawing with a pen and a marker, finger or stylus (done, 8a and 8b)
 
 Planned for later: document scanning with OCR, cloud upload (WebDAV), export to OpenDocument. They already show up on Home as "Soon". Order and plan in
 [`docs/plan-v2.md`](docs/plan-v2.md): highlighting and drawing first, then scanning, then OCR,
@@ -147,7 +147,7 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   including notes and stamps the app can't draw. Annotations aren't editable after they are added
   (no colour change): erase and redo. Highlighting is not available on password-protected PDFs (they
   can't be edited yet).
-- Drawing (first version): one colour and size per tool; pages don't turn while the pen or the marker
+- Drawing: colour and size are chosen per tool and kept while the pane is open (not across app restarts); pages don't turn while the pen or the marker
   is chosen (pick another tool to move to another page); double tap doesn't zoom
   while drawing, two fingers do. A drawing reopened later in the app is drawn with an even width:
   the varying outline is in the file's appearance, which other readers show, while the app draws ink
