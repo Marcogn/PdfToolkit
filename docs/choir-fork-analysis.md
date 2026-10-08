@@ -66,7 +66,8 @@ base plan: 9 Scan is not needed (the scores arrive as PDFs), 10–12 are dropped
   doesn't apply, and the files stay where the singer keeps them: visible to other apps, backups and the
   PC. Autosave and crop write **into those files**.
 - Adding a piece from outside (picker, "Open with", share) offers **"Move into the library"** (copy into
-  the folder, then delete the source when the provider allows it, so the space isn't doubled) or **"Copy
+  the folder, check the copy opens and has the same size, then delete the source when the provider
+  allows it, so the space isn't doubled; if the source can't be deleted, say so and keep both) or **"Copy
   into the library"** (keep both). Pieces can also be opened without adding them (§3.4).
 - The listing is rescanned when the library opens (files renamed or added by other apps show up); per-file
   data (last page, original crop box) is keyed by the document id inside the folder, with name and size as
@@ -187,6 +188,7 @@ pedals. Each is independent of the six steps above and can be added without rede
 
 Answered on 2026-10-08: symbols can't be listed in advance (→ built-in set + "My symbols", §3.5);
 autosave also for files opened from outside, with a dialog (§3.4); text selection stays; no doubled
-space (→ the library is a folder, §3.1).
+space (→ the library is a folder, §3.1); "Move into the library" may delete the source after the copy
+is verified (§3.1).
 
-1. "Move into the library" deletes the source after copying: acceptable, or only "copy"?
+No open questions left for planning. The first task of F3 is still the device check of `/CropBox`.
