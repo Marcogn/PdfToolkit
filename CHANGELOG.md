@@ -6,6 +6,13 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Highlight and draw in the viewer.** The pen button in the viewer's top bar brings out the annotate tools
+  (highlight, underline, strikeout, pen, marker, eraser) right on the pages being read, in continuous and
+  single-page mode and at any zoom: draw on any page on screen, erase with a tap, select text and tap
+  Highlight (or the armed markup tool) by the selection. Undo and Redo are in the tool bar, "Save" appears
+  in the top bar (copy or overwrite, as in the edit screen), and leaving with changes asks to save. The
+  Highlight button by the viewer selection now highlights in place instead of opening the edit screen.
+  A fuller tool bar comes next.
 - **One "Organize pages" tool.** Remove, Reorder, Add pages and Insert images are now a single tool on Home
   and in the edit hub. Tap pages to select them (rotate and delete are in the bar that appears, long press
   then tap another for a range); every page has a handle to drag it at once; "Add" offers another PDF,

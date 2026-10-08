@@ -322,6 +322,7 @@
     <!-- Text selection in the viewer and the Annotate pane (7b) -->
     <string name="viewer_selection_title">Testo selezionato</string>
     <string name="viewer_selection_copy">Copia</string>
+    <string name="viewer_edit_loading">Un momento: sto leggendo le annotazioni del documento</string>
     <string name="viewer_selection_highlight">Evidenzia</string>
     <string name="viewer_text_copied">Testo copiato</string>
     <string name="annotate_tool_highlight">Evidenzia</string>

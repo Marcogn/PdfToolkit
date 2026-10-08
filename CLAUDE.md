@@ -49,7 +49,7 @@ sub-phase. When the author says "go on" / "next phase" (or similar):
 The author asked for one session and one branch per sub-phase, named after it, so they don't have
 to repeat the names. Session title: `<sub-phase> <Name>` (e.g. `U-b Usability screens`); branch: the
 same in kebab-case (e.g. `u-b-usability-screens`). Set both at the start of a sub-phase.
-Current: session **U-b Usability screens**, branch `u-b-usability-screens`. Next: **V-a Viewer editing core** (session `V-a Viewer editing core`, branch `v-a-viewer-editing-core`).
+Current: session **V-a Viewer editing core**, branch `v-a-viewer-editing-core`. Next: **V-b Viewer tools UI** (session `V-b Viewer tools UI`, branch `v-b-viewer-tools-ui`).
 
 ## Sub-phases: model, scope, device checks
 Sonnet by default; Opus only for the cores where a wrong design is expensive to fix later.
@@ -116,11 +116,14 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   `pdf/forms` (phase 4: `FormReader`), `pdf/text` (phase 5: `PdfTextExtractor`, `PositionedTextStripper`,
   `TextNormalizer`, `PageTextIndex`, `DocumentSearch`; spec §12; 7a: `TextSelection`, `PageTextReader`),
   `pdf/annotations` (7a: `AnnotationReader`, `AnnotationGeometry`, `AnnotationFingerprint`; the writer
-  is `pdf/edit/AnnotationWriter`; 7b: `AnnotationEraser`, `MarkupFactory`; 8a: `FreehandGeometry`). `ui/annotate/` draws annotations
+  is `pdf/edit/AnnotationWriter`; 7b: `AnnotationEraser`, `MarkupFactory`; 8a: `FreehandGeometry`; V-a:
+  `DocumentStrokes`). `ui/annotate/` draws annotations
   (`AnnotationLayer`, `drawAnnotations`) and holds text selection (`TextSelectionState`, handles, gestures)
   and the "Annotate" pane of `EditScreen` (`AnnotatePane`, `AnnotatePage`, `AnnotateToolBar`); freehand
   drawing on `androidx.ink` is `FreehandLayer`, `FreehandGestures`, `FreehandInk` (8a). `ui/search/` is the search bar, notices and
-  highlights used by the viewer. `ui/fill/` is the
+  highlights used by the viewer. Editing in the viewer (V-a, ADR 0005): `ui/viewer/ViewerEditSession`
+  (page-fixed session), `ViewerEditing.kt` (`ViewerPageTools`, back guard, `ViewerSaveUi`), `PdfViewport`'s
+  `drawing`/`onTap(PageTap)`; the shared save is `ui/edit/SaveRunner`. `ui/fill/` is the
   "Fill and sign" pane of `EditScreen`; `ui/signatures/` is "My signatures" plus the creation flow
   (draw, import) and the picker sheet that `EditScreen` reuses.
 - `di/` Hilt modules, when needed.
@@ -171,6 +174,13 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   Ink polylines are serialized with `CompactPolylineSerializer` (saved state limit).
 - `PageBackdrop` (`ui/fill`) is the page bitmap/image under what a pane draws; the Fill and Annotate
   panes both use it, so the resolution logic lives once.
+- Viewer editing (V-a, ADR 0005): `ViewerEditSession` never changes the page list (ids `p<index>`), so the
+  viewer keeps rendering the saved file and draws pending edits on top (`AnnotationLayer.of(document, edits)`).
+  Tools only with `EditAvailability.READY` (annotations read, not password-protected). Freehand strokes in the
+  viewport are in **document points** (`DocumentStrokes`): the page is the one under the stroke's first point,
+  read from the finished stroke; then page display points → `FreehandGeometry` as in 8a. `PdfViewport`'s
+  detectors sit on its `Box` (the ink layer is a child). An overwrite from the viewer reopens it
+  (`popUpTo<Home>`); viewer edits are `SavedStateHandle` keys `viewerFill`/`viewerAnnotations`.
 - Search highlights are overlay only, never written into the PDF. Search is in the viewer only,
   not in the edit screens (spec §5.1).
 - No `INTERNET` permission in product phase 1: the manifest removes it with `tools:node="remove"`
@@ -211,7 +221,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   `docs/plan.md`. Product phase 2 plan: `docs/plan-v2.md`. Usability review and plan:
   `docs/plan-usability.md`. Editing in the viewer: `docs/plan-viewer-editing.md`.
 - ADRs: `docs/adr/0001-viewer.md`, `docs/adr/0002-pdfbox-android.md`,
-  `docs/adr/0003-background-save-and-edit-session.md`, `docs/adr/0004-annotations.md`.
+  `docs/adr/0003-background-save-and-edit-session.md`, `docs/adr/0004-annotations.md`,
+  `docs/adr/0005-editing-in-the-viewer.md`.
 
 ## Current status
 <!-- Update at the end of every session. -->
@@ -270,7 +281,37 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   `assembleDebug` green; device checks passed (author, 2026-10-08), PR #21. **Next: V-a (Opus), `docs/plan-viewer-editing.md`.**
 - **Viewer editing planned (2026-10-08)**, author's request while testing U-b (option "C"): page tools in the
   viewer, document tools in the edit screen. `docs/plan-viewer-editing.md`, sub-phases V-a (Opus), V-b
-  (Sonnet), V-c (Opus). Order: U-b → V-a → V-b → V-c → 9 → 10a → 10b → 11 → 12 (place before 9 to confirm at V-a).
+  (Sonnet), V-c (Opus). Order: U-b → V-a → V-b → V-c → 9 → 10a → 10b → 11 → 12 (the author started V-a
+  right after U-b, which settles "before 9").
+- **V-a Viewer editing core done (2026-10-08)**, branch `v-a-viewer-editing-core`; lint (0 errors), 420 unit tests and
+  `assembleDebug` green. Needs the author's device checks (below). **Next: V-b (Sonnet).**
+
+### Handoff V-a → V-b (viewer editing)
+- Session: `ViewerUiState.Ready.editing` (`ViewerEditSession`: `edits` flow with `session` + `hasUnsavedChanges`,
+  `addAnnotation`/`removeAnnotation`/`removeExistingAnnotation`/`undo`/`redo`/`discard`, `saveRequest`, `markSaved`)
+  and `editAvailability` (`LOADING`, `READY`, `PROTECTED`, `UNREADABLE`). Page ids: `ViewerEditSession.pageId(i)`.
+- Tools: `ViewerPageTools(editing, document)`: `inkAnnotation`, `markupAnnotation`, `erase`, `spaceOf`. V-c adds the
+  overlays and fields there (the session already holds `fill`; `saveRequest(flattenForm = null)` = on with a signature).
+- Viewport: `PdfViewport(drawing = ViewportDrawing(kind, color, width, onStroke), onTap = (PageTap?) -> Unit,
+  selection = null to disable selecting)`. Single page: only the settled page gets `drawing`; pager off while drawing.
+- UI now (minimal, for V-b to replace): a pen `IconToggleButton` in the top bar arms `annotating`, which shows
+  `AnnotateToolBar(showApply = false)` at the bottom (no rail yet; thumbnails hidden); the floating selection bar
+  applies the armed markup kind (Highlight when reading); "Save" text button in the top bar; Edit FAB hidden while
+  annotating or with unsaved changes (V-b: "Pages" with save-first, FAB and hub removed).
+- Save: `ViewerViewModel.save/dismissSaveResult/saveState/overwriteChoice/canOverwrite/flattenInkChoice`, bundled as
+  `ViewerSaveUi` by `ViewerScreen`; `onReopen` (overwrite) and `onOpenCopy` navigate with `popUpTo<Home>`.
+- Back: `viewerBackStep` (search → selection → put tool down → ask to save → leave); the top-bar arrow asks if unsaved.
+- Taps: eraser erases (nothing else), a brush ignores taps (dot), otherwise clear selection / toggle full screen.
+- Left for V-b: the real tool bar/rail (Highlight, Draw, Eraser, Fill, Pages), immersive hiding it, Home tools opening
+  the viewer armed (`Destination.Viewer(uri, tool)`), removing the Annotate pane, the hub and the FAB; the route
+  arguments `Destination.Edit.selectionStart/End` are no longer sent by the viewer and can go with the pane.
+
+### Device checks V-a (author)
+Pen button → highlight/underline/strikeout via the selection bar, pen and marker strokes on several pages in
+continuous mode at different zooms (incl. across the gap: the stroke stays on the page it started on), and in
+single-page mode; eraser on new and on the file's annotations; undo/redo; Save → copy (Open/Share) and overwrite
+(viewer reopens on the new file); open both results in another reader; back with changes → Save/Discard/Cancel;
+rotate the phone mid-edit and with a stroke in progress; password PDF: the pen button says it can't be edited.
 
 ### Notes from U-b (usability screens)
 - `PdfTool.ORGANIZE_PAGES` replaces Add/Insert/Remove/Reorder. `EditPane` is `HUB, ORGANIZE, FILL, ANNOTATE`; the hub
@@ -508,6 +549,13 @@ tap "Page X of N" in the viewer; rotate the phone in each case.
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-08 · V-a (ADR 0005): the viewer's session never changes pages and is drawn over the saved file;
+  freehand strokes in document points, page = the one under the first point (a stroke across the gap stays on
+  its page, clipped); editing waits for the annotations and is off for password PDFs; one `SaveRunner` for both
+  save UIs; after a copy the viewer stays on the original (session marked saved), after an overwrite it reopens.
+  Open points of the plan settled: single-page paging off while a brush is armed; opening search puts the tool
+  down; protected PDFs show the tools as unavailable (a message). Until V-b the Edit FAB hides while the viewer
+  has unsaved changes instead of asking to save first.
 - 2026-10-08 · Editing in the viewer (author's answers, `docs/plan-viewer-editing.md`): highlight, draw, eraser
   **and fill and sign** happen in the viewer; "Pages" (organize, add, merge) stays in `EditScreen`, which loses
   the hub and opens on Organize; with unsaved viewer changes "Pages" asks to **save first** (no shared unsaved

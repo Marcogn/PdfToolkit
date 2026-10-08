@@ -40,11 +40,16 @@ import com.marcogn.pdftoolkit.domain.model.OpenFailure
 fun ViewerScreen(
     onBack: () -> Unit,
     onEdit: (page: Int) -> Unit,
-    onHighlight: (page: Int, selectionStart: Int, selectionEnd: Int) -> Unit,
+    onReopen: (uri: String) -> Unit,
+    onOpenCopy: (uri: String) -> Unit,
     viewModel: ViewerViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val readingMode by viewModel.readingMode.collectAsStateWithLifecycle()
+    val saveState by viewModel.saveState.collectAsStateWithLifecycle()
+    val overwriteChoice by viewModel.overwriteChoice.collectAsStateWithLifecycle()
+    val canOverwrite by viewModel.canOverwrite.collectAsStateWithLifecycle()
+    val flattenInk by viewModel.flattenInkChoice.collectAsStateWithLifecycle()
 
     when (val state = uiState) {
         is ViewerUiState.Ready -> ReadyViewer(
@@ -54,8 +59,20 @@ fun ViewerScreen(
             onReadingModeChange = viewModel::setReadingMode,
             onPageChanged = viewModel::onPageChanged,
             onEdit = onEdit,
-            onHighlight = onHighlight,
+            save = ViewerSaveUi(
+                state = saveState,
+                overwriteChoice = overwriteChoice,
+                canOverwrite = canOverwrite,
+                flattenInk = flattenInk,
+                onOverwriteChange = viewModel::setOverwriteChoice,
+                onFlattenInkChange = viewModel::setFlattenInkChoice,
+                onSave = viewModel::save,
+                suggestedCopyName = viewModel::suggestedCopyName,
+                onDismissResult = viewModel::dismissSaveResult,
+            ),
             onBack = onBack,
+            onReopen = onReopen,
+            onOpenCopy = onOpenCopy,
         )
         ViewerUiState.Loading -> StatusScaffold(onBack) { CircularProgressIndicator() }
         is ViewerUiState.PasswordRequired -> StatusScaffold(onBack) {

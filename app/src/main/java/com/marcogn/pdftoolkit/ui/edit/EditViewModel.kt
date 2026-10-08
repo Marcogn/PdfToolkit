@@ -1,9 +1,7 @@
 package com.marcogn.pdftoolkit.ui.edit
 
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
-import android.os.Process
 import androidx.core.net.toUri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -11,7 +9,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.marcogn.pdftoolkit.data.images.ImageImporter
 import com.marcogn.pdftoolkit.data.save.ExtraSource
-import com.marcogn.pdftoolkit.data.save.SaveProgress
 import com.marcogn.pdftoolkit.data.save.SaveRequest
 import com.marcogn.pdftoolkit.data.save.SaveScheduler
 import com.marcogn.pdftoolkit.data.settings.SavePreferences
@@ -206,8 +203,8 @@ class EditViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<EditUiState>(EditUiState.Loading)
     val uiState: StateFlow<EditUiState> = _uiState.asStateFlow()
 
-    private val _saveState = MutableStateFlow<SaveUiState>(SaveUiState.Idle)
-    val saveState: StateFlow<SaveUiState> = _saveState.asStateFlow()
+    private val saveRunner = SaveRunner(viewModelScope, scheduler)
+    val saveState: StateFlow<SaveUiState> = saveRunner.state
 
     private val _overwriteChoice = MutableStateFlow(false)
     /** Last choice in the save dialog (spec §8). */
@@ -258,11 +255,9 @@ class EditViewModel @Inject constructor(
     private var displayName = ""
     private var sourcePageCount = 0
     private var savedEncoded: String? = null
-    private var saveJob: Job? = null
     private var fillJob: Job? = null
     private var annotateJob: Job? = null
     private val textReaders = mutableMapOf<DocRef, PageTextReader>()
-    private var pendingOverwrite = false
 
     init {
         viewModelScope.launch {
@@ -286,7 +281,7 @@ class EditViewModel @Inject constructor(
                 val extra = opener.open(uri.toUri())
                 registerExtra(DocRef(index + 1), uri, pageSourceOf(extra.displayName ?: uri, extra.renderer), extra.renderer)
             }
-            _canOverwrite.value = !isMerge && hasWriteAccess(sourceUri.toUri())
+            _canOverwrite.value = !isMerge && context.hasWriteAccess(sourceUri.toUri())
             val counts = sources.mapValues { it.value.pageCount }
             val restored = savedStateHandle.get<String>(KEY_PAGES)?.let {
                 EditSession.decode(it, counts, savedStateHandle.get<String>(KEY_FILL).orEmpty(), savedStateHandle.get<String>(KEY_ANNOTATIONS).orEmpty())
@@ -612,8 +607,8 @@ class EditViewModel @Inject constructor(
     /** Writes the session to [destination] in the background. [overwrite]: [destination] is the original. */
     fun save(destination: Uri, overwrite: Boolean) {
         val ready = _uiState.value as? EditUiState.Ready ?: return
-        if (saveJob?.isActive == true) return
-        if (!overwrite) takeWritePermission(destination)
+        if (saveRunner.isRunning) return
+        if (!overwrite) context.takeWritePermission(destination)
         val request = SaveRequest(
             sourceUri = sourceUri,
             destinationUri = destination.toString(),
@@ -625,50 +620,14 @@ class EditViewModel @Inject constructor(
             annotations = ready.session.encodeAnnotations(),
             flattenInk = _flattenInkChoice.value && ready.session.annotations.hasInk,
         )
-        pendingOverwrite = overwrite
-        _saveState.value = SaveUiState.Saving(0f)
         val savedPages = savedKey(ready.session)
-        saveJob = viewModelScope.launch {
-            val id: UUID = scheduler.enqueue(request)
-            scheduler.observe(id).collect { progress ->
-                when (progress) {
-                    null -> Unit
-                    is SaveProgress.Running -> _saveState.value = SaveUiState.Saving(progress.fraction)
-                    is SaveProgress.Failed -> {
-                        _saveState.value = SaveUiState.Failed(progress.failure)
-                        saveJob?.cancel()
-                    }
-                    is SaveProgress.Done -> {
-                        savedEncoded = savedPages
-                        (_uiState.value as? EditUiState.Ready)?.let { publish(it.session) }
-                        _saveState.value = if (pendingOverwrite) SaveUiState.Overwritten(progress.destinationUri) else SaveUiState.Saved(progress.destinationUri)
-                        saveJob?.cancel()
-                    }
-                }
-            }
+        saveRunner.start(request, overwrite) {
+            savedEncoded = savedPages
+            (_uiState.value as? EditUiState.Ready)?.let { publish(it.session) }
         }
     }
 
-    fun dismissSaveResult() {
-        if (_saveState.value !is SaveUiState.Saving) _saveState.value = SaveUiState.Idle
-    }
-
-    /** The destination of a copy keeps its write grant, so a save resumed by the system can still write. */
-    private fun takeWritePermission(uri: Uri) {
-        try {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-            )
-        } catch (e: SecurityException) {
-            // Temporary grant only: fine while the app lives.
-        }
-    }
-
-    private fun hasWriteAccess(uri: Uri): Boolean =
-        uri.scheme == "content" &&
-            context.checkUriPermission(uri, Process.myPid(), Process.myUid(), Intent.FLAG_GRANT_WRITE_URI_PERMISSION) ==
-            android.content.pm.PackageManager.PERMISSION_GRANTED
+    fun dismissSaveResult() = saveRunner.dismiss()
 
     override fun onCleared() {
         renderer?.close()

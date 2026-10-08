@@ -224,25 +224,19 @@ fun PdfToolkitNavGraph(
                         )
                     }
                     composable<Destination.Viewer> { entry ->
+                        // As after a save in the edit screen: the result replaces everything above Home, since
+                        // after an overwrite this viewer still holds the old file open (ADR 0003, 0005).
+                        val showResult: (String) -> Unit = { uri ->
+                            navController.navigate(Destination.Viewer(uri)) { popUpTo<Destination.Home>() }
+                        }
                         CompositionLocalProvider(LocalDestinationScope provides this) {
                             ViewerScreen(
                                 onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
                                 onEdit = { page ->
                                     if (entry.lifecycleIsResumed()) navController.navigate(Destination.Edit(entry.toRoute<Destination.Viewer>().uri, page = page))
                                 },
-                                onHighlight = { page, start, end ->
-                                    if (entry.lifecycleIsResumed()) {
-                                        navController.navigate(
-                                            Destination.Edit(
-                                                entry.toRoute<Destination.Viewer>().uri,
-                                                tool = PdfTool.HIGHLIGHT.name,
-                                                page = page,
-                                                selectionStart = start,
-                                                selectionEnd = end,
-                                            ),
-                                        )
-                                    }
-                                },
+                                onReopen = showResult,
+                                onOpenCopy = { uri -> if (entry.lifecycleIsResumed()) showResult(uri) },
                             )
                         }
                     }

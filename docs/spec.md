@@ -139,7 +139,7 @@ Tap su uno strumento senza documento aperto: si apre il selettore PDF e, scelto 
 
 ### 4.2 Viewer
 
-> **Nota (2026-10-08):** il viewer avrà una barra strumenti per evidenziare, disegnare e compilare direttamente sulla pagina; vedi `docs/plan-viewer-editing.md`.
+> **Nota (2026-10-08):** il viewer avrà una barra strumenti per evidenziare, disegnare e compilare direttamente sulla pagina; vedi `docs/plan-viewer-editing.md`. Da V-a (2026-10-08) evidenziazione, disegno e gomma funzionano già nel viewer, con salvataggio proprio (ADR 0005); la barra completa arriva con V-b, compila e firma con V-c.
 
 - Top bar: nome file (ellissi al centro se lungo), indicatore "pagina X di N", icona **Cerca** (§5.1), menu con: modalità di scorrimento, vai a pagina, condividi, informazioni documento.
 - **Modalità continua** (default): scorrimento verticale di tutte le pagine.

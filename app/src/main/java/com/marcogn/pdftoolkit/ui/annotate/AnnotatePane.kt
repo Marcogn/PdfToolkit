@@ -270,7 +270,8 @@ fun applySelection(
  * The controls of the pane, as a bar at the bottom of the screen or (with [side]) a rail at its end
  * (plan U18): what to do with the selection, the tools, and one "Style" button that opens the colours
  * (and the sizes of a brush) of the armed tool, so they take no room until asked for (plan U7).
- * [onApply] puts the selection into the document.
+ * [onApply] puts the selection into the document; without [showApply] the bar leaves that to a bar by
+ * the selection (the viewer's, plan V-a).
  */
 @Composable
 fun AnnotateToolBar(
@@ -278,10 +279,11 @@ fun AnnotateToolBar(
     selection: TextSelectionState,
     undoRedo: UndoRedo,
     side: Boolean,
+    showApply: Boolean = true,
     onApply: (MarkupKind) -> Unit,
 ) {
     // The markup kind to apply, when text is selected for it.
-    val applyKind = state.tool.kind?.takeIf { selection.isActive }
+    val applyKind = state.tool.kind?.takeIf { selection.isActive && showApply }
     val strip: @Composable () -> Unit = {
         ToolStrip(side, undoRedo, if (side) Modifier.fillMaxHeight() else Modifier.fillMaxWidth(), trailing = { StyleButton(state) }) {
             if (applyKind != null && side) {
@@ -450,7 +452,8 @@ private fun AnnotateTool.icon(): ImageVector = when (this) {
     AnnotateTool.ERASER -> Icons.Outlined.AutoFixNormal
 }
 
-private fun MarkupKind.applyLabel(): Int = when (this) {
+/** The label of the button that applies [this] kind to the selected text. */
+internal fun MarkupKind.applyLabel(): Int = when (this) {
     MarkupKind.HIGHLIGHT -> R.string.annotate_apply_highlight
     MarkupKind.UNDERLINE -> R.string.annotate_apply_underline
     MarkupKind.STRIKEOUT -> R.string.annotate_apply_strikeout

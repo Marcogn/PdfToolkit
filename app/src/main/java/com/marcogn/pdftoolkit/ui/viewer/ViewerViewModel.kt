@@ -1,5 +1,7 @@
 package com.marcogn.pdftoolkit.ui.viewer
 
+import android.content.Context
+import android.net.Uri
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.net.toUri
@@ -8,6 +10,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.marcogn.pdftoolkit.data.recents.RecentsRepository
+import com.marcogn.pdftoolkit.data.save.SaveScheduler
+import com.marcogn.pdftoolkit.data.settings.SavePreferences
 import com.marcogn.pdftoolkit.data.settings.ReadingPreferences
 import com.marcogn.pdftoolkit.domain.model.OpenFailure
 import com.marcogn.pdftoolkit.domain.model.PdfOpenException
@@ -24,8 +28,13 @@ import com.marcogn.pdftoolkit.pdf.render.RenderScheduler
 import com.marcogn.pdftoolkit.pdf.text.DocumentSearch
 import com.marcogn.pdftoolkit.pdf.text.PageTextReader
 import com.marcogn.pdftoolkit.pdf.text.PdfTextExtractor
+import com.marcogn.pdftoolkit.ui.edit.SaveRunner
+import com.marcogn.pdftoolkit.ui.edit.SaveUiState
+import com.marcogn.pdftoolkit.ui.edit.hasWriteAccess
+import com.marcogn.pdftoolkit.ui.edit.takeWritePermission
 import com.marcogn.pdftoolkit.ui.navigation.Destination
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -61,10 +70,27 @@ sealed interface ViewerUiState {
         val annotations: StateFlow<DocumentAnnotations?>,
         /** The text of single pages, for selecting and copying (spec §7.4); closed with the view model. */
         val textReader: PageTextReader,
+        /** What the reader changed on the pages and hasn't saved yet (plan V-a, ADR 0005). */
+        val editing: ViewerEditSession,
+        /** Whether the pages can be edited: the annotations must be read first (ADR 0005). */
+        val editAvailability: StateFlow<EditAvailability>,
     ) : ViewerUiState
 
     /** [inRecents]: the document is in the recents list, so "remove from recents" makes sense. */
     data class Error(val failure: OpenFailure, val inRecents: Boolean) : ViewerUiState
+}
+
+/** Whether the viewer can edit the document (plan V-a). */
+enum class EditAvailability {
+    /** The annotations are being read: the tools wait for them (they give every page its user space). */
+    LOADING,
+    READY,
+
+    /** Opened with a password: PdfBox can't write it (ADR 0003, spec §14). */
+    PROTECTED,
+
+    /** The annotations couldn't be read, so edits couldn't be placed or saved safely. */
+    UNREADABLE,
 }
 
 /**
@@ -74,8 +100,11 @@ sealed interface ViewerUiState {
  */
 @HiltViewModel
 class ViewerViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle,
+    private val savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val context: Context,
     private val opener: PdfDocumentOpener,
+    scheduler: SaveScheduler,
+    private val savePreferences: SavePreferences,
     private val recents: RecentsRepository,
     private val readingPreferences: ReadingPreferences,
     private val textExtractor: PdfTextExtractor,
@@ -91,6 +120,22 @@ class ViewerViewModel @Inject constructor(
     private val _readingMode = MutableStateFlow(ReadingMode.CONTINUOUS)
     val readingMode: StateFlow<ReadingMode> = _readingMode.asStateFlow()
 
+    private val saveRunner = SaveRunner(viewModelScope, scheduler)
+    /** The save started from the viewer (plan V-a): the same engine as the edit screen (ADR 0005). */
+    val saveState: StateFlow<SaveUiState> = saveRunner.state
+
+    private val _overwriteChoice = MutableStateFlow(false)
+    /** Last choice in the save dialog (spec §8), shared with the edit screen. */
+    val overwriteChoice: StateFlow<Boolean> = _overwriteChoice.asStateFlow()
+
+    private val _canOverwrite = MutableStateFlow(false)
+    /** Whether the original accepts writes, so "overwrite" is offered. */
+    val canOverwrite: StateFlow<Boolean> = _canOverwrite.asStateFlow()
+
+    private val _flattenInkChoice = MutableStateFlow(false)
+    /** "Make final" for drawings as chosen in the save dialog (spec §7.4), off by default. */
+    val flattenInkChoice: StateFlow<Boolean> = _flattenInkChoice.asStateFlow()
+
     private var renderer: PdfDocumentRenderer? = null
     private var openJob: Job? = null
     private var pageSaveJob: Job? = null
@@ -99,6 +144,7 @@ class ViewerViewModel @Inject constructor(
     init {
         openJob = viewModelScope.launch {
             _readingMode.value = readingPreferences.readingMode.first()
+            _overwriteChoice.value = savePreferences.overwrite.first()
             open(password = null)
         }
     }
@@ -148,11 +194,17 @@ class ViewerViewModel @Inject constructor(
             )
             viewModelScope.launch { saveFirstPageThumbnail(opened.renderer) }
             val annotations = MutableStateFlow<DocumentAnnotations?>(null)
+            val availability = MutableStateFlow(if (password != null) EditAvailability.PROTECTED else EditAvailability.LOADING)
             viewModelScope.launch {
                 // After the first pages: reading parses the whole file.
                 delay(ANNOTATIONS_DELAY_MS)
-                annotations.value = annotationReader.read({ opener.openStream(uri) }, password)
+                val read = annotationReader.read({ opener.openStream(uri) }, password)
+                annotations.value = read
+                if (availability.value == EditAvailability.LOADING) {
+                    availability.value = if (read != null && read.pageBoxes.size == pageSizes.size) EditAvailability.READY else EditAvailability.UNREADABLE
+                }
             }
+            _canOverwrite.value = password == null && context.hasWriteAccess(uri)
             ViewerUiState.Ready(
                 uri = uriString,
                 displayName = opened.displayName,
@@ -171,6 +223,8 @@ class ViewerViewModel @Inject constructor(
                 startPage = startPage,
                 annotations = annotations.asStateFlow(),
                 textReader = textExtractor.reader({ opener.openStream(uri) }, password),
+                editing = ViewerEditSession(savedStateHandle, pageSizes.size),
+                editAvailability = availability.asStateFlow(),
             )
         } catch (e: PdfOpenException) {
             when (e.failure) {
@@ -179,6 +233,36 @@ class ViewerViewModel @Inject constructor(
             }
         }
     }
+
+    // --- Saving from the viewer (plan V-a) ---
+
+    fun setOverwriteChoice(overwrite: Boolean) {
+        _overwriteChoice.value = overwrite
+        viewModelScope.launch { savePreferences.setOverwrite(overwrite) }
+    }
+
+    fun setFlattenInkChoice(flatten: Boolean) {
+        _flattenInkChoice.value = flatten
+    }
+
+    /** Suggested name of a copy: `<name>_modificato.pdf` (spec §6.7). */
+    fun suggestedCopyName(suffix: String): String {
+        val name = (_uiState.value as? ViewerUiState.Ready)?.displayName ?: "document.pdf"
+        return name.removeSuffix(".pdf").removeSuffix(".PDF") + suffix + ".pdf"
+    }
+
+    /** Writes the viewer's edits into [destination] in the background. [overwrite]: [destination] is the original. */
+    fun save(destination: Uri, overwrite: Boolean) {
+        val ready = _uiState.value as? ViewerUiState.Ready ?: return
+        if (saveRunner.isRunning || ready.editAvailability.value != EditAvailability.READY) return
+        if (!overwrite) context.takeWritePermission(destination)
+        val editing = ready.editing
+        val request = editing.saveRequest(uriString, destination.toString(), flattenForm = null, flattenInk = _flattenInkChoice.value)
+        val key = editing.currentKey()
+        saveRunner.start(request, overwrite) { editing.markSaved(key) }
+    }
+
+    fun dismissSaveResult() = saveRunner.dismiss()
 
     /** After a moment, so it doesn't compete with the first pages for the renderer. */
     private suspend fun saveFirstPageThumbnail(renderer: PdfDocumentRenderer) {

@@ -27,7 +27,10 @@ drawing is done (8a, 8b): the "Draw" tool opens the annotate pane with the pen; 
 their own colours and sizes, and drawings are saved as ink annotations or made final. The usability
 review (`docs/plan-usability.md`) is under way: U-a is in (the edit panes open on the page being read and
 can jump to any page, Highlight from the viewer selection, back from a Home tool goes to the hub after
-changes, saving from the exit dialog leaves); U-b (screens) is next.
+changes, saving from the exit dialog leaves); U-b (screens) is done too. Editing moves into the viewer
+(`docs/plan-viewer-editing.md`): since V-a, highlighting, drawing and erasing work right on the pages
+being read, with undo/redo and saving from the viewer; the full tool bar (V-b) and fill and sign in the
+viewer (V-c) are next.
 
 ## Features
 
@@ -157,6 +160,11 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   from its centre line. While drawing, the marker is translucent; once lifted it blends with the text,
   so it looks slightly different. Only the stylus ignores a resting palm: with a finger, a second
   touch means zoom. The drawing library adds about 5 MB of native code to the APK.
+- Editing in the viewer (highlight, draw, erase) waits until the document's annotations are read, a
+  moment after it opens; password-protected PDFs stay read-only. After "save as copy" the viewer keeps
+  showing the original with your changes on top: "Open" in the message shows the copy. The Edit button
+  hides while the viewer has unsaved changes (save first). In the viewer a tap with the pen or the marker
+  draws a dot instead of switching to full screen.
 - Overwriting needs a file that grants write access (most local files do, some providers don't);
   otherwise only "save as copy" is offered.
 
@@ -167,6 +175,7 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   dependencies were upgraded
 - [`docs/plan-v2.md`](docs/plan-v2.md): plan of product phase 2 (annotations, scan, OCR, ODF, cloud)
 - [`docs/plan-usability.md`](docs/plan-usability.md): usability review and the changes it proposes
+- [`docs/plan-viewer-editing.md`](docs/plan-viewer-editing.md): page tools in the viewer (V-a, V-b, V-c)
 - [`docs/adr/`](docs/adr/): architecture decisions
 - [`CHANGELOG.md`](CHANGELOG.md): changes per version
 - [`CLAUDE.md`](CLAUDE.md): working notes for development

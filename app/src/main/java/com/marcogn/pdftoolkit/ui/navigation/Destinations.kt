@@ -21,8 +21,8 @@ sealed interface Destination {
      *
      * Opened from the viewer, [page] is the page being read (index in the main document, -1 from Home):
      * the panes start on it and the insertion dialogs default to "after" it. [selectionStart] and
-     * [selectionEnd] are the glyph range the reader had selected on that page (-1 when none), which the
-     * Annotate pane restores.
+     * [selectionEnd] are a glyph range selected on that page (-1 when none), which the Annotate pane
+     * restores; since V-a the viewer highlights in place and no longer sends them (V-b removes the pane).
      */
     @Serializable
     data class Edit(

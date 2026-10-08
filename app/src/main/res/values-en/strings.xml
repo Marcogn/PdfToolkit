@@ -318,6 +318,7 @@
     <!-- Text selection in the viewer and the Annotate pane (7b) -->
     <string name="viewer_selection_title">Selected text</string>
     <string name="viewer_selection_copy">Copy</string>
+    <string name="viewer_edit_loading">One moment: reading the document\'s annotations</string>
     <string name="viewer_selection_highlight">Highlight</string>
     <string name="viewer_text_copied">Text copied</string>
     <string name="annotate_tool_highlight">Highlight</string>
