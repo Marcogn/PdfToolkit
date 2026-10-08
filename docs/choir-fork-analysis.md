@@ -59,13 +59,24 @@ base plan: 9 Scan is not needed (the scores arrive as PDFs), 10–12 are dropped
 
 ### 3.1 Library — Sonnet, M
 
-- **Import, don't link.** A piece added from the file picker (or "Open with" / share) is **copied into
-  app storage** (`filesDir/library/`). This one choice simplifies everything else: the file is always
-  writable (autosave and crop write into it), always available (no expiring permissions, no limit on
-  persisted grants), and the original stays untouched as a backup.
-- Home = the library: grid of first-page thumbnails (the recents thumbnail code exists) with title,
-  search by name, sort by name / last opened, rename, delete, "Export…" (share sheet or save a copy to a
-  folder of the user's choice, both already exist). Recents become "continue where you left off".
+- **A folder, not copies** (the author doesn't want the space doubled). The singer picks one folder
+  once (`ACTION_OPEN_DOCUMENT_TREE`, read and write, persisted): the library is the PDFs in it and its
+  subfolders. One grant covers every file, so the limit on persisted grants (128, or 512 from Android
+  11, [CommonsWare](https://commonsware.com/blog/2020/06/13/count-your-saf-uri-permission-grants.html))
+  doesn't apply, and the files stay where the singer keeps them: visible to other apps, backups and the
+  PC. Autosave and crop write **into those files**.
+- Adding a piece from outside (picker, "Open with", share) offers **"Move into the library"** (copy into
+  the folder, then delete the source when the provider allows it, so the space isn't doubled) or **"Copy
+  into the library"** (keep both). Pieces can also be opened without adding them (§3.4).
+- The listing is rescanned when the library opens (files renamed or added by other apps show up); per-file
+  data (last page, original crop box) is keyed by the document id inside the folder, with name and size as
+  a fallback when a file was moved. Listing a folder through SAF is slower than the file system: fine for
+  hundreds of pieces, to measure **[TO VERIFY]** with a large folder.
+- The only extra space is temporary: a save writes the result in `cacheDir/work/` before copying it over
+  the file (ADR 0003), then deletes it.
+- Home = the library: grid of first-page thumbnails (the recents thumbnail code exists, thumbnails cached in
+  `cacheDir`) with title, search by name, sort by name / last opened, rename, delete, "Export…" (share
+  sheet or save a copy elsewhere, both already exist). Recents become "continue where you left off".
 - Room table for the pieces (title, file, last page, crop done). No folders, tags or setlists yet.
 
 ### 3.2 Reading mode for scores — Sonnet, S–M
@@ -86,7 +97,7 @@ base plan: 9 Scan is not needed (the scores arrive as PDFs), 10–12 are dropped
 
 ### 3.3 Crop — Sonnet, M (Opus only if the renderer surprises us)
 
-- **Written into the file as `/CropBox`**, through `PdfEditor`, on the library copy. This replaces the
+- **Written into the file as `/CropBox`**, through `PdfEditor`, in the piece's file. This replaces the
   earlier design (a display-only crop through `DocumentLayout` and `PageCoordinateMapper`, which would
   have touched every coordinate consumer: tiles, annotations, freehand in document points, fill,
   selection). With a real `/CropBox` nothing in the geometry changes: `PdfPageSpace` already takes the
@@ -95,8 +106,9 @@ base plan: 9 Scan is not needed (the scores arrive as PDFs), 10–12 are dropped
   and `PdfRenderer` is pdfium. Other readers see the same crop. **[TO VERIFY on a device that
   `PdfRenderer` sizes and renders the page by its crop box; if not, this becomes the display-only
   design, an Opus core]**.
-- **Reversible**: the original box is kept in the database (or the piece is re-imported from the
-  untouched source); "Uncrop" restores it.
+- **Reversible**: the original box is kept in the database and also in the file itself (a private key
+  in the page dictionary, ignored by readers), so "Uncrop" works even after the file was moved or the
+  app reinstalled.
 - **Auto-detect, always correctable.** Render the page small and greyscale, take the background level
   from its histogram (photocopies are grey), drop dark bands touching the edges and isolated specks,
   add a safety margin. Pure function, unit-tested on generated pages. The crop screen shows the proposal
@@ -115,17 +127,22 @@ rehearsal that is friction: the singer should never see a save dialog.
 - The **PDF is written** through the existing save engine (`SaveRunner`, overwrite) when the singer
   leaves the piece (back to the library, another piece) or the app goes to the background; the draft is
   deleted once the save is verified. On opening, a leftover draft is applied again.
-- Overwrite is safe here because the file belongs to the app (§3.1); files opened from outside the
-  library keep the base app's explicit save.
+- Library pieces are always saved this way. **Files opened from outside** get, at the first change, a
+  one-time dialog: "Save changes automatically into this file" (when the app has write access), "Add to
+  the library" (§3.1) or "Save manually" (the base app's dialog). The answer is remembered per file.
 - Needs an ADR amending ADR 0005 (when the viewer reopens after an overwrite, what happens to a save
   started in the background). That is the only piece where a wrong design is expensive later.
 
 ### 3.5 Musical symbols and straight lines — Sonnet, S–M
 
-- **Symbols as Ink annotations** made from fixed vector paths: breath mark (comma, tick), *p mp mf f*,
-  hairpins, fermata, accent, a "look at the conductor" sign **[TO VERIFY with the singer which ones]**.
-  Being ink, they already save, undo, erase and show in other readers with no new writer. Placed with a
-  tap while the symbol is armed; size follows the page zoom.
+- **Symbols as Ink annotations**: being ink, they already save, undo, erase and show in other readers
+  with no new writer. Placed with a tap while the symbol is armed, then moved or resized like an overlay.
+- The set can't be fixed in advance (author: directors ask for anything), so it is **open**:
+  - a built-in set of the common ones (breath mark, *pp p mp mf f ff*, crescendo and diminuendo hairpins,
+    fermata, accent, staccato, a "look at the conductor" sign), drawn as vector paths;
+  - **"My symbols"**: draw one once with the pen, save it, and from then on it is one tap away, like a
+    built-in one. It is stored as the same ink strokes, so it costs no new format;
+  - recently used symbols first in the picker.
 - **Straight line**: holding the pen still for a moment at the end of a stroke straightens it (or a
   "line" brush). Covers "underline" and brackets on scans.
 
@@ -135,7 +152,8 @@ rehearsal that is friction: the singer should never see a save dialog.
 
 Fill and sign (viewer fill mode, `ui/fill`, `pdf/forms`, `FillWriter`), signatures (`ui/signatures`,
 `data/signatures`, the Room table: start the fork at a new schema version), search and text markup
-tools (scans have no text; text selection can stay for the rare born-digital piece), merge, the "Soon"
+tools (scans have no text); **text selection and Copy stay** (author) for the rare born-digital piece;
+merge, the "Soon"
 tiles and the phase 2 plan (scan, OCR, ODF, cloud). "Organize pages" stays (rotate, remove, reorder,
 add a page handed out later). Keep the Kotlin package name so that cherry-picks from PdfToolkit apply.
 
@@ -167,6 +185,8 @@ pedals. Each is independent of the six steps above and can be added without rede
 
 ## 7. Open questions
 
-1. Which symbols does the director ask for most (§3.5)?
-2. Autosave also for files opened from outside the library, or only library pieces (proposed)?
-3. Keep text selection for born-digital pieces, or remove all text features?
+Answered on 2026-10-08: symbols can't be listed in advance (→ built-in set + "My symbols", §3.5);
+autosave also for files opened from outside, with a dialog (§3.4); text selection stays; no doubled
+space (→ the library is a folder, §3.1).
+
+1. "Move into the library" deletes the source after copying: acceptable, or only "copy"?
