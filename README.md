@@ -127,6 +127,7 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   records of the usability review and of moving the page tools into the viewer
 - [`docs/plan.md`](docs/plan.md): what comes from the reference projects, and how dependencies were upgraded
 - [`docs/ci.md`](docs/ci.md): CI and releases
+- [`docs/choir-fork-analysis.md`](docs/choir-fork-analysis.md): analysis of a separate sheet-music fork (not planned in this app)
 - [`CHANGELOG.md`](CHANGELOG.md): changes per version; [`CLAUDE.md`](CLAUDE.md): working notes for development
 
 ## Development

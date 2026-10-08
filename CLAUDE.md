@@ -157,6 +157,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   `assembleDebug` and CI green; device checks passed (author, 2026-10-08). **Next: 9 Scan (Sonnet).**
 - Open questions for later sub-phases (`docs/plan-v2.md`): OCR bundled or not (10a), ODG or ODT (11),
   release numbering.
+- A separate sheet-music fork is analysed in `docs/choir-fork-analysis.md` (nothing of it is planned in
+  this app).
 
 ### Device checks V-c (author, passed 2026-10-08)
 Fill a multi-page form while scrolling in continuous mode (text, check box, radio, list; keyboard
