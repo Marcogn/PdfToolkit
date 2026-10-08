@@ -22,6 +22,13 @@ decided or approved it.
 - 2026-10-04 · Product phase 2 is numbered as development phases 7–12, so "phase 2" keeps meaning the
   edit session. Order (author): highlight and draw, then scan, then OCR, ODF, cloud last (it brings
   `INTERNET`). Usability (U-a, U-b) and viewer editing (V-a, V-b, V-c) were inserted before 9.
+- 2026-10-08 · Claude Code setup shared by the author's Android projects (author): skills, a reviewer
+  agent, a SessionStart hook that installs the Android SDK in cloud sessions, `@claude` and review
+  workflows on the Claude subscription, Dependabot (`docs/claude.md`). Generic files are **copied**
+  between projects like the CI workflows, not packaged as a plugin: cloud sessions don't load plugins
+  a repository enables. Per project: `CLAUDE.md` and `REVIEW.md`.
+- 2026-10-08 · No detekt for now: only 2.0.0 supports Kotlin 2.4 with AGP 9 built-in Kotlin, and it is
+  still alpha (stable versions only). Revisit at 2.0.0 stable.
 - 2026-10-03 · `CloudTarget` (spec §7.3) is a minimal interface (`displayName`, `suspend upload(...)`):
   the spec names it without a shape and nothing uses it yet.
 

@@ -56,7 +56,9 @@ Android CI checks every pull request (lint, unit tests, release build with R8) a
 To try a branch on the phone, run **Build APK** on it (Actions → Build APK → Run workflow): it gives
 the release build signed with the persistent key, which installs over the app already there, plus
 R8's `mapping.txt` to read crash stack traces. Releases come from the **Release** workflow. Details,
-and how to reuse the workflows in another project: [`docs/ci.md`](docs/ci.md).
+and how to reuse the workflows in another project: [`docs/ci.md`](docs/ci.md). Dependabot opens grouped
+dependency PRs every week; `@claude` in an issue or PR and an automatic review of PRs run Claude on
+GitHub once the `CLAUDE_CODE_OAUTH_TOKEN` secret is set ([`docs/claude.md`](docs/claude.md)).
 
 ## Project structure
 
@@ -127,6 +129,8 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   records of the usability review and of moving the page tools into the viewer
 - [`docs/plan.md`](docs/plan.md): what comes from the reference projects, and how dependencies were upgraded
 - [`docs/ci.md`](docs/ci.md): CI and releases
+- [`docs/claude.md`](docs/claude.md): how the repository is set up for Claude Code (skills, agent,
+  hooks, GitHub workflows) and how to reuse that setup in another project
 - [`CHANGELOG.md`](CHANGELOG.md): changes per version; [`CLAUDE.md`](CLAUDE.md): working notes for development
 
 ## Development

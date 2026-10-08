@@ -4,6 +4,10 @@ Four workflows in `.github/workflows/`, written to be copied unchanged into any 
 Android projects: everything project-specific is in the `env` block at the top of each file.
 This page can be copied along with them.
 
+Two more workflows run Claude on GitHub (`claude.yml` for `@claude` mentions, `claude-review.yml`
+for reviews of pull requests) and `.github/dependabot.yml` opens weekly dependency PRs: they are
+described in [`docs/claude.md`](claude.md) with the rest of the Claude Code setup.
+
 | Workflow | Runs | Does | Produces |
 |---|---|---|---|
 | `android-ci.yml` (Android CI) | every pull request to `main`, every push to `main`; a new push cancels the run still going | lint, unit tests, release build with R8 (unsigned), forbidden-permissions check on the packaged release manifest | lint and test reports only (14 days). **No APK to install** |
