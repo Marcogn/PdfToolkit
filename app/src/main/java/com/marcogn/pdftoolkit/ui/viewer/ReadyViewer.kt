@@ -1,6 +1,30 @@
 package com.marcogn.pdftoolkit.ui.viewer
 
 import android.app.Activity
+import android.graphics.Bitmap
+import android.graphics.Typeface
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.marcogn.pdftoolkit.data.signatures.Signature
+import com.marcogn.pdftoolkit.domain.fill.FormField
+import com.marcogn.pdftoolkit.domain.fill.ImageOverlay
+import com.marcogn.pdftoolkit.domain.fill.MarkKind
+import com.marcogn.pdftoolkit.domain.fill.TextBlock
+import com.marcogn.pdftoolkit.domain.fill.TextOverlay
+import com.marcogn.pdftoolkit.domain.fill.XfaKind
+import com.marcogn.pdftoolkit.pdf.edit.FontSource
+import com.marcogn.pdftoolkit.pdf.render.OverlayGeometry
+import com.marcogn.pdftoolkit.ui.fill.FillTool
+import com.marcogn.pdftoolkit.ui.fill.FillToolButtons
+import com.marcogn.pdftoolkit.ui.fill.OverlayPainter
+import com.marcogn.pdftoolkit.ui.fill.TextOverlayDialog
+import com.marcogn.pdftoolkit.ui.fill.TextTarget
+import com.marcogn.pdftoolkit.ui.fill.rememberFillToolsState
+import com.marcogn.pdftoolkit.ui.fill.todayText
+import com.marcogn.pdftoolkit.ui.signatures.SignatureCreationHost
+import com.marcogn.pdftoolkit.ui.signatures.SignaturePickerSheet
+import com.marcogn.pdftoolkit.ui.signatures.SignaturesViewModel
+import com.marcogn.pdftoolkit.ui.signatures.rememberSignatureCreationState
 import android.content.ClipData
 import android.content.ContextWrapper
 import android.content.ClipboardManager
@@ -134,8 +158,9 @@ private const val PANEL_MS = 220
 /** Height of the top bar without the status bar, for what floats just under it (the rail, the hint). */
 private val TOP_BAR_HEIGHT = 64.dp
 
-/** What a save started from the viewer does once the file is written, besides showing it. */
+/** What a save started from a dialog does once the file is written, besides showing it: leave, or open "Pages". */
 private const val AFTER_SAVE_LEAVE = "leave"
+private const val AFTER_SAVE_PAGES = "pages"
 
 /** How far from an annotation the eraser still takes it, so a thin underline isn't a precision job. */
 private val ERASE_TOLERANCE = 14.dp
@@ -143,7 +168,8 @@ private val ERASE_TOLERANCE = 14.dp
 /**
  * The open document (spec §4.2): top bar with page indicator and menu, the pages in the chosen
  * [ReadingMode], the scrubber and the thumbnail bar, the text search (spec §5.1) and the tools bar
- * (plan V-b): page tools that act here, and the buttons that open the edit screen.
+ * (plans V-b, V-c): the page tools (markup, drawing, eraser, fill and sign) act here; "Pages" opens the
+ * edit screen.
  *
  * [currentPage] lives here and is fed by whichever mode is on screen, so switching mode, the top
  * bar and the thumbnail bar always agree. Jumps (scrubber, thumbnails, "go to page") are sent
@@ -159,8 +185,9 @@ fun ReadyViewer(
     onReadingModeChange: (ReadingMode) -> Unit,
     onPageChanged: (Int) -> Unit,
     startTool: PdfTool?,
-    onOpenEdit: (uri: String, tool: PdfTool, page: Int, reopenViewer: Boolean) -> Unit,
+    onOpenPages: (uri: String, page: Int, reopenViewer: Boolean) -> Unit,
     save: ViewerSaveUi,
+    fill: ViewerFillUi,
     onBack: () -> Unit,
     onReopen: (uri: String) -> Unit,
     onOpenCopy: (uri: String) -> Unit,
@@ -245,13 +272,24 @@ fun ReadyViewer(
     // Opened from Home on Highlight or Draw: that tool is armed as soon as the document can take it.
     val annotateTools = rememberAnnotatePaneState(if (startTool == PdfTool.DRAW) AnnotateTool.PEN else AnnotateTool.HIGHLIGHT)
     var annotating by rememberSaveable { mutableStateOf(startTool == PdfTool.HIGHLIGHT || startTool == PdfTool.DRAW) }
+    // "Fill and sign" (plan V-c): its own family of tools, never armed together with a markup or drawing tool.
+    var filling by rememberSaveable { mutableStateOf(startTool == PdfTool.FILL_AND_SIGN) }
+    val fillTools = rememberFillToolsState()
     // A tool is in effect only while it is armed and the document can be edited.
     val armed = annotating && pageTools != null
     val armedTool = annotateTools.tool.takeIf { armed }
+    val fillArmed = filling && pageTools != null
     val applyKind = armedTool?.kind ?: MarkupKind.HIGHLIGHT
+    val putFillDown = {
+        filling = false
+        fillTools.back()
+    }
     LaunchedEffect(searchOpen) {
         // Search and the tools don't mix (plan V-a): opening search puts the tool down.
-        if (searchOpen) annotating = false
+        if (searchOpen) {
+            annotating = false
+            putFillDown()
+        }
     }
     // Strokes just finished, drawn here until the session (a state flow, a frame later) has them.
     val pending = remember { mutableStateListOf<NewAnnotation>() }
@@ -295,6 +333,20 @@ fun ReadyViewer(
         } else {
             annotateTools.choose(annotateTools.toolOf(group))
             annotating = true
+            putFillDown()
+            showThumbnails = false
+            immersive = false
+        }
+    }
+    val onFill: () -> Unit = {
+        if (pageTools == null) {
+            showUnavailable()
+        } else if (filling) {
+            putFillDown()
+        } else {
+            filling = true
+            annotating = false
+            selection.clear()
             showThumbnails = false
             immersive = false
         }
@@ -304,9 +356,150 @@ fun ReadyViewer(
     LaunchedEffect(availability) {
         if (!startToolChecked && availability != EditAvailability.LOADING) {
             startToolChecked = true
-            if (annotating && availability != EditAvailability.READY) {
+            if ((annotating || filling) && availability != EditAvailability.READY) {
                 annotating = false
+                filling = false
                 showUnavailable()
+            }
+        }
+    }
+
+    // Fill and sign (plan V-c): the form is read the first time it is needed, to fill it or to draw restored values.
+    val fillContent = edits.session.fill
+    LaunchedEffect(fillArmed, fillContent.fields.isNotEmpty(), availability) {
+        if (availability == EditAvailability.READY && (fillArmed || fillContent.fields.isNotEmpty())) fill.load()
+    }
+    val form = (fill.form as? FormLoad.Ready)?.form
+    val fieldsByPage = remember(form) {
+        form?.fields.orEmpty().flatMap { field -> field.widgets.map { it.pageIndex to field } }
+            .groupBy({ it.first }, { it.second }).mapValues { (_, fields) -> fields.distinct() }
+    }
+    val fieldsUnreadable = stringResource(R.string.fill_fields_unreadable)
+    val xfaMessage = stringResource(R.string.fill_xfa_unsupported)
+    LaunchedEffect(fillArmed, fill.form) {
+        // Said when "Fill and sign" is armed and the form turns out not to be fillable; free filling still works.
+        val message = when {
+            !fillArmed -> null
+            fill.form is FormLoad.Failed -> fieldsUnreadable
+            form?.xfa == XfaKind.DYNAMIC -> xfaMessage
+            else -> null
+        }
+        if (message != null) snackbarHostState.showSnackbar(message)
+    }
+    // An undo can take the selected overlay away.
+    LaunchedEffect(fillContent.overlays) {
+        if (fillTools.selected != null && fillContent.overlays.none { it.id == fillTools.selected }) fillTools.selected = null
+    }
+    val overlayPainter = remember { lazy { OverlayPainter(Typeface.createFromAsset(context.assets, FontSource.ASSET_PATH)) } }
+    val overlayImages = remember { mutableStateMapOf<String, Bitmap>() }
+    val overlayImageUris = fillContent.overlays.filterIsInstance<ImageOverlay>().map { it.imageUri }.toSet()
+    LaunchedEffect(overlayImageUris) {
+        overlayImageUris.filterNot { it in overlayImages }.forEach { uri -> fill.image(uri)?.let { overlayImages[uri] = it } }
+    }
+    val viewportFill = if (pageTools != null && (fillArmed || !fillContent.isEmpty)) {
+        ViewportFillContent(
+            overlays = fillContent.overlays,
+            images = overlayImages,
+            painter = overlayPainter.value,
+            spaceOf = pageTools::spaceOf,
+            fieldsOn = { page -> fieldsByPage[page].orEmpty() },
+            values = fillContent.fields,
+            editing = fillArmed,
+            grabbing = fillArmed && fillTools.tool == null,
+            selected = fillTools.selected.takeIf { fillArmed },
+            onSelect = { fillTools.selected = it },
+            onOverlayChange = { editing.updateOverlay(it) },
+            onFieldChange = { field: FormField, value, typing -> editing.setField(field, value, typing) },
+        )
+    } else {
+        null
+    }
+    // Signatures (phase 4b, plan U8): from "My signatures", or created on the spot; one saved signature is armed directly.
+    val signaturesViewModel: SignaturesViewModel = hiltViewModel()
+    val savedSignatures by signaturesViewModel.signatures.collectAsStateWithLifecycle()
+    val signatureCreation = rememberSignatureCreationState()
+    var showSignatureSheet by rememberSaveable { mutableStateOf(false) }
+    val imageUnreadable = stringResource(R.string.fill_image_unreadable)
+    val placeSignature: (Signature) -> Unit = { signature ->
+        scope.launch {
+            val image = fill.importImage(signaturesViewModel.file(signature).toUri())
+            if (image == null) {
+                snackbarHostState.showSnackbar(imageUnreadable)
+            } else {
+                fillTools.image = image
+                fillTools.tool = FillTool.SIGNATURE
+                fillTools.selected = null
+            }
+        }
+    }
+    SignatureCreationHost(signatureCreation, signaturesViewModel, onCreated = placeSignature)
+    if (showSignatureSheet) {
+        SignaturePickerSheet(
+            viewModel = signaturesViewModel,
+            onPick = {
+                showSignatureSheet = false
+                placeSignature(it)
+            },
+            onNew = {
+                showSignatureSheet = false
+                signatureCreation.start()
+            },
+            onDismiss = { showSignatureSheet = false },
+        )
+    }
+    val onSignature: () -> Unit = {
+        val list = savedSignatures
+        when {
+            list == null || list.size > 1 -> showSignatureSheet = true
+            list.isEmpty() -> signatureCreation.start()
+            else -> placeSignature(list.first())
+        }
+    }
+    val textRemoved = stringResource(R.string.fill_text_removed)
+    // Text measured as the screen and the PDF draw it; characters the font lacks are dropped (and the reader told).
+    val sanitized: (String) -> String = { raw ->
+        val text = fill.sanitize(raw)
+        if (text != TextBlock.sanitize(raw) { true }) scope.launch { snackbarHostState.showSnackbar(textRemoved) }
+        text
+    }
+    // A tap with "Fill and sign" armed: the armed tool puts its overlay there, else the overlay under the finger is selected.
+    val onFillTap: (PageTap) -> Unit = { tap ->
+        val tools = pageTools
+        if (tools != null) {
+            val page = tap.documentPage
+            when (fillTools.tool) {
+                null -> {
+                    val hit = tools.overlayAt(page, tap.point, fillContent.overlays)
+                    when {
+                        hit != null -> fillTools.selected = hit.id
+                        fillTools.selected != null -> fillTools.selected = null
+                        else -> immersive = !immersive
+                    }
+                }
+                // Stays armed: ticking several boxes in a row is the usual case.
+                FillTool.CHECK -> tools.newMark(page, tap.point, MarkKind.CHECK)?.let { editing.addOverlay(it) }
+                FillTool.CROSS -> tools.newMark(page, tap.point, MarkKind.CROSS)?.let { editing.addOverlay(it) }
+                // Today's date where the page is tapped, selected: no dialog (plan U12); "Edit" is one tap away.
+                FillTool.DATE -> {
+                    fillTools.tool = null
+                    val text = sanitized(todayText(context))
+                    val fontSize = TextBlock.DEFAULT_FONT_SIZE
+                    val (width, height) = overlayPainter.value.textBoxSize(text, fontSize)
+                    tools.newText(page, tap.point, text, fontSize, width, height)?.let { overlay ->
+                        if (editing.addOverlay(overlay)) fillTools.selected = overlay.id
+                    }
+                }
+                FillTool.TEXT -> {
+                    fillTools.tool = null
+                    fillTools.textTarget = TextTarget(ViewerEditSession.pageId(page), tap.point.x, tap.point.y, overlayId = null, isDate = false)
+                }
+                FillTool.SIGNATURE -> fillTools.image?.let { image ->
+                    fillTools.tool = null
+                    fillTools.image = null
+                    tools.newImage(page, tap.point, image)?.let { overlay ->
+                        if (editing.addOverlay(overlay)) fillTools.selected = overlay.id
+                    }
+                }
             }
         }
     }
@@ -315,11 +508,11 @@ fun ReadyViewer(
     val saving = save.state is SaveUiState.Saving
     var showSaveDialog by rememberSaveable { mutableStateOf(false) }
     var showUnsaved by rememberSaveable { mutableStateOf(false) }
-    // What follows a save started from a dialog: leave (plan U3), or open the edit screen on the saved file
-    // (Pages and Fill and sign with changes pending, plan V-b); null for a plain Save.
+    // What follows a save started from a dialog: leave (plan U3), or open "Pages" on the saved file (with changes
+    // pending, plan V-b); null for a plain Save.
     var afterSave by rememberSaveable { mutableStateOf<String?>(null) }
-    // The edit-screen tool asked for while the viewer has unsaved changes: the "save first" dialog is up.
-    var saveFirstFor by rememberSaveable { mutableStateOf<String?>(null) }
+    // "Pages" asked for while the viewer has unsaved changes: the "save first" dialog is up.
+    var showSaveFirst by rememberSaveable { mutableStateOf(false) }
     val copyLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         if (uri != null) save.onSave(uri, false) else afterSave = null
     }
@@ -347,7 +540,7 @@ fun ReadyViewer(
                 }
                 else -> {
                     afterSave = null
-                    onOpenEdit(result.uri, PdfTool.valueOf(next), currentPage, true)
+                    onOpenPages(result.uri, currentPage, true)
                 }
             }
             is SaveUiState.Saved -> afterSave?.let { next ->
@@ -358,26 +551,30 @@ fun ReadyViewer(
                     onBack()
                 } else {
                     // The copy is the file the pages are worked on: the viewer shows it too, under the edit screen.
-                    onOpenEdit(result.uri, PdfTool.valueOf(next), currentPage, true)
+                    onOpenPages(result.uri, currentPage, true)
                 }
             }
             is SaveUiState.Failed -> afterSave = null
             else -> Unit
         }
     }
-    // Pages and Fill and sign work on the saved file: with changes pending the reader saves or discards first (plan V-b).
-    val openEdit: (PdfTool) -> Unit = { tool ->
-        if (edits.hasUnsavedChanges && !saving) saveFirstFor = tool.name else onOpenEdit(state.uri, tool, currentPage, false)
+    // Pages works on the saved file: with changes pending the reader saves or discards first (plan V-b).
+    val openPages: () -> Unit = {
+        if (edits.hasUnsavedChanges && !saving) showSaveFirst = true else onOpenPages(state.uri, currentPage, false)
     }
     val requestExit = {
         if (edits.hasUnsavedChanges && !saving) showUnsaved = true else onBack()
     }
-    val backStep = viewerBackStep(searchOpen, selection.isActive, annotating, edits.hasUnsavedChanges, saving)
+    val backStep = viewerBackStep(searchOpen, selection.isActive, annotating || filling, edits.hasUnsavedChanges, saving, fillArmed && fillTools.consumesBack)
     BackHandler(enabled = backStep != ViewerBackStep.LEAVE) {
         when (backStep) {
             ViewerBackStep.CLOSE_SEARCH -> closeSearch()
             ViewerBackStep.CLEAR_SELECTION -> selection.clear()
-            ViewerBackStep.PUT_TOOL_DOWN -> annotating = false
+            ViewerBackStep.DROP_FILL_TOOL -> fillTools.back()
+            ViewerBackStep.PUT_TOOL_DOWN -> {
+                annotating = false
+                putFillDown()
+            }
             ViewerBackStep.ASK_TO_SAVE -> showUnsaved = true
             ViewerBackStep.LEAVE -> onBack()
         }
@@ -388,8 +585,9 @@ fun ReadyViewer(
     // How much of the page area the bar covers, so the scrubber and the snackbars keep clear of it.
     var toolBarHeight by remember { mutableStateOf(0.dp) }
     var toolBarWidth by remember { mutableStateOf(0.dp) }
-    // Selecting is for reading and for the markup tools; a brush or the eraser takes the touch.
-    val pageSelection = selection.takeIf { armedTool == null || armedTool.kind != null }
+    // Selecting is for reading and for the markup tools; a brush or the eraser takes the touch, and with Fill and
+    // sign a long press grabs an overlay.
+    val pageSelection = selection.takeIf { !fillArmed && (armedTool == null || armedTool.kind != null) }
 
     val highlights = remember(searchOpen, searchState.matches, searchState.current) {
         if (searchOpen) SearchHighlights.of(searchState.matches, searchState.current) else SearchHighlights.None
@@ -413,6 +611,13 @@ fun ReadyViewer(
     val onTap: (PageTap?) -> Unit = { tap ->
         when {
             selection.isActive -> selection.clear()
+            fillArmed -> if (tap != null) {
+                onFillTap(tap)
+            } else if (fillTools.selected != null) {
+                fillTools.selected = null
+            } else if (fillTools.tool == null) {
+                immersive = !immersive
+            }
             // The eraser takes what is under the finger; a tap beside everything does nothing.
             armedTool == AnnotateTool.ERASER -> tap?.let { pageTools?.erase(it.documentPage, it.point, eraseTolerancePx / it.screenPxPerPoint) }
             // A tap with a brush is a dot, not a request for full screen.
@@ -522,7 +727,7 @@ fun ReadyViewer(
                         IconButton(onClick = { searchOpen = true }) {
                             Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.cd_search))
                         }
-                        if (!annotating) {
+                        if (!annotating && !filling) {
                             IconToggleButton(checked = showThumbnails, onCheckedChange = { showThumbnails = it }) {
                                 Icon(Icons.Outlined.ViewCarousel, contentDescription = stringResource(R.string.cd_thumbnails))
                             }
@@ -585,8 +790,8 @@ fun ReadyViewer(
                 modifier = Modifier.fillMaxSize(),
             ) { mode ->
                 when (mode) {
-                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, pageSelectionBar, onSelectionReleased, drawing, reportPage)
-                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, pageSelectionBar, onSelectionReleased, drawing, reportPage)
+                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, pageSelectionBar, onSelectionReleased, drawing, viewportFill, reportPage)
+                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, pageSelectionBar, onSelectionReleased, drawing, viewportFill, reportPage)
                 }
             }
 
@@ -632,7 +837,23 @@ fun ReadyViewer(
 
             // A few seconds when a tool is armed, over the page rather than a permanent row (plan U7).
             Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = if (immersive) 0.dp else TOP_BAR_HEIGHT)) {
-                TransientHint(armedTool?.hint(), key = armedTool)
+                if (fillArmed) {
+                    // Shown for a few seconds when the fill tool or the selection changes (plan U7).
+                    val hint = when {
+                        fillTools.selected != null -> stringResource(R.string.fill_hint_move)
+                        fillTools.tool != null -> stringResource(R.string.fill_hint_place)
+                        form?.hasFields == true -> stringResource(R.string.fill_hint_fields)
+                        else -> null
+                    }
+                    val signatureArmed = fillTools.tool == FillTool.SIGNATURE && fillTools.selected == null
+                    TransientHint(
+                        hint,
+                        key = Triple(fillTools.tool, fillTools.selected != null, fillTools.image?.uri),
+                        action = if (signatureArmed) stringResource(R.string.fill_change_signature) to { showSignatureSheet = true } else null,
+                    )
+                } else {
+                    TransientHint(armedTool?.hint(), key = armedTool)
+                }
             }
 
             // The tools (plan V-b): over the pages, a bar at the bottom or a rail at the end in landscape; gone in full screen.
@@ -664,8 +885,18 @@ fun ReadyViewer(
                         },
                         side = railed,
                         onGroup = onGroup,
-                        onFillAndSign = { openEdit(PdfTool.FILL_AND_SIGN) },
-                        onPages = { openEdit(PdfTool.ORGANIZE_PAGES) },
+                        filling = fillArmed,
+                        onFill = onFill,
+                        onPages = openPages,
+                        fillTools = {
+                            FillToolButtons(
+                                state = fillTools,
+                                selected = fillTools.selected?.let { id -> fillContent.overlays.firstOrNull { it.id == id } },
+                                onDelete = { editing.removeOverlay(it.id) },
+                                onSignature = onSignature,
+                                onPickSignature = { showSignatureSheet = true },
+                            )
+                        },
                     )
                 }
             }
@@ -715,8 +946,34 @@ fun ReadyViewer(
                 showSaveDialog = false
                 afterSave = null
             },
+            // "Make final" for the form is offered once it has been read and has fields (spec §6.5).
+            flatten = if (form?.hasFields == true) save.flattenForm ?: edits.session.fill.hasSignature else null,
+            onFlattenChange = save.onFlattenFormChange,
             flattenInk = if (edits.session.annotations.hasInk) save.flattenInk else null,
             onFlattenInkChange = save.onFlattenInkChange,
+        )
+    }
+    fillTools.textTarget?.let { target ->
+        val existing = target.overlayId?.let { id -> fillContent.overlays.firstOrNull { it.id == id } as? TextOverlay }
+        TextOverlayDialog(
+            initialText = existing?.text ?: if (target.isDate) todayText(context) else "",
+            initialSize = existing?.fontSize ?: TextBlock.DEFAULT_FONT_SIZE,
+            isNew = existing == null,
+            onConfirm = { raw, fontSize ->
+                fillTools.textTarget = null
+                val text = sanitized(raw)
+                if (text.isNotBlank()) {
+                    val (width, height) = overlayPainter.value.textBoxSize(text, fontSize)
+                    if (existing != null) {
+                        editing.updateOverlay(existing.copy(text = text, fontSize = fontSize, box = OverlayGeometry.resizedFromTopLeft(existing.box, width, height)))
+                    } else {
+                        val page = ViewerEditSession.pageIndexOf(target.pageId)
+                        val overlay = page?.let { pageTools?.newText(it, Offset(target.displayX, target.displayY), text, fontSize, width, height) }
+                        if (overlay != null && editing.addOverlay(overlay)) fillTools.selected = overlay.id
+                    }
+                }
+            },
+            onDismiss = { fillTools.textTarget = null },
         )
     }
     if (showUnsaved) {
@@ -729,26 +986,28 @@ fun ReadyViewer(
             onDiscard = {
                 showUnsaved = false
                 editing.discard()
+                fillTools.back()
                 onBack()
             },
             onDismiss = { showUnsaved = false },
         )
     }
-    saveFirstFor?.let { toolName ->
+    if (showSaveFirst) {
         UnsavedChangesDialog(
             titleRes = R.string.viewer_save_first_title,
             messageRes = R.string.viewer_save_first_message,
             onSave = {
-                saveFirstFor = null
-                afterSave = toolName
+                showSaveFirst = false
+                afterSave = AFTER_SAVE_PAGES
                 showSaveDialog = true
             },
             onDiscard = {
-                saveFirstFor = null
+                showSaveFirst = false
                 editing.discard()
-                onOpenEdit(state.uri, PdfTool.valueOf(toolName), currentPage, false)
+                fillTools.back()
+                onOpenPages(state.uri, currentPage, false)
             },
-            onDismiss = { saveFirstFor = null },
+            onDismiss = { showSaveFirst = false },
         )
     }
     (save.state as? SaveUiState.Failed)?.let { failed ->
@@ -864,6 +1123,7 @@ private fun ContinuousPages(
     selectionBar: (@Composable () -> Unit)?,
     onSelectionReleased: () -> Unit,
     drawing: ViewportDrawing?,
+    fill: ViewportFillContent?,
     onPageChanged: (Int) -> Unit,
 ) {
     val viewportState = rememberSaveable(saver = PdfViewportState.Saver) {
@@ -892,6 +1152,7 @@ private fun ContinuousPages(
         selectionBar = selectionBar,
         onSelectionReleased = onSelectionReleased,
         drawing = drawing,
+        fill = fill,
         modifier = Modifier.fillMaxSize(),
     )
 }
@@ -916,6 +1177,7 @@ private fun SinglePages(
     selectionBar: (@Composable () -> Unit)?,
     onSelectionReleased: () -> Unit,
     drawing: ViewportDrawing?,
+    fill: ViewportFillContent?,
     onPageChanged: (Int) -> Unit,
 ) {
     // A search result waits here until its page is composed and has a layout, then it is centred.
@@ -966,6 +1228,7 @@ private fun SinglePages(
             onSelectionReleased = onSelectionReleased,
             // One ink layer at a time (the library's advice): only on the page that is shown.
             drawing = drawing?.takeIf { pagerState.settledPage == page },
+            fill = fill,
             modifier = Modifier.fillMaxSize(),
         )
     }

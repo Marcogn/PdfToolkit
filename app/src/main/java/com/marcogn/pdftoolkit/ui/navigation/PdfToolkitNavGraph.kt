@@ -83,7 +83,7 @@ private val navPopExitTransition: AnimatedContentTransitionScope<NavBackStackEnt
 private val pageTools = setOf(PdfTool.ORGANIZE_PAGES, PdfTool.FILL_AND_SIGN, PdfTool.HIGHLIGHT, PdfTool.DRAW)
 
 /** Of those, the ones that act on the pages as they are read: the viewer opens with the tool armed (plan V-b). */
-private val viewerTools = setOf(PdfTool.HIGHLIGHT, PdfTool.DRAW)
+private val viewerTools = setOf(PdfTool.HIGHLIGHT, PdfTool.DRAW, PdfTool.FILL_AND_SIGN)
 
 private val drawerDestinations = listOf(
     Destination.Home,
@@ -180,7 +180,7 @@ fun PdfToolkitNavGraph(
                         when {
                             tool == null -> Destination.Viewer(uri.toString())
                             PdfTool.valueOf(tool) in viewerTools -> Destination.Viewer(uri.toString(), tool)
-                            else -> Destination.Edit(uri.toString(), tool)
+                            else -> Destination.Edit(uri.toString())
                         },
                     )
                 }
@@ -231,13 +231,13 @@ fun PdfToolkitNavGraph(
                 ViewerScreen(
                     startTool = entry.toRoute<Destination.Viewer>().tool?.let { PdfTool.valueOf(it) },
                     onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
-                    onOpenEdit = { uri, tool, page, reopenViewer ->
+                    onOpenPages = { uri, page, reopenViewer ->
                         if (reopenViewer) {
                             // A save came first: the saved file replaces the viewer, and the edit screen opens on it.
                             showResult(uri)
-                            navController.navigate(Destination.Edit(uri, tool.name, page = page))
+                            navController.navigate(Destination.Edit(uri, page = page))
                         } else if (entry.lifecycleIsResumed()) {
-                            navController.navigate(Destination.Edit(uri, tool.name, page = page))
+                            navController.navigate(Destination.Edit(uri, page = page))
                         }
                     },
                     onReopen = showResult,
@@ -252,7 +252,6 @@ fun PdfToolkitNavGraph(
                 }
                 val route = entry.toRoute<Destination.Edit>()
                 EditScreen(
-                    startTool = route.tool?.let { PdfTool.valueOf(it) },
                     startPage = route.page,
                     onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
                     onResultReady = showResult,

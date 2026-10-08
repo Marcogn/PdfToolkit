@@ -41,7 +41,7 @@ import com.marcogn.pdftoolkit.domain.model.PdfTool
 fun ViewerScreen(
     startTool: PdfTool?,
     onBack: () -> Unit,
-    onOpenEdit: (uri: String, tool: PdfTool, page: Int, reopenViewer: Boolean) -> Unit,
+    onOpenPages: (uri: String, page: Int, reopenViewer: Boolean) -> Unit,
     onReopen: (uri: String) -> Unit,
     onOpenCopy: (uri: String) -> Unit,
     viewModel: ViewerViewModel = hiltViewModel(),
@@ -52,6 +52,8 @@ fun ViewerScreen(
     val overwriteChoice by viewModel.overwriteChoice.collectAsStateWithLifecycle()
     val canOverwrite by viewModel.canOverwrite.collectAsStateWithLifecycle()
     val flattenInk by viewModel.flattenInkChoice.collectAsStateWithLifecycle()
+    val flattenForm by viewModel.flattenFormChoice.collectAsStateWithLifecycle()
+    val form by viewModel.form.collectAsStateWithLifecycle()
 
     when (val state = uiState) {
         is ViewerUiState.Ready -> ReadyViewer(
@@ -61,17 +63,26 @@ fun ViewerScreen(
             onReadingModeChange = viewModel::setReadingMode,
             onPageChanged = viewModel::onPageChanged,
             startTool = startTool,
-            onOpenEdit = onOpenEdit,
+            onOpenPages = onOpenPages,
             save = ViewerSaveUi(
                 state = saveState,
                 overwriteChoice = overwriteChoice,
                 canOverwrite = canOverwrite,
                 flattenInk = flattenInk,
+                flattenForm = flattenForm,
                 onOverwriteChange = viewModel::setOverwriteChoice,
                 onFlattenInkChange = viewModel::setFlattenInkChoice,
+                onFlattenFormChange = viewModel::setFlattenFormChoice,
                 onSave = viewModel::save,
                 suggestedCopyName = viewModel::suggestedCopyName,
                 onDismissResult = viewModel::dismissSaveResult,
+            ),
+            fill = ViewerFillUi(
+                form = form,
+                load = viewModel::loadForm,
+                sanitize = viewModel::sanitizeText,
+                importImage = viewModel::importOverlayImage,
+                image = viewModel::overlayImage,
             ),
             onBack = onBack,
             onReopen = onReopen,

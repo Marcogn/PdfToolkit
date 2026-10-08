@@ -22,7 +22,7 @@ import kotlin.math.min
  * [TextBlock] layout, same [MarkShape] strokes. Kerning and ligatures are off, because the PDF
  * writer places the font's plain advance widths.
  */
-internal class OverlayPainter(typeface: Typeface) {
+class OverlayPainter(typeface: Typeface) {
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG or Paint.LINEAR_TEXT_FLAG).apply {
         this.typeface = typeface

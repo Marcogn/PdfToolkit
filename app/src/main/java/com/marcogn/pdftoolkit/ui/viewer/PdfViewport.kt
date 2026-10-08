@@ -45,6 +45,22 @@ import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.runtime.key
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.marcogn.pdftoolkit.domain.fill.ImageOverlay
+import com.marcogn.pdftoolkit.domain.fill.Overlay
+import com.marcogn.pdftoolkit.pdf.render.OverlayGeometry
+import com.marcogn.pdftoolkit.ui.fill.FieldControl
+import com.marcogn.pdftoolkit.ui.fill.OverlayGrab
+import com.marcogn.pdftoolkit.ui.fill.detectOverlayGestures
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationColor
 import com.marcogn.pdftoolkit.domain.annotate.FreehandKind
 import com.marcogn.pdftoolkit.pdf.annotations.DocumentStrokes
@@ -86,7 +102,8 @@ private const val SETTLE_DELAY_MS = 150L
  * Continuous viewer (spec §4.2, §5): pages stacked vertically, pinch zoom, double tap, pan with
  * fling. Draws on a single Canvas only the pages on screen: white placeholder with the page
  * proportions, the page bitmap scaled to the current zoom and, once the zoom settles, the sharp
- * tiles of the visible area on top; then the document's annotations and the search highlights.
+ * tiles of the visible area on top; then the document's annotations, the fill overlays and the
+ * search highlights. Form controls (plan V-c) are Compose children laid over their widgets.
  */
 @Composable
 fun PdfViewport(
@@ -124,6 +141,8 @@ fun PdfViewport(
     selectionBar: (@Composable () -> Unit)? = null,
     /** A freehand brush armed (plan V-a): one finger or a stylus draws, two fingers zoom and pan. Null to read. */
     drawing: ViewportDrawing? = null,
+    /** Fill and sign (plan V-c): overlays, form controls and their gestures. Null for none. */
+    fill: ViewportFillContent? = null,
 ) {
     val scope = rememberCoroutineScope()
     val decay = rememberSplineBasedDecay<Float>()
@@ -149,6 +168,20 @@ fun PdfViewport(
     val pointerToStroke = remember { Matrix() }
     var strokePage by remember { mutableIntStateOf(0) }
 
+    // Fill and sign (plan V-c): the overlay under the fingers is shown from here until they lift, so a
+    // gesture is one undo step; the overlay detector tells zoom and pan to stand down while it holds one.
+    val overlayGrab = remember { OverlayGrab() }
+    val currentFill by rememberUpdatedState(fill)
+    var live by remember { mutableStateOf<Overlay?>(null) }
+    val shownOverlays = fill?.overlays?.map { overlay -> live?.takeIf { it.id == overlay.id } ?: overlay }.orEmpty()
+    val currentOverlays by rememberUpdatedState(shownOverlays)
+    val overlaysByPage = remember(shownOverlays) { shownOverlays.groupBy { it.pageId } }
+    val haptic = LocalHapticFeedback.current
+    val overlayMarginPx = with(density) { OVERLAY_HIT_MARGIN.toPx() }
+    val overlayHandleTouchPx = with(density) { OVERLAY_HANDLE_TOUCH_RADIUS.toPx() }
+    val overlayHandleRadiusPx = with(density) { OVERLAY_HANDLE_RADIUS.toPx() }
+    val overlaySelectionColor = MaterialTheme.colorScheme.primary
+
     DisposableEffect(bitmaps, requestSource) { onDispose { bitmaps.release(requestSource) } }
 
     LaunchedEffect(planner) {
@@ -173,6 +206,7 @@ fun PdfViewport(
     // detector has seen them in the initial pass (ADR 0004, "Freehand ink").
     Box(
         modifier
+            .clipToBounds()
             .onSizeChanged { state.setContent(pageSizes, it.toSize(), gapPx) }
             .pointerInput(state) {
                 detectTapGestures(
@@ -193,7 +227,55 @@ fun PdfViewport(
                 }
             }
             .pointerInput(state, yieldHorizontalToParent) {
-                detectZoomPanFling(state, scope, decay, yieldHorizontalToParent, suppressed = { selectionGrab.active || freehandGrab.active })
+                detectZoomPanFling(state, scope, decay, yieldHorizontalToParent, suppressed = { selectionGrab.active || freehandGrab.active || overlayGrab.active })
+            }
+            .pointerInput(state, fill != null) {
+                if (fill == null) return@pointerInput
+                // The geometry of the moment: zoom and pan change between events.
+                fun geometry(): ViewportFill? {
+                    val f = currentFill ?: return null
+                    val mapper = state.mapper ?: return null
+                    return ViewportFill(mapper, pageIndexOffset, f.spaceOf)
+                }
+                fun selected(): Overlay? = currentFill?.selected?.let { id -> currentOverlays.firstOrNull { it.id == id } }
+                detectOverlayGestures(
+                    grab = overlayGrab,
+                    hit = { screen, anyOverlay ->
+                        val geometry = geometry()
+                        if (geometry == null || currentFill?.grabbing != true) {
+                            null
+                        } else if (anyOverlay) {
+                            geometry.overlayAt(currentOverlays, screen)
+                        } else {
+                            selected()?.takeIf { geometry.grabs(it, screen, overlayMarginPx) }
+                        }
+                    },
+                    toUser = { overlay, screen ->
+                        ViewerEditSession.pageIndexOf(overlay.pageId)?.let { page -> geometry()?.toUser(page, screen) }
+                    },
+                    handleHit = { screen ->
+                        val geometry = geometry()
+                        if (geometry == null || currentFill?.grabbing != true) {
+                            null
+                        } else {
+                            selected()?.takeIf { overlay -> geometry.handle(overlay)?.let { (it - screen).getDistance() <= overlayHandleTouchPx } == true }
+                        }
+                    },
+                    onGrabbed = { overlay ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        currentFill?.onSelect(overlay.id)
+                    },
+                    apply = { overlay, transform ->
+                        val space = ViewerEditSession.pageIndexOf(overlay.pageId)?.let { currentFill?.spaceOf(it) }
+                        val maxSide = space?.displaySize?.let { maxOf(it.width, it.height) * MAX_OVERLAY_PAGES } ?: Float.MAX_VALUE
+                        OverlayGeometry.transformed(overlay, transform, maxSide)
+                    },
+                    onLive = { live = it },
+                    onCommit = {
+                        currentFill?.onOverlayChange(it)
+                        live = null
+                    },
+                )
             }
             .pointerInput(state, selection) {
                 if (selection == null) return@pointerInput
@@ -246,12 +328,38 @@ fun PdfViewport(
                     drawAnnotations(page.annotations, mapper.userToScreen(index, page.space), mapper.screenPxPerPoint)
                 }
             }
+            if (fill != null) {
+                val documentPage = pageIndexOffset + index
+                val onPage = overlaysByPage[ViewerEditSession.pageId(documentPage)]
+                val space = fill.spaceOf(documentPage)
+                if (onPage != null && space != null) {
+                    clipRect(pageRect.left, pageRect.top, pageRect.right, pageRect.bottom) {
+                        drawIntoCanvas { canvas ->
+                            onPage.forEach { overlay ->
+                                val image = (overlay as? ImageOverlay)?.let { fill.images[it.imageUri] }
+                                val selected = if (fill.editing && overlay.id == fill.selected) overlaySelectionColor.toArgb() else null
+                                fill.painter.draw(canvas.nativeCanvas, overlay, mapper.overlayToScreen(index, space, overlay.box), mapper.screenPxPerPoint, image, selected)
+                            }
+                        }
+                    }
+                }
+            }
             if (!highlights.isEmpty) drawHighlights(index, pageIndexOffset + index, mapper, highlights)
             if (selection != null && selection.key == (pageIndexOffset + index).toString()) {
                 drawTextSelection(selection.runs, mapper.pageToScreenTransform(index), selectionFill, handleColor, handleMetrics)
             }
         }
+        // The handle that scales and turns the selected overlay with one finger (plan U11).
+        if (fill != null && fill.grabbing) {
+            shownOverlays.firstOrNull { it.id == fill.selected }?.let { selected ->
+                ViewportFill(mapper, pageIndexOffset, fill.spaceOf).handle(selected)?.let { corner ->
+                    drawCircle(Color.White, overlayHandleRadiusPx + OVERLAY_HANDLE_RIM_PX, corner)
+                    drawCircle(overlaySelectionColor, overlayHandleRadiusPx, corner)
+                }
+            }
+        }
     }
+    if (fill != null) FormControls(fill, state, pageIndexOffset)
     if (drawing != null) {
         ViewportInkLayer(
             state = state,
@@ -268,6 +376,61 @@ fun PdfViewport(
     }
     }
 }
+
+/**
+ * The form controls of the pages on screen (plan V-c), over their widgets: every one while editing, else
+ * only those with a pending value, as pictures. A text field that gets the focus is kept above the
+ * keyboard: the viewport doesn't resize for it, so it pans the page up instead.
+ */
+@Composable
+private fun FormControls(fill: ViewportFillContent, state: PdfViewportState, pageIndexOffset: Int) {
+    val mapper = state.mapper ?: return
+    val geometry = ViewportFill(mapper, pageIndexOffset, fill.spaceOf)
+    val controls = geometry.controls(state.viewportSize, fill.fieldsOn) { fill.editing || it.name in fill.values }
+    var focused by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    val density = LocalDensity.current
+    val imeBottom = WindowInsets.ime.getBottom(density)
+    val marginPx = with(density) { FOCUSED_FIELD_MARGIN.toPx() }
+    LaunchedEffect(focused, imeBottom) {
+        val target = focused ?: return@LaunchedEffect
+        if (imeBottom == 0) return@LaunchedEffect
+        val rect = controls.firstOrNull { it.field.name == target.first && it.widgetIndex == target.second }?.rect ?: return@LaunchedEffect
+        val visibleBottom = state.viewportSize.height - imeBottom - marginPx
+        if (rect.bottom > visibleBottom) state.panBy(Offset(0f, visibleBottom - rect.bottom))
+    }
+    for (control in controls) {
+        key(control.field.name, control.widgetIndex) {
+            FieldControl(
+                field = control.field,
+                widgetIndex = control.widgetIndex,
+                rect = control.rect,
+                pxPerPoint = mapper.screenPxPerPoint,
+                value = fill.values[control.field.name] ?: control.field.value,
+                onChange = { value, typing -> fill.onFieldChange(control.field, value, typing) },
+                rotation = control.rotation,
+                interactive = fill.editing,
+                modifier = Modifier.onFocusChanged { focus ->
+                    val id = control.field.name to control.widgetIndex
+                    if (focus.isFocused) focused = id else if (focused == id) focused = null
+                },
+            )
+        }
+    }
+}
+
+/** How far outside an overlay a finger still grabs it, so a tick of 14 pt is not a precision job. */
+private val OVERLAY_HIT_MARGIN = 20.dp
+
+/** The overlay handle's drawn radius and the radius around it that a finger grabs (48 dp across). */
+private val OVERLAY_HANDLE_RADIUS = 11.dp
+private val OVERLAY_HANDLE_TOUCH_RADIUS = 24.dp
+private const val OVERLAY_HANDLE_RIM_PX = 2f
+
+/** An overlay can grow to this many times the longer side of its page. */
+private const val MAX_OVERLAY_PAGES = 1.5f
+
+/** Room kept between a focused field and the keyboard. */
+private val FOCUSED_FIELD_MARGIN = 16.dp
 
 /** A single tap on a page: document page [documentPage], [point] in its page points, at [screenPxPerPoint] (the zoom). */
 data class PageTap(val documentPage: Int, val point: Offset, val screenPxPerPoint: Float)

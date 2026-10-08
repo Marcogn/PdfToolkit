@@ -253,6 +253,8 @@
     <string name="fill_tool_cross">Cross</string>
     <string name="fill_tool_signature">Signature</string>
     <string name="fill_hint_place">Tap the page where it should go</string>
+    <string name="fill_hint_fields">Tap a field to fill it, or pick a tool</string>
+    <string name="fill_fields_unreadable">The form fields couldn\'t be read: you can still add text, ticks and signatures.</string>
     <string name="fill_edit">Edit</string>
     <string name="fill_delete">Delete</string>
     <string name="fill_done">Done</string>
@@ -261,7 +263,6 @@
     <string name="fill_text_size">Size: %1$d pt</string>
     <string name="fill_text_confirm">OK</string>
     <string name="fill_text_removed">Some characters can\'t be written in the PDF and were removed.</string>
-    <string name="fill_load_failed">The document couldn\'t be read for filling.</string>
     <string name="fill_xfa_unsupported">This form uses XFA, which isn\'t supported. You can still fill it with text, ticks and a signature.</string>
     <string name="fill_page_indicator">Page %1$d of %2$d</string>
     <string name="fill_image_unreadable">The image can\'t be read.</string>

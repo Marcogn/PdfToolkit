@@ -28,12 +28,12 @@ internal class OverlayGrab {
  * [onLive] and committed once when the fingers lift ([onCommit]), so one gesture is one undo step.
  *
  * [hit] gives the overlay a touch at a screen point can grab (any overlay when `anyOverlay`, only
- * the selected one otherwise); [toUser] maps a screen point to user space.
+ * the selected one otherwise); [toUser] maps a screen point to the user space of the overlay's page.
  */
 internal suspend fun PointerInputScope.detectOverlayGestures(
     grab: OverlayGrab,
     hit: (screen: Offset, anyOverlay: Boolean) -> Overlay?,
-    toUser: (Offset) -> Offset?,
+    toUser: (Overlay, Offset) -> Offset?,
     handleHit: (screen: Offset) -> Overlay?,
     onGrabbed: (Overlay) -> Unit,
     apply: (Overlay, UserTransform) -> Overlay,
@@ -53,8 +53,8 @@ internal suspend fun PointerInputScope.detectOverlayGestures(
                     val event = awaitPointerEvent()
                     val change = event.changes.firstOrNull { it.id == down.id }
                     if (change == null || !change.pressed) break
-                    val to = toUser(change.position)
-                    val from = toUser(change.previousPosition)
+                    val to = toUser(current, change.position)
+                    val from = toUser(current, change.previousPosition)
                     if (to == null || from == null || !change.positionChanged()) continue
                     val center = Offset(current.box.centerX, current.box.centerY)
                     current = apply(current, UserTransform.about(center, from, to))
@@ -104,14 +104,14 @@ internal suspend fun PointerInputScope.detectOverlayGestures(
                     if (b != null || travel.getDistance() > engageDistance) engaged = true
                 }
                 if (!engaged) continue
-                val toA = toUser(a.position)
-                val fromA = toUser(a.previousPosition)
+                val toA = toUser(current, a.position)
+                val fromA = toUser(current, a.previousPosition)
                 if (toA == null || fromA == null) continue
                 val transform = if (b == null) {
                     UserTransform.drag(fromA, toA)
                 } else {
-                    val toB = toUser(b.position)
-                    val fromB = toUser(b.previousPosition)
+                    val toB = toUser(current, b.position)
+                    val fromB = toUser(current, b.previousPosition)
                     if (toB == null || fromB == null) continue
                     UserTransform.pinch(fromA, fromB, toA, toB)
                 }

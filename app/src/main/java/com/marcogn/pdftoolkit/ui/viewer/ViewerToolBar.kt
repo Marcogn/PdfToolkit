@@ -42,15 +42,16 @@ fun AnnotatePaneState.toolOf(group: ViewerToolGroup): AnnotateTool = when (group
 }
 
 /**
- * The tools of the viewer (plan V-b), as a bar at the bottom of the screen or, with [side], a rail at its
- * end (plan U18): Highlight, Draw and Eraser arm a page tool; Fill and sign and Pages open the edit screen
- * (which asks to save first when the viewer has changes). A tap on the button of the armed family puts the
- * tool down. With a tool armed, the Style button (colour, size and the other tool of its family) and, once
- * there is something to undo, Undo and Redo sit at the end where the thumb is.
+ * The tools of the viewer (plans V-b, V-c), as a bar at the bottom of the screen or, with [side], a rail at
+ * its end (plan U18): Highlight, Draw and Eraser arm a page tool, Fill arms "Fill and sign", Pages opens the
+ * edit screen (which asks to save first when the viewer has changes). A tap on the button of the armed
+ * family puts the tool down. With a markup or drawing tool armed, the Style button (colour, size and the
+ * other tool of its family) sits at the end where the thumb is, and so do Undo and Redo once there is
+ * something to undo. While [filling], the strip holds Fill (armed) and the [fillTools] instead.
  *
  * @param armed the tool of [state] is in effect (the bar may show without one).
- * @param editable the document can take page tools; otherwise those three buttons are dimmed and a tap on
- * them only explains why ([onGroup] decides what to say).
+ * @param editable the document can take page tools; otherwise those buttons are dimmed and a tap on them
+ * only explains why ([onGroup] and [onFill] decide what to say).
  */
 @Composable
 fun ViewerToolBar(
@@ -60,30 +61,41 @@ fun ViewerToolBar(
     undoRedo: UndoRedo?,
     side: Boolean,
     onGroup: (ViewerToolGroup) -> Unit,
-    onFillAndSign: () -> Unit,
+    filling: Boolean,
+    onFill: () -> Unit,
     onPages: () -> Unit,
     modifier: Modifier = Modifier,
+    fillTools: @Composable () -> Unit = {},
 ) {
     ToolStrip(
         side = side,
         undoRedo = undoRedo,
         modifier = modifier.then(if (side) Modifier.fillMaxHeight() else Modifier.fillMaxWidth()),
-        trailing = { if (armed) StyleButton(state) },
+        trailing = { if (armed && !filling) StyleButton(state) },
     ) {
-        for (group in ViewerToolGroup.entries) {
-            val tool = state.toolOf(group)
-            Box(Modifier.alpha(if (editable) 1f else DIMMED)) {
-                // Named after the tool of the family that a tap arms (Underline, Marker...), so the button says what it does.
-                ToolButtonFrame(tool.labelRes(), armed && state.tool.group() == group, onClick = { onGroup(group) }) {
-                    Icon(tool.icon(), contentDescription = null)
+        if (filling) {
+            ToolButtonFrame(R.string.viewer_tool_fill, true, onClick = onFill) {
+                Icon(Icons.Outlined.EditNote, contentDescription = null)
+            }
+            fillTools()
+        } else {
+            for (group in ViewerToolGroup.entries) {
+                val tool = state.toolOf(group)
+                Box(Modifier.alpha(if (editable) 1f else DIMMED)) {
+                    // Named after the tool of the family that a tap arms (Underline, Marker...), so the button says what it does.
+                    ToolButtonFrame(tool.labelRes(), armed && state.tool.group() == group, onClick = { onGroup(group) }) {
+                        Icon(tool.icon(), contentDescription = null)
+                    }
                 }
             }
-        }
-        ToolButtonFrame(R.string.viewer_tool_fill, false, onClick = onFillAndSign) {
-            Icon(Icons.Outlined.EditNote, contentDescription = null)
-        }
-        ToolButtonFrame(R.string.viewer_tool_pages, false, onClick = onPages) {
-            Icon(Icons.Outlined.GridView, contentDescription = null)
+            Box(Modifier.alpha(if (editable) 1f else DIMMED)) {
+                ToolButtonFrame(R.string.viewer_tool_fill, false, onClick = onFill) {
+                    Icon(Icons.Outlined.EditNote, contentDescription = null)
+                }
+            }
+            ToolButtonFrame(R.string.viewer_tool_pages, false, onClick = onPages) {
+                Icon(Icons.Outlined.GridView, contentDescription = null)
+            }
         }
     }
 }

@@ -66,8 +66,7 @@ again (the exit asks once more, never the opposite).
   maximum zoom. Not visible in practice.
 - The viewer reads the annotations of every document it opens (already true since 7a): editing becomes
   available about when the first pages show.
-- The edit screen no longer has an Annotate pane or a hub (V-b); its panes are Organize pages and Fill and sign
-  (the latter until V-c moves it into the viewer).
+- The edit screen is "Organize pages" only: the Annotate pane and the hub went in V-b, the Fill pane in V-c.
 
 ## V-b: the tools bar (2026-10-08)
 
@@ -76,7 +75,7 @@ again (the exit asks once more, never the opposite).
   that a tap arms (`AnnotatePaneState.markupTool/brushTool`: underline, marker...); the Style menu picks the
   other tools of the family. It hides with the top bar in full screen, while searching and over the thumbnails.
 - Both ends of "save first" are in `ReadyViewer`: with unsaved changes the tap shows a dialog (Save / Discard /
-  Cancel); Save runs the normal save dialog and, once written, `onOpenEdit(uri, tool, page, reopenViewer = true)`
+  Cancel); Save runs the normal save dialog and, once written, `onOpenPages(uri, page, reopenViewer = true)` (named `onOpenEdit` until V-c)
   replaces the viewer by one on the saved file (`popUpTo<Home>`) and opens the edit screen above it, so back
   returns to a viewer that shows the saved file (also after a copy). Discard drops the session first.
 - With a markup tool armed the mark is made when the finger lifts (after the long press, or after dragging a handle),
@@ -85,3 +84,28 @@ again (the exit asks once more, never the opposite).
   read; a protected document says why instead). `Destination.Edit` lost `selectionStart/End`.
 - The FAB → hub container transform (phase 6) went with the FAB: `EditContainerTransform` and the shared
   transition layout are removed.
+
+## V-c: fill and sign in the viewer (2026-10-08)
+
+- **Same session, same rule.** Overlays (text, date, tick, cross, signature) and form values join the
+  annotations in `ViewerEditSession` (`addOverlay`/`updateOverlay`/`removeOverlay`/`setField`), bound to the
+  page ids `p<index>`, kept in `viewerFill`. The Fill pane of `EditScreen` and its page renderer
+  (`FillPage`, `PageBackdrop`) are gone: the viewer's tiles are the page, at any zoom.
+- **Geometry in one place.** `ViewportFill` (pure, unit-tested) places form controls over their widgets on the
+  pages on screen, maps a screen point to the user space of a given page, finds the overlay under a finger
+  and the corner handle. A gesture on an overlay always maps through the overlay's own page, so a margin or a
+  drag that crosses the gap between pages stays consistent. Placement (`ViewerPageTools.newMark/newImage/newText`)
+  takes the page display points of a tap, as the 4a pane did.
+- **Drawing and gestures.** `PdfViewport(fill = ViewportFillContent)` draws the overlays after the annotations
+  (clipped to the page) and lays the form controls out as Compose children. The overlay detector sits after
+  `detectZoomPanFling`, which stands down through `OverlayGrab.active` (4b's arbitration); with Fill armed and no
+  placement tool, a touch on the selected overlay moves it, a long press grabs any other, the corner handle
+  scales and turns. Text selection is off while Fill is armed (the long press belongs to the overlays).
+- **Controls when not filling.** The renderer draws each widget with the value saved in the file (API 35+), so a
+  pending value must be drawn over it even with the tool put down: those fields keep a non-interactive control;
+  with Fill armed every field on screen gets an interactive one.
+- **The form is read lazily.** `ViewerViewModel.loadForm()` reads fields and XFA kind with `FormReader` the first
+  time Fill is armed, or at once when restored edits hold field values. If it fails, free filling still works.
+- **The keyboard.** The viewport doesn't resize for the IME (the page area is the whole screen); a focused text
+  field below the keyboard pans the page up instead.
+- **Home "Fill and sign"** opens the viewer armed (`Destination.Viewer(uri, tool)`); `Destination.Edit` lost `tool`.
