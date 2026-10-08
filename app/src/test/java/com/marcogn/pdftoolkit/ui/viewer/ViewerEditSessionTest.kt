@@ -14,7 +14,16 @@ import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
 import com.marcogn.pdftoolkit.domain.annotate.Quad
 import com.marcogn.pdftoolkit.domain.annotate.UserPoint
 import com.marcogn.pdftoolkit.domain.edit.EditSession
+import com.marcogn.pdftoolkit.domain.edit.ImageDimensions
+import com.marcogn.pdftoolkit.domain.fill.FieldValue
+import com.marcogn.pdftoolkit.domain.fill.FieldWidget
+import com.marcogn.pdftoolkit.domain.fill.FormField
+import com.marcogn.pdftoolkit.domain.fill.MarkKind
+import com.marcogn.pdftoolkit.domain.fill.OverlayBox
 import com.marcogn.pdftoolkit.domain.fill.PageBox
+import com.marcogn.pdftoolkit.domain.fill.TextBlock
+import com.marcogn.pdftoolkit.pdf.render.PdfPageSpace
+import com.marcogn.pdftoolkit.ui.edit.PickedImage
 import com.marcogn.pdftoolkit.domain.fill.UserRect
 import com.marcogn.pdftoolkit.pdf.annotations.DocumentAnnotations
 import com.marcogn.pdftoolkit.pdf.annotations.FreehandStroke
@@ -242,5 +251,142 @@ class ViewerEditSessionTest {
         assertEquals(ViewerBackStep.LEAVE, viewerBackStep(false, false, false, hasUnsavedChanges = false, saving = false))
         // A save already running finishes in the background.
         assertEquals(ViewerBackStep.LEAVE, viewerBackStep(false, false, false, hasUnsavedChanges = true, saving = true))
+        // Fill and sign: a placement tool or a selected overlay goes before the tool itself.
+        assertEquals(ViewerBackStep.DROP_FILL_TOOL, viewerBackStep(false, false, toolArmed = true, hasUnsavedChanges = true, saving = false, fillToolActive = true))
+        assertEquals(ViewerBackStep.CLEAR_SELECTION, viewerBackStep(false, selectionActive = true, toolArmed = true, hasUnsavedChanges = false, saving = false, fillToolActive = true))
+    }
+
+    // --- Fill and sign (plan V-c) ---
+
+    private val nameField = FormField.Text(
+        name = "name",
+        label = null,
+        readOnly = false,
+        widgets = listOf(FieldWidget(0, UserRect(10f, 10f, 100f, 30f))),
+        value = FieldValue.Text("in the file"),
+        multiline = false,
+        maxLength = null,
+        fontSize = 0f,
+    )
+
+    private fun displayOf(space: PdfPageSpace, box: OverlayBox): Offset = space.userToDisplay.map(Offset(box.centerX, box.centerY))
+
+    @Test
+    fun `a tick lands centred where the page was tapped, upright on a turned page too`() {
+        val editing = ViewerEditSession(SavedStateHandle(), pageCount = 2)
+        val tools = ViewerPageTools(editing, document)
+        val plain = tools.newMark(0, Offset(50f, 100f), MarkKind.CHECK)!!
+        assertEquals("p0", plain.pageId)
+        // Page 0 is 300 pt tall: display y 100 is user y 200.
+        assertEquals(50f, plain.box.centerX, 0.01f)
+        assertEquals(200f, plain.box.centerY, 0.01f)
+        assertEquals(0f, plain.box.angle, 0.01f)
+
+        val turned = tools.newMark(1, Offset(40f, 60f), MarkKind.CROSS)!!
+        val space = tools.spaceOf(1)!!
+        val back = displayOf(space, turned.box)
+        assertEquals(40f, back.x, 0.01f)
+        assertEquals(60f, back.y, 0.01f)
+        // Upright as shown: its angle undoes the page's /Rotate.
+        assertEquals(0f, space.displayAngle(turned.box.angle), 0.01f)
+        assertNull(tools.newMark(5, Offset(1f, 1f), MarkKind.CHECK))
+    }
+
+    @Test
+    fun `a signature is 150 pt wide or 40 percent of a narrow page, with its proportions`() {
+        val editing = ViewerEditSession(SavedStateHandle(), pageCount = 2)
+        val tools = ViewerPageTools(editing, document)
+        val image = PickedImage("file:///sig.png", ImageDimensions(400, 200))
+        // Page 0 is 200 pt wide: 40% is 80 pt.
+        val signature = tools.newImage(0, Offset(100f, 150f), image)!!
+        assertEquals(80f, signature.box.width, 0.01f)
+        assertEquals(40f, signature.box.height, 0.01f)
+        assertEquals("file:///sig.png", signature.imageUri)
+        // Page 1 shows 200 x 300 too (300 x 200 turned): the same size, centred where tapped.
+        val turned = tools.newImage(1, Offset(100f, 150f), image)!!
+        val centre = displayOf(tools.spaceOf(1)!!, turned.box)
+        assertEquals(100f, centre.x, 0.01f)
+        assertEquals(150f, centre.y, 0.01f)
+    }
+
+    @Test
+    fun `a text starts just left of the tap with its first line through it`() {
+        val editing = ViewerEditSession(SavedStateHandle(), pageCount = 2)
+        val tools = ViewerPageTools(editing, document)
+        val fontSize = 12f
+        val text = tools.newText(0, Offset(50f, 100f), "Ciao", fontSize, width = 40f, height = 16f)!!
+        val (x, baseline) = TextBlock.lineOrigin(0, fontSize)
+        val middle = baseline - (TextBlock.ASCENT - TextBlock.DESCENT) / 2f * fontSize
+        val centre = displayOf(tools.spaceOf(0)!!, text.box)
+        assertEquals(50f - x + 20f, centre.x, 0.01f)
+        assertEquals(100f - middle + 8f, centre.y, 0.01f)
+        assertEquals("Ciao", text.text)
+    }
+
+    @Test
+    fun `a tap selects the topmost overlay of that page`() {
+        val editing = ViewerEditSession(SavedStateHandle(), pageCount = 2)
+        val tools = ViewerPageTools(editing, document)
+        val first = tools.newMark(0, Offset(50f, 100f), MarkKind.CHECK)!!
+        val second = tools.newMark(0, Offset(52f, 100f), MarkKind.CROSS)!!
+        val elsewhere = tools.newMark(1, Offset(50f, 100f), MarkKind.CHECK)!!
+        val overlays = listOf(first, second, elsewhere)
+        assertEquals(second, tools.overlayAt(0, Offset(51f, 100f), overlays))
+        assertEquals(elsewhere, tools.overlayAt(1, Offset(50f, 100f), overlays))
+        assertNull(tools.overlayAt(0, Offset(150f, 250f), overlays))
+    }
+
+    @Test
+    fun `overlays and field values are undoable edits that survive process death`() {
+        val handle = SavedStateHandle()
+        val editing = ViewerEditSession(handle, pageCount = 2)
+        val tools = ViewerPageTools(editing, document)
+        val tick = tools.newMark(1, Offset(40f, 60f), MarkKind.CHECK)!!
+        assertTrue(editing.addOverlay(tick))
+        assertTrue(editing.setField(nameField, FieldValue.Text("Mario"), typing = true))
+        // Typing on into the same field is the same undo step.
+        assertTrue(editing.setField(nameField, FieldValue.Text("Mario R"), typing = true))
+        assertTrue(editing.hasUnsavedChanges)
+
+        val restored = ViewerEditSession(SavedStateHandle(mapOf("viewerFill" to handle.get<String>("viewerFill"))), pageCount = 2)
+        assertEquals(listOf(tick), restored.session.fill.overlays)
+        assertEquals(FieldValue.Text("Mario R"), restored.session.fill.fields["name"])
+
+        editing.undo()
+        assertNull(editing.session.fill.fields["name"])
+        editing.undo()
+        assertTrue(editing.session.fill.isEmpty)
+        assertFalse(editing.hasUnsavedChanges)
+    }
+
+    @Test
+    fun `the file's own value clears a field's change`() {
+        val editing = ViewerEditSession(SavedStateHandle(), pageCount = 2)
+        editing.setField(nameField, FieldValue.Text("new"))
+        editing.setField(nameField, FieldValue.Text("in the file"))
+        assertTrue(editing.session.fill.fields.isEmpty())
+    }
+
+    @Test
+    fun `moving and removing an overlay`() {
+        val editing = ViewerEditSession(SavedStateHandle(), pageCount = 2)
+        val tick = ViewerPageTools(editing, document).newMark(0, Offset(50f, 100f), MarkKind.CHECK)!!
+        editing.addOverlay(tick)
+        val moved = tick.withBox(tick.box.copy(centerX = 80f))
+        assertTrue(editing.updateOverlay(moved))
+        assertEquals(listOf(moved), editing.session.fill.overlays)
+        assertTrue(editing.removeOverlay(tick.id))
+        assertTrue(editing.session.fill.overlays.isEmpty())
+        // An overlay on a page the document doesn't have is refused.
+        assertFalse(editing.addOverlay(tick.copy(id = "x", pageId = "p9")))
+    }
+
+    @Test
+    fun `a placed signature makes the form final by default, unless the reader chose otherwise`() {
+        val editing = ViewerEditSession(SavedStateHandle(), pageCount = 2)
+        editing.addOverlay(ViewerPageTools(editing, document).newImage(0, Offset(50f, 50f), PickedImage("file:///s.png", ImageDimensions(100, 50)))!!)
+        assertTrue(editing.saveRequest("content://doc", "content://doc", flattenForm = null, flattenInk = false).flattenForm)
+        assertFalse(editing.saveRequest("content://doc", "content://doc", flattenForm = false, flattenInk = false).flattenForm)
+        assertTrue(editing.saveRequest("content://doc", "content://doc", flattenForm = null, flattenInk = false).fill.isNotEmpty())
     }
 }

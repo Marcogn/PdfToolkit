@@ -6,50 +6,26 @@
 Android app to read and edit PDF files on the phone. Everything runs on the device: no account,
 no cloud, no network access.
 
-## Status
-
-The viewer (phase 1 of the plan, `docs/spec.md` §13) is complete: PDFs open from the file picker,
-from a file manager ("Open with") and from the share sheet, in continuous or single-page mode,
-with zoom, scrubber, thumbnail bar, password support (Android 15+), recent files with the last page
-read, and the related settings. Page editing (phase 2) is in as well: remove, reorder and rotate
-pages with undo/redo, and save as a copy or overwrite, in the background. Adding pages (from another
-PDF, blank, from images) and merging PDFs (phase 3) are in too. Fill and sign (phase 4) is complete:
-form fields, text, dates, ticks and crosses, and signatures are written into the page; signatures
-are drawn or imported into an archive ("My signatures") and every placed item can be moved, resized
-and turned with the fingers. Text search (phase 5) is in: case- and accent-insensitive, with results that appear while the
-text is read and are highlighted on the page. Polish (phase 6) is done except the baseline profile,
-which has to be generated on a device: thumbnails fade in, the viewer
-announces the page to screen readers, and the release build is minified (R8). Version 1.0.0 is
-released. Product phase 2 has started (`docs/plan-v2.md`): the viewer shows the highlights and
-drawings already in a PDF, selects and copies text (7a, 7b), and the "Highlight" tool (7b) highlights,
-underlines and strikes out text and erases annotations, also those made by other apps. Freehand
-drawing is done (8a, 8b): the "Draw" tool opens the viewer with the pen; pen and marker have
-their own colours and sizes, and drawings are saved as ink annotations or made final. The usability
-review (`docs/plan-usability.md`) is done (U-a, U-b). Editing moves into the viewer
-(`docs/plan-viewer-editing.md`): since V-a and V-b, highlighting, drawing and erasing work right on the
-pages being read, from a tools bar (Highlight, Draw, Eraser, Fill, Pages), with undo/redo and saving from the
-viewer; with a markup tool armed, text is marked as soon as you lift the finger (with an Undo message).
-"Pages" (organize, add, merge) and "Fill" open the edit screen, asking to save first. The edit hub is
-gone. Fill and sign in the viewer itself (V-c) is next.
-
 ## Features
 
-Planned for the first version:
+- **Reading**: continuous or single-page scrolling, zoom up to 5x with sharp tiles, scrubber,
+  thumbnails, "go to page", full-screen reading with a tap, the last page read remembered per file,
+  recent files. Opens PDFs from the picker, from "Open with" and from the share sheet; password-protected
+  files open on Android 15 and later.
+- **Search**: case- and accent-insensitive, results highlighted while the text is read.
+- **Editing on the page**, from the viewer's tools bar (a rail at the side in landscape), with undo,
+  redo and saving as a copy or over the original:
+  - highlight, underline and strike out text; select and copy it;
+  - draw with a pen or a marker, finger or stylus;
+  - erase annotations, also those made by other apps;
+  - fill forms (text, check boxes, radio buttons, lists) and add text, the date, ticks, crosses and
+    signatures, which can be moved, resized and turned; signatures are drawn or imported into a private
+    archive ("My signatures").
+- **Organizing pages**: select, rotate, remove, drag to reorder, add pages from another PDF, blank or
+  from images. **Merging** several PDFs.
 
-- reading with zoom, continuous or single-page scrolling, scrubber and thumbnails (done)
-- text search (done)
-- merging several PDFs (done)
-- organizing pages in one tool: select, rotate, remove, drag to reorder, add (done); adding pages from another PDF, blank, or from
-  images (done)
-- form filling and signing (done: forms, text, date, ticks, signatures drawn or imported), with an
-  archive of signatures saved on the phone
-- selecting and copying text; highlighting, underlining and striking out text, and erasing
-  annotations (done, product phase 2 / 7b)
-- freehand drawing with a pen and a marker, finger or stylus (done, 8a and 8b)
-
-Planned for later: document scanning with OCR, cloud upload (WebDAV), export to OpenDocument. They already show up on Home as "Soon". Order and plan in
-[`docs/plan-v2.md`](docs/plan-v2.md): highlighting and drawing first, then scanning, then OCR,
-OpenDocument export and cloud upload.
+Planned: document scanning, OCR, export to OpenDocument and upload to a WebDAV server (Nextcloud).
+They already show on Home as "Soon"; order and plan in [`docs/plan-v2.md`](docs/plan-v2.md).
 
 ## Requirements
 
@@ -86,15 +62,12 @@ and how to reuse the workflows in another project: [`docs/ci.md`](docs/ci.md).
 
 ```
 app/src/main/java/com/marcogn/pdftoolkit/
-  ui/        Compose screens, navigation and theme
-  domain/    models with no Android dependencies
-  data/      preferences (DataStore), recent documents and signatures (Room), background save (save/), picked images (images/)
-  pdf/       PDF rendering (render/), editing (edit/), forms (forms/), text search (text/) and annotations (annotations/)
+  ui/        Compose screens (viewer and page tools in ui/viewer), navigation, theme
+  domain/    models with no Android dependencies (edit session, fill, annotations)
+  data/      preferences (DataStore), recents and signatures (Room), background save, picked images
+  pdf/       rendering, editing (PdfBox), forms, text and search, annotations
   di/        Hilt modules
-docs/
-  spec.md    functional and technical specification (Italian)
-  plan.md    plan, alignment with the reference projects, dependency upgrade notes
-  adr/       architecture decisions
+docs/        specification, plans, decisions, ADRs, CI
 ```
 
 ## Privacy
@@ -104,82 +77,57 @@ device. CI checks on every pull request that no dependency brings the permission
 
 ## Libraries and licences
 
-Kotlin, AndroidX (including WorkManager), Jetpack Compose and Dagger Hilt, PdfBox-Android (editing),
-and Reorderable (page drag and drop), all under the Apache 2.0 licence; the viewer uses Android's
+Kotlin, AndroidX (including WorkManager and Ink), Jetpack Compose and Dagger Hilt, PdfBox-Android
+(editing), and Reorderable (page drag and drop), all under the Apache 2.0 licence; the viewer uses Android's
 `PdfRenderer`. The reasons are in [`docs/adr/`](docs/adr/). Text written into PDFs uses the Noto Sans
 font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1: it is bundled in
 `app/src/main/assets/fonts/` with its licence (`OFL.txt`) and embedded in the PDFs the app writes.
 
 ## Known limits
 
-- Password-protected PDFs can be read (Android 15+) but not edited yet.
-- Removing a page doesn't guarantee its data leaves the file: if a bookmark or link still points to
-  it, the page's objects stay in the file (not shown by readers). Not a redaction tool.
-- PDFs added to another one (add pages, merge) can't be password-protected yet.
-- Merging keeps the pages as they are but not the bookmarks, and the form fields of the merged files
-  may stop working: the merge list warns when a file has them. Flattening the form before merging
-  comes with the fill-and-sign phase.
-- Images become pages through Android's own decoder: HEIC/HEIF are read from Android 9 and AVIF
-  from Android 14 (where the platform guarantees a decoder, see Android's "supported media formats");
-  on Android 8 only the formats `BitmapFactory` reads are expected to work (JPEG, PNG, WebP, GIF). A photo's DPI is used
-  for "original size" only when it is 100 or more, otherwise 150 DPI is assumed (cameras often write
-  72, which would make a page over a metre wide).
-- Signatures are images placed on the page, not digital signatures with a certificate: they have
-  no legal value as a qualified electronic signature (the app says so the first time you create one,
-  and in About). The archive is private to the app and excluded from Android's backup, so a new
-  phone starts without them. Background removal is a brightness threshold: a photo with uneven
-  light may need the slider, or a tighter crop.
-- Fill and sign: XFA forms are not supported (free filling
-  still works, and a form that also has XFA data loses it when its fields are filled, so other
-  readers show the new values); "Next" on the keyboard moves between the fields of one page.
-  Pages in "Fill and sign" are not tiled like in the viewer: at high zoom they look softer.
-- Text search follows the order in which PdfBox extracts the text, which may differ from the
-  reading order in columns and tables: a phrase split across columns may not be found. A word
-  hyphenated at the end of a line is two words for the search. Right-to-left scripts aren't handled.
-  Scanned PDFs have no text to search until OCR (planned). Reading the text of a long, dense PDF
-  takes a while on a phone (results come in as pages are read); the index is not kept on disk, so
-  it is rebuilt each time the document is opened and searched.
-- Saving works on copies in the app's cache: a large merge needs free storage of a few times the
-  total size of its files while it runs (they are deleted afterwards).
-- Annotations already in a PDF (highlights, underlines, strikeouts, freehand ink) are drawn by the
-  app from their shape, because Android's renderer doesn't draw them: one with a custom look made
-  by another app may look plainer than in that app, and notes, stamps and shapes aren't shown yet.
-  Page thumbnails don't show annotations. On Android 8 and 9 a highlight is drawn translucent over
-  the text instead of blending with it, so the text under it looks lighter.
-- Text selection and the highlight tools work on the glyphs PdfBox extracts: a selection is one run in
-  extraction order (it can jump oddly in columns), one page at a time, and a page without text (a
-  scan) has nothing to select until OCR. Right-to-left scripts aren't handled. In "Highlight" the
-  text is selected on the page as its file shows it; the eraser takes whatever is under the finger,
-  including notes and stamps the app can't draw. Annotations aren't editable after they are added
-  (no colour change): erase and redo. Highlighting is not available on password-protected PDFs (they
-  can't be edited yet).
-- Drawing: colour and size are chosen per tool and kept while the pane is open (not across app restarts); pages don't turn while the pen or the marker
-  is chosen (pick another tool to move to another page); double tap doesn't zoom
-  while drawing, two fingers do. A drawing reopened later in the app is drawn with an even width:
-  the varying outline is in the file's appearance, which other readers show, while the app draws ink
-  from its centre line. While drawing, the marker is translucent; once lifted it blends with the text,
-  so it looks slightly different. Only the stylus ignores a resting palm: with a finger, a second
-  touch means zoom. The drawing library adds about 5 MB of native code to the APK.
-- Editing in the viewer (highlight, draw, erase) waits until the document's annotations are read, a
-  moment after it opens; password-protected PDFs stay read-only. After "save as copy" the viewer keeps
-  showing the original with your changes on top: "Open" in the message shows the copy. "Pages" and "Fill" ask
-  to save (or discard) the viewer's changes first, then open the edit screen on the saved file. In the viewer a
-  tap with the pen or the marker draws a dot instead of switching to full screen. In landscape the rail
-  covers the right edge of a page shown at fit width: tap the page to hide it, or zoom in.
-- Overwriting needs a file that grants write access (most local files do, some providers don't);
-  otherwise only "save as copy" is offered.
+- **Protected PDFs** can be read (Android 15+) but not edited, added to another PDF or merged.
+- **Removing a page** doesn't guarantee its data leaves the file: if a bookmark or link points to it,
+  its objects stay (unseen). This is not a redaction tool.
+- **Merging** keeps the pages but not the bookmarks, and form fields of merged files may stop working
+  (the merge list warns).
+- **Images as pages** go through Android's decoder: HEIC/HEIF from Android 9, AVIF from Android 14,
+  on Android 8 only JPEG, PNG, WebP and GIF. A photo's DPI counts for "original size" only when it is
+  at least 100, otherwise 150 DPI is assumed (cameras often write 72).
+- **Signatures** are images on the page, not certified digital signatures: no legal value as a
+  qualified electronic signature (the app says so). The archive is excluded from Android's backup, so a
+  new phone starts without it. Background removal is a brightness threshold.
+- **Forms**: XFA forms aren't supported (free filling still works; a form that also carries XFA data
+  loses it when filled, so other readers show the new values). The keyboard's "Next" moves among the
+  fields on screen.
+- **Search and text selection** follow PdfBox's extraction order, which may differ from the reading
+  order in columns and tables; a hyphenated word is two words; right-to-left scripts aren't handled;
+  scans have no text until OCR. The search index is rebuilt each time a document is opened.
+- **Annotations** are drawn by the app, because Android's renderer doesn't: one with a custom look may
+  look plainer than in the app that made it, and notes, stamps and shapes aren't shown (the eraser can
+  still remove them). Thumbnails don't show annotations. On Android 8 and 9 a highlight looks lighter
+  (translucent instead of blended). Annotations can't be restyled after adding: erase and redo.
+- **Drawing**: in the app a reopened drawing has an even width (other readers show the varying
+  outline); the marker is translucent while drawing and blends with the text once lifted; double tap
+  doesn't zoom while drawing; in single-page mode pages don't turn while a brush is armed; only a stylus
+  ignores a resting palm. The drawing library adds about 5 MB of native code to the APK.
+- **Editing in the viewer** starts a moment after a document opens (its annotations are read first).
+  After "save as copy" the viewer keeps showing the original with the changes on top ("Open" shows the
+  copy). "Pages" asks to save or discard first. In landscape the rail covers the right edge of a page
+  at fit width: tap to hide it, or zoom.
+- **Saving** works on copies in the app's cache: a large merge needs free space of a few times its size
+  while it runs. Overwriting needs a file that grants write access; otherwise only "save as copy" is
+  offered.
 
 ## Documentation
 
-- [`docs/spec.md`](docs/spec.md): specification and development plan
-- [`docs/plan.md`](docs/plan.md): what comes from ThePatientGamerHelper and KartLog, and how the
-  dependencies were upgraded
-- [`docs/plan-v2.md`](docs/plan-v2.md): plan of product phase 2 (annotations, scan, OCR, ODF, cloud)
-- [`docs/plan-usability.md`](docs/plan-usability.md): usability review and the changes it proposes
-- [`docs/plan-viewer-editing.md`](docs/plan-viewer-editing.md): page tools in the viewer (V-a, V-b, V-c)
-- [`docs/adr/`](docs/adr/): architecture decisions
-- [`CHANGELOG.md`](CHANGELOG.md): changes per version
-- [`CLAUDE.md`](CLAUDE.md): working notes for development
+- [`docs/spec.md`](docs/spec.md): specification (Italian), with notes where the app deviates from it
+- [`docs/decisions.md`](docs/decisions.md): decisions in force, by topic; [`docs/adr/`](docs/adr/): the big ones
+- [`docs/plan-v2.md`](docs/plan-v2.md): plan of product phase 2 (scan, OCR, ODF, cloud)
+- [`docs/plan-usability.md`](docs/plan-usability.md), [`docs/plan-viewer-editing.md`](docs/plan-viewer-editing.md):
+  records of the usability review and of moving the page tools into the viewer
+- [`docs/plan.md`](docs/plan.md): what comes from the reference projects, and how dependencies were upgraded
+- [`docs/ci.md`](docs/ci.md): CI and releases
+- [`CHANGELOG.md`](CHANGELOG.md): changes per version; [`CLAUDE.md`](CLAUDE.md): working notes for development
 
 ## Development
 

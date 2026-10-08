@@ -9,15 +9,20 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.marcogn.pdftoolkit.data.images.ImageImporter
 import com.marcogn.pdftoolkit.data.recents.RecentsRepository
 import com.marcogn.pdftoolkit.data.save.SaveScheduler
 import com.marcogn.pdftoolkit.data.settings.SavePreferences
 import com.marcogn.pdftoolkit.data.settings.ReadingPreferences
+import com.marcogn.pdftoolkit.domain.fill.FormDocument
 import com.marcogn.pdftoolkit.domain.model.OpenFailure
 import com.marcogn.pdftoolkit.domain.model.PdfOpenException
 import com.marcogn.pdftoolkit.domain.model.ReadingMode
 import com.marcogn.pdftoolkit.pdf.annotations.AnnotationReader
 import com.marcogn.pdftoolkit.pdf.annotations.DocumentAnnotations
+import com.marcogn.pdftoolkit.pdf.edit.FontCoverage
+import com.marcogn.pdftoolkit.pdf.edit.PageImageLoader
+import com.marcogn.pdftoolkit.pdf.forms.FormReader
 import com.marcogn.pdftoolkit.pdf.render.PageKey
 import com.marcogn.pdftoolkit.pdf.render.PageSize
 import com.marcogn.pdftoolkit.pdf.render.PageThumbnails
@@ -28,6 +33,7 @@ import com.marcogn.pdftoolkit.pdf.render.RenderScheduler
 import com.marcogn.pdftoolkit.pdf.text.DocumentSearch
 import com.marcogn.pdftoolkit.pdf.text.PageTextReader
 import com.marcogn.pdftoolkit.pdf.text.PdfTextExtractor
+import com.marcogn.pdftoolkit.ui.edit.PickedImage
 import com.marcogn.pdftoolkit.ui.edit.SaveRunner
 import com.marcogn.pdftoolkit.ui.edit.SaveUiState
 import com.marcogn.pdftoolkit.ui.edit.hasWriteAccess
@@ -43,6 +49,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import kotlin.math.roundToInt
 
@@ -80,6 +87,13 @@ sealed interface ViewerUiState {
     data class Error(val failure: OpenFailure, val inRecents: Boolean) : ViewerUiState
 }
 
+/** Reading the document's form for "Fill and sign" (plan V-c). */
+sealed interface FormLoad {
+    data object Loading : FormLoad
+    data class Ready(val form: FormDocument) : FormLoad
+    data object Failed : FormLoad
+}
+
 /** Whether the viewer can edit the document (plan V-a). */
 enum class EditAvailability {
     /** The annotations are being read: the tools wait for them (they give every page its user space). */
@@ -109,6 +123,10 @@ class ViewerViewModel @Inject constructor(
     private val readingPreferences: ReadingPreferences,
     private val textExtractor: PdfTextExtractor,
     private val annotationReader: AnnotationReader,
+    private val formReader: FormReader,
+    private val fontCoverage: FontCoverage,
+    private val imageImporter: ImageImporter,
+    private val imageLoader: PageImageLoader,
     val budget: RenderBudget,
 ) : ViewModel() {
 
@@ -135,6 +153,15 @@ class ViewerViewModel @Inject constructor(
     private val _flattenInkChoice = MutableStateFlow(false)
     /** "Make final" for drawings as chosen in the save dialog (spec §7.4), off by default. */
     val flattenInkChoice: StateFlow<Boolean> = _flattenInkChoice.asStateFlow()
+
+    private val _flattenFormChoice = MutableStateFlow<Boolean?>(null)
+    /** "Make final" for the form as chosen in the save dialog; null = on with a signature (spec §6.5). */
+    val flattenFormChoice: StateFlow<Boolean?> = _flattenFormChoice.asStateFlow()
+
+    private val _form = MutableStateFlow<FormLoad?>(null)
+    /** The form fields and page boxes for "Fill and sign" (plan V-c); null until first needed ([loadForm]). */
+    val form: StateFlow<FormLoad?> = _form.asStateFlow()
+    private var formJob: Job? = null
 
     private var renderer: PdfDocumentRenderer? = null
     private var openJob: Job? = null
@@ -234,6 +261,45 @@ class ViewerViewModel @Inject constructor(
         }
     }
 
+    // --- Fill and sign (plan V-c, spec §6.5) ---
+
+    /**
+     * Reads the form (fields, XFA kind, page boxes) once: when "Fill and sign" is first armed, or when
+     * restored edits hold field values that must be drawn. A form whose page count differs from the
+     * rendered document counts as unreadable.
+     */
+    fun loadForm() {
+        val ready = _uiState.value as? ViewerUiState.Ready ?: return
+        if (_form.value is FormLoad.Ready || formJob?.isActive == true) return
+        _form.value = FormLoad.Loading
+        formJob = viewModelScope.launch {
+            val read = formReader.read({ opener.openStream(uri) }, withFields = true)
+            // The font's character table, read here rather than on the first keystroke.
+            withContext(Dispatchers.IO) { fontCoverage.sanitize("") }
+            _form.value = if (read != null && read.pageBoxes.size == ready.pageSizes.size) FormLoad.Ready(read) else FormLoad.Failed
+        }
+    }
+
+    /** The text as the PDF will hold it: characters the font can't draw are dropped. */
+    fun sanitizeText(text: String): String = fontCoverage.sanitize(text)
+
+    /**
+     * Copies and measures a signature to place on a page: the copy lives in `cacheDir/images/`, so
+     * deleting the signature never breaks an unsaved session.
+     */
+    suspend fun importOverlayImage(uri: Uri): PickedImage? {
+        val copy = imageImporter.import(uri) ?: return null
+        val dimensions = withContext(Dispatchers.IO) { imageLoader.probe(copy) } ?: return null
+        return PickedImage(copy, dimensions)
+    }
+
+    /** An image overlay's file decoded for the screen (cached by the loader); null if it can't be read. */
+    suspend fun overlayImage(uri: String): android.graphics.Bitmap? = withContext(Dispatchers.IO) { imageLoader.thumbnail(uri, OVERLAY_IMAGE_SIDE_PX) }
+
+    fun setFlattenFormChoice(flatten: Boolean) {
+        _flattenFormChoice.value = flatten
+    }
+
     // --- Saving from the viewer (plan V-a) ---
 
     fun setOverwriteChoice(overwrite: Boolean) {
@@ -257,7 +323,7 @@ class ViewerViewModel @Inject constructor(
         if (saveRunner.isRunning || ready.editAvailability.value != EditAvailability.READY) return
         if (!overwrite) context.takeWritePermission(destination)
         val editing = ready.editing
-        val request = editing.saveRequest(uriString, destination.toString(), flattenForm = null, flattenInk = _flattenInkChoice.value)
+        val request = editing.saveRequest(uriString, destination.toString(), flattenForm = _flattenFormChoice.value, flattenInk = _flattenInkChoice.value)
         val key = editing.currentKey()
         saveRunner.start(request, overwrite) { editing.markSaved(key) }
     }
@@ -289,5 +355,8 @@ class ViewerViewModel @Inject constructor(
         const val THUMBNAIL_DELAY_MS = 1_000L
         const val ANNOTATIONS_DELAY_MS = 300L
         const val RECENT_THUMBNAIL_HEIGHT_PX = 360
+
+        /** Longest side of a signature as decoded for the screen. */
+        const val OVERLAY_IMAGE_SIDE_PX = 1600
     }
 }

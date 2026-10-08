@@ -10,6 +10,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.marcogn.pdftoolkit.ui.annotate.AnnotatePaneState
 import com.marcogn.pdftoolkit.ui.annotate.AnnotateTool
 import com.marcogn.pdftoolkit.ui.common.UndoRedo
+import com.marcogn.pdftoolkit.ui.fill.FillTool
+import com.marcogn.pdftoolkit.ui.fill.FillToolButtons
+import com.marcogn.pdftoolkit.ui.fill.FillToolsState
 import com.marcogn.pdftoolkit.ui.theme.PdfToolkitTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -17,7 +20,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
-/** The tools bar of the viewer (plan V-b). Italian locale set explicitly, see HomeScreenTest. */
+/** The tools bar of the viewer (plans V-b, V-c). Italian locale set explicitly, see HomeScreenTest. */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "it-w360dp-h800dp")
 class ViewerToolBarTest {
@@ -35,6 +38,8 @@ class ViewerToolBarTest {
         armed: Boolean = false,
         undoRedo: UndoRedo? = null,
         side: Boolean = false,
+        filling: Boolean = false,
+        fillState: FillToolsState = FillToolsState(),
     ) {
         composeRule.setContent {
             PdfToolkitTheme {
@@ -45,15 +50,17 @@ class ViewerToolBarTest {
                     undoRedo = undoRedo,
                     side = side,
                     onGroup = { groups += it },
-                    onFillAndSign = { fills++ },
+                    filling = filling,
+                    onFill = { fills++ },
                     onPages = { pages++ },
+                    fillTools = { FillToolButtons(fillState, selected = null, onDelete = {}, onSignature = {}, onPickSignature = {}) },
                 )
             }
         }
     }
 
     @Test
-    fun `the bar offers the page tools and the two screens that open the edit screen`() {
+    fun `the bar offers the page tools, fill and sign and pages`() {
         setBar()
         composeRule.onNodeWithText("Evidenzia").performClick()
         composeRule.onNodeWithText("Penna").performClick()
@@ -107,6 +114,21 @@ class ViewerToolBarTest {
         setBar(side = true)
         composeRule.onNodeWithText("Penna").performClick()
         assertEquals(listOf(ViewerToolGroup.DRAW), groups)
+    }
+
+    @Test
+    fun `while filling the bar holds the fill tools and Fill puts them down`() {
+        val fillState = FillToolsState()
+        setBar(filling = true, fillState = fillState)
+        composeRule.onNodeWithText("Penna").assertDoesNotExist()
+        composeRule.onNodeWithText("Pagine").assertDoesNotExist()
+        composeRule.onNodeWithText("Stile").assertDoesNotExist()
+        composeRule.onNodeWithText("Data").performClick()
+        assertEquals(FillTool.DATE, fillState.tool)
+        composeRule.onNodeWithText("Data").performClick()
+        assertEquals(null, fillState.tool)
+        composeRule.onNodeWithText("Compila").performClick()
+        assertEquals(1, fills)
     }
 
     @Test

@@ -6,83 +6,38 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
-- **Tools bar in the viewer.** A bar at the bottom of the viewer (a rail at the side in landscape) has Highlight,
-  Draw, Eraser, Fill and Pages. Tap Highlight or Draw to arm it and again to put it down; the Style button
-  (colour, size, and the other tool of the family: underline or strikeout, marker) and Undo/Redo appear
-  at its end. The bar hides with the top bar when you tap the page. The pen button in the top bar and the
-  "Edit" button are gone. "Pages" (organize, add, merge) and "Fill" open the edit screen; if the viewer has unsaved
-  changes they first ask to save or discard.
-- **Markup applies on release.** With Highlight, Underline or Strikeout armed, lifting the finger after a long
-  press (or after dragging to extend the selection) marks the text at once; a message with "Undo" appears, and
-  Undo/Redo are in the bar. The floating Copy/Highlight bar stays for plain reading.
-- **Highlight and Draw from Home open the viewer** with the tool already armed.
-- **No more edit hub.** "Organize pages" and "Fill and sign" open straight on their screen, and back leaves it
-  (asking about unsaved changes). Highlighting and drawing now happen only in the viewer.
-- **Highlight and draw in the viewer.** The pen button in the viewer's top bar brings out the annotate tools
-  (highlight, underline, strikeout, pen, marker, eraser) right on the pages being read, in continuous and
-  single-page mode and at any zoom: draw on any page on screen, erase with a tap, select text and tap
-  Highlight (or the armed markup tool) by the selection. Undo and Redo are in the tool bar, "Save" appears
-  in the top bar (copy or overwrite, as in the edit screen), and leaving with changes asks to save. The
-  Highlight button by the viewer selection now highlights in place instead of opening the edit screen.
-  (The tools bar above completes this.)
-- **One "Organize pages" tool.** Remove, Reorder, Add pages and Insert images are now a single tool on Home
-  and in the edit hub. Tap pages to select them (rotate and delete are in the bar that appears, long press
-  then tap another for a range); every page has a handle to drag it at once; "Add" offers another PDF,
-  blank pages, or images from photos or files, after the selected page. Home no longer asks twice for a file.
-- **Overwrite asks once.** Choosing "Overwrite" in the save dialog shows the warning under the option and the
-  button reads "Overwrite"; the second confirmation dialog is gone.
-- **Roomier Annotate and Fill and sign.** The hint banner is now a short message over the page, colours and
-  brush sizes are behind one "Style" button, and in landscape the tools move to a rail at the side so the page
-  keeps its height. Colour and size choices are at least 48 dp to touch.
-- **Undo, Redo and Save where the thumb is.** Undo and Redo are at the end of the tool bar (rail) in every
-  edit pane and in the hub; Save is a "Save" word in the top bar, shown whenever there is something to save.
-- **Signature in one tap.** With no saved signature "Signature" opens the creation; with one it is placed
-  straight away (long press, or "Change" in the hint, to pick another). "My signatures" says so.
-- **Date is placed directly** (today's date, selected, ready to edit). **Resize and turn with one finger** from
-  the round handle on the corner of a selected item. The hint about moving items was wrong and is fixed.
-- **Full-screen reading.** A single tap on the page hides the bars; tap again to bring them back. The bars float
-  over the page, so the document no longer jumps or flickers when they come and go.
-- **Copy and Highlight float by the selected text** in the viewer instead of replacing the top bar.
-- **Names.** The annotate pane is titled "Highlight" or "Draw" after the armed tool; "Wallpaper colors" in
-  Settings is now "Dynamic colors".
-
-- **Edit starts where you are reading.** Fill and sign and Annotate open on the page you were on when you
-  tapped Edit, not on page 1. The "Page X of N" chip in both is now a button: tap it, type a number and go.
-  New pages (blank, images, from another PDF) default to "after the page you were reading".
-- **Highlight from the viewer.** With text selected, a Highlight button sits next to Copy: it opens the
-  Annotate pane on that page with the same words still selected, ready to pick a colour and apply.
-- **Page number in the viewer opens "Go to page".** Tap "Page X of N" under the title (the menu entry stays).
-- **Back from a tool opened on Home goes to the hub once you changed something**, so you can combine
-  tools (fill, then highlight, then save) without saving in between. With no changes it still leaves.
-- **Saving from the exit dialog leaves.** Back, Save, pick the place: when the copy is written the edit
-  closes (a "PDF saved" message appears) instead of staying open and asking for another back.
-
-- **Draw by hand.** "Highlight" has two new tools, Pen and Marker: draw on the page with a finger or a
-  stylus, and use two fingers to move and zoom (the line being drawn is then dropped). While a stylus
-  draws, a palm resting on the screen is ignored. Each line is saved as a standard ink annotation that
-  looks the same in other readers, varying width included. The marker blends with the text like a
-  highlight. The eraser, undo and redo work on drawings too. Pen and marker each have their own colours
-  and four sizes, chosen in the tool bar.
-- **Draw tool.** "Draw" on Home and in the edit hub is now available: it opens the annotate pane with
-  the pen already chosen. The pane's title is "Annotate".
-- **Make drawings final.** When there are new drawings, the save dialog offers to write them into the
-  page. They then become part of it and can no longer be erased, in this app or any other.
-- **Larger app.** The drawing library (`androidx.ink`) comes with native code: the APK that contains
-  every processor type is about 5 MB larger, about 1.5 MB per type.
-
-- **Select and copy text in the viewer.** Press and hold a word to select it, drag the two handles to
-  stretch the selection (across lines, on turned pages too) and tap Copy in the top bar. The selection
-  survives turning the screen. A page with no text (a scan) selects nothing.
-- **Highlight, underline and strike out.** "Highlight" is now on Home and in the edit hub. In the new
-  pane choose a tool and a colour, select text the same way and tap "Apply": the annotation is saved
-  in the PDF as a standard highlight, underline or strikeout, so other readers show it and can remove
-  it. Undo and redo work on it like on any edit.
-- **Eraser.** In the same pane, tap an annotation to remove it, also one made by another app (a
-  highlight from Acrobat, a note, a stamp); it goes when you save, and undo brings it back.
-- **Highlights and drawings in the viewer.** Highlights, underlines, strikeouts, squiggly lines and
-  freehand drawings already in a PDF now show in the viewer, on turned pages too. Android's own
-  renderer leaves them out, so before they weren't visible at all. Notes, stamps and shapes are not
-  shown yet.
+- **Edit right on the page.** The viewer has a tools bar (a rail at the side in landscape): Highlight, Draw,
+  Eraser, Fill and Pages. Tools work on any page on screen, in continuous and single-page mode, at any zoom.
+  Undo and Redo sit at the end of the bar, "Save" appears in the top bar (copy or overwrite), and leaving with
+  changes asks to save. A tap on the page hides the bars for full-screen reading. The "Edit" button and the
+  edit hub are gone; Highlight, Draw and Fill and sign on Home open the viewer with the tool ready.
+- **Fill and sign in the viewer.** Tap Fill: form fields get controls right over them (text, check boxes, radio
+  buttons, lists) on every page as you scroll, and the bar offers Text, Date, Tick, Cross and Signature. A
+  focused field stays above the keyboard. The date is placed at once, ready to edit. With no saved signature
+  "Signature" opens the creation, with one it is ready to place, with several (or a long press) the list. Placed
+  items move with a finger, resize and turn with two fingers or from the round handle on their corner, and a
+  long press grabs another one. Values you entered stay visible after you put the tool down. "Make final" is
+  in the save dialog.
+- **Highlight, underline, strike out.** Press and hold a word and drag the handles: with a markup tool armed
+  the text is marked when you lift the finger, with an "Undo" message. Saved as standard annotations that
+  other readers show and can remove. Without a tool, Copy and Highlight float by the selection.
+- **Draw by hand.** Pen and marker, each with its own colours and four sizes (the Style button), with a finger
+  or a stylus; two fingers move and zoom; a stylus ignores a resting palm. Drawings are saved as standard ink
+  annotations, or written into the page with "make final" in the save dialog.
+- **Eraser.** Tap an annotation to remove it, also one made by another app (a highlight from Acrobat, a note, a
+  stamp); undo brings it back.
+- **Highlights and drawings already in a PDF now show** in the viewer, on turned pages too (Android's renderer
+  leaves them out). Notes, stamps and shapes are not drawn yet.
+- **One "Organize pages" tool** replaces Remove, Reorder, Add pages and Insert images. Tap pages to select them
+  (long press, then tap another, for a range); rotate and delete from the bar; drag a page by its handle; "Add"
+  inserts another PDF, blank pages or images after the selected page, or after the page you were reading.
+  "Pages" in the viewer opens it, asking first to save or discard changes made in the viewer.
+- **Fewer steps.** "Overwrite" in the save dialog no longer asks a second time; Save in the exit dialog closes
+  the edit once the file is written; "Page X of N" in the viewer opens "Go to page"; hints are short messages
+  over the page; every colour and size is at least 48 dp to touch. "Wallpaper colors" in Settings is now
+  "Dynamic colors".
+- **Larger app.** The drawing library (`androidx.ink`) brings native code: about 5 MB more in the APK that holds
+  every processor type.
 
 ## [1.0.0] - 2026-10-04
 

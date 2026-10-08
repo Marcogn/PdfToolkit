@@ -71,6 +71,9 @@ private const val HALF_TURN = 180
  * the text runs along the field as in the saved PDF. [value] is the current value (the user's,
  * or the file's). [onChange] receives the new value; `typing` is true for keystrokes, so the edit
  * session makes one undo step of them. The control hides what the page shows under it.
+ *
+ * Not [interactive], it only shows the value (a pending change while no fill tool is armed) and takes
+ * no touch, so taps and drags reach the page under it.
  */
 @Composable
 internal fun FieldControl(
@@ -80,7 +83,9 @@ internal fun FieldControl(
     pxPerPoint: Float,
     value: FieldValue,
     onChange: (FieldValue, typing: Boolean) -> Unit,
+    modifier: Modifier = Modifier,
     rotation: Int = 0,
+    interactive: Boolean = true,
 ) {
     val density = LocalDensity.current
     val primary = MaterialTheme.colorScheme.primary
@@ -100,18 +105,30 @@ internal fun FieldControl(
         .background(primary.copy(alpha = FIELD_FILL_ALPHA))
         .border(1.dp, primary.copy(alpha = FIELD_BORDER_ALPHA))
         .semantics { contentDescription = field.label ?: field.name }
+        .then(modifier)
+    val enabled = interactive && !field.readOnly
     when (field) {
-        is FormField.Text -> TextFieldControl(field, base, unturned, pxPerPoint, (value as? FieldValue.Text)?.value.orEmpty(), onChange)
+        is FormField.Text -> if (interactive) {
+            TextFieldControl(field, base, unturned, pxPerPoint, (value as? FieldValue.Text)?.value.orEmpty(), onChange)
+        } else {
+            Text(
+                (value as? FieldValue.Text)?.value.orEmpty(),
+                style = TextStyle(color = Color.Black, fontSize = with(density) { fieldFontPx(field, unturned, pxPerPoint).toSp() }),
+                maxLines = if (field.multiline) Int.MAX_VALUE else 1,
+                overflow = TextOverflow.Clip,
+                modifier = base.padding(horizontal = 1.dp),
+            )
+        }
         is FormField.CheckBox -> {
             val on = (value as? FieldValue.Toggle)?.on == true
-            Box(base.toggleable(value = on, enabled = !field.readOnly, role = Role.Checkbox) { onChange(FieldValue.Toggle(it), false) }) {
+            Box(if (interactive) base.toggleable(value = on, enabled = enabled, role = Role.Checkbox) { onChange(FieldValue.Toggle(it), false) } else base) {
                 if (on) Mark(MarkKind.CHECK, Modifier.fillMaxSize())
             }
         }
         is FormField.Radio -> {
             val mine = field.widgetValues.getOrNull(widgetIndex) ?: return
             val selected = (value as? FieldValue.Choice)?.value == mine
-            Box(base.selectable(selected = selected, enabled = !field.readOnly, role = Role.RadioButton) { onChange(FieldValue.Choice(mine), false) }) {
+            Box(if (interactive) base.selectable(selected = selected, enabled = enabled, role = Role.RadioButton) { onChange(FieldValue.Choice(mine), false) } else base) {
                 if (selected) {
                     Canvas(Modifier.fillMaxSize()) {
                         drawCircle(Color.Black, radius = min(size.width, size.height) * RADIO_DOT_FRACTION)
@@ -123,7 +140,7 @@ internal fun FieldControl(
             var expanded by remember { mutableStateOf(false) }
             val current = (value as? FieldValue.Choice)?.value
             val label = field.options.firstOrNull { it.value == current }?.label ?: current.orEmpty()
-            Box(base.clickable(enabled = !field.readOnly, role = Role.DropdownList) { expanded = true }, contentAlignment = Alignment.CenterStart) {
+            Box(if (interactive) base.clickable(enabled = enabled, role = Role.DropdownList) { expanded = true } else base, contentAlignment = Alignment.CenterStart) {
                 Text(
                     label,
                     style = TextStyle(color = Color.Black, fontSize = with(density) { autoFontPx(unturned, pxPerPoint, false).toSp() }),
@@ -163,7 +180,7 @@ private fun TextFieldControl(
     LaunchedEffect(text) {
         if (local.text != text) local = TextFieldValue(text, TextRange(text.length))
     }
-    val fontPx = if (field.fontSize > 0f) field.fontSize * pxPerPoint else autoFontPx(rect, pxPerPoint, field.multiline)
+    val fontPx = fieldFontPx(field, rect, pxPerPoint)
     BasicTextField(
         value = local,
         onValueChange = { changed ->
@@ -181,6 +198,10 @@ private fun TextFieldControl(
         modifier = modifier.padding(horizontal = 1.dp),
     )
 }
+
+/** Size of a text field's text in screen pixels: the field's own, or one that fits the box. */
+private fun fieldFontPx(field: FormField.Text, rect: Rect, pxPerPoint: Float): Float =
+    if (field.fontSize > 0f) field.fontSize * pxPerPoint else autoFontPx(rect, pxPerPoint, field.multiline)
 
 /** Size of the text, in screen pixels, for a field whose appearance doesn't fix one. */
 private fun autoFontPx(rect: Rect, pxPerPoint: Float, multiline: Boolean): Float {

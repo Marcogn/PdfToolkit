@@ -5,6 +5,9 @@ import com.marcogn.pdftoolkit.data.save.SaveRequest
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationRef
 import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
 import com.marcogn.pdftoolkit.domain.edit.EditSession
+import com.marcogn.pdftoolkit.domain.fill.FieldValue
+import com.marcogn.pdftoolkit.domain.fill.FormField
+import com.marcogn.pdftoolkit.domain.fill.Overlay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,7 +18,7 @@ data class ViewerEdits(val session: EditSession, val hasUnsavedChanges: Boolean)
 
 /**
  * The edit session of the viewer (plan V-a, ADR 0005): what lies **on** the pages of the file as it
- * is saved (annotations, and fill content from V-c), never the page list. Its pages are the
+ * is saved (annotations, overlays and form values), never the page list. Its pages are the
  * document's own, in order and unturned, with ids `p<index>` ([pageId]), so the viewer keeps
  * rendering the file with `PdfRenderer` and only draws the pending edits on top.
  *
@@ -45,6 +48,18 @@ class ViewerEditSession(private val handle: SavedStateHandle, private val pageCo
     fun removeAnnotation(id: String) = apply { it.removeAnnotation(id) }
 
     fun removeExistingAnnotation(ref: AnnotationRef) = apply { it.removeExistingAnnotation(ref) }
+
+    fun newOverlayId(): String = "o" + UUID.randomUUID().toString().take(ID_LENGTH)
+
+    fun addOverlay(overlay: Overlay) = apply { it.addOverlay(overlay) }
+
+    fun updateOverlay(overlay: Overlay) = apply { it.updateOverlay(overlay) }
+
+    fun removeOverlay(id: String) = apply { it.removeOverlay(id) }
+
+    /** A value equal to the one in the file clears the change. [typing]: one undo step per field while typing. */
+    fun setField(field: FormField, value: FieldValue, typing: Boolean = false) =
+        apply { it.setField(field.name, value.takeIf { v -> v != field.value }, typing) }
 
     fun undo() = apply { it.undo() }
 

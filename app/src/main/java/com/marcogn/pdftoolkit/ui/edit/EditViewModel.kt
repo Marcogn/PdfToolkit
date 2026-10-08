@@ -21,28 +21,17 @@ import com.marcogn.pdftoolkit.domain.edit.PageItem
 import com.marcogn.pdftoolkit.domain.edit.PageSizing
 import com.marcogn.pdftoolkit.domain.edit.SaveFailure
 import com.marcogn.pdftoolkit.domain.edit.SizePt
-import com.marcogn.pdftoolkit.domain.fill.FieldValue
-import com.marcogn.pdftoolkit.domain.fill.FormDocument
-import com.marcogn.pdftoolkit.domain.fill.FormField
-import com.marcogn.pdftoolkit.domain.fill.Overlay
-import com.marcogn.pdftoolkit.domain.fill.PageBox
 import com.marcogn.pdftoolkit.domain.model.OpenFailure
 import com.marcogn.pdftoolkit.domain.model.PdfOpenException
-import com.marcogn.pdftoolkit.pdf.edit.FontCoverage
 import com.marcogn.pdftoolkit.pdf.edit.PageImageLoader
-import com.marcogn.pdftoolkit.pdf.forms.FormReader
-import com.marcogn.pdftoolkit.pdf.render.PageKey
 import com.marcogn.pdftoolkit.pdf.render.PageSize
 import com.marcogn.pdftoolkit.pdf.render.PageThumbnails
 import com.marcogn.pdftoolkit.pdf.render.PdfDocumentOpener
 import com.marcogn.pdftoolkit.pdf.render.PdfDocumentRenderer
-import com.marcogn.pdftoolkit.pdf.render.PdfPageSpace
-import com.marcogn.pdftoolkit.pdf.render.toPageSpace
 import com.marcogn.pdftoolkit.ui.navigation.Destination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,7 +43,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
-import kotlin.math.sqrt
 
 sealed interface EditUiState {
     data object Loading : EditUiState
@@ -78,46 +66,6 @@ class PendingPdf(val docRef: DocRef, val uri: String, val source: PageSource)
 
 /** An image the user picked, already copied into the app and measured. */
 data class PickedImage(val uri: String, val dimensions: ImageDimensions)
-
-/**
- * What "Fill and sign" knows about the documents of the session (spec §6.5): the user-space box of
- * every page, to place overlays, and the form of the main document.
- */
-class FillDocuments(val boxes: Map<DocRef, List<PageBox>>, val form: FormDocument?) {
-
-    /** Main-document fields by page index of the main document. */
-    private val fieldsByPage: Map<Int, List<FormField>> =
-        form?.fields.orEmpty().flatMap { field -> field.widgets.map { it.pageIndex to field } }.groupBy({ it.first }, { it.second })
-            .mapValues { (_, fields) -> fields.distinct() }
-
-    /** How [item] is shown in the session, its added rotation included; null if its document isn't read yet. */
-    fun space(item: PageItem): PdfPageSpace? = sessionPageSpace(item) { ref, index -> boxes[ref]?.getOrNull(index) }
-
-    /** The page as its source shows it, without the rotation the user added. */
-    fun sourceSpace(item: PageItem): PdfPageSpace? = space(item)?.withAddedRotation(-item.rotation)
-
-    /** Form fields with a widget on [item] (only pages of the main document have them). */
-    fun fieldsOn(item: PageItem): List<FormField> =
-        if (item is PageItem.FromPdf && item.docRef == DocRef.MAIN) fieldsByPage[item.pageIndex].orEmpty() else emptyList()
-}
-
-/**
- * How [item] is shown in the session, its added rotation included: from the user-space box of its
- * page in the source document ([boxOf]: document, page index), or from its own size for blank and
- * image pages. Null if the box isn't known yet.
- */
-private fun sessionPageSpace(item: PageItem, boxOf: (DocRef, Int) -> PageBox?): PdfPageSpace? = when (item) {
-    is PageItem.FromPdf -> boxOf(item.docRef, item.pageIndex)?.toPageSpace()?.withAddedRotation(item.rotation)
-    is PageItem.Blank -> PdfPageSpace.ofSize(item.widthPt, item.heightPt).withAddedRotation(item.rotation)
-    is PageItem.FromImage -> PdfPageSpace.ofSize(item.widthPt, item.heightPt).withAddedRotation(item.rotation)
-}
-
-/** Loading the documents for "Fill and sign". */
-sealed interface FillLoad {
-    data object Loading : FillLoad
-    data class Ready(val documents: FillDocuments) : FillLoad
-    data object Failed : FillLoad
-}
 
 /** One-off things the screen tells the user about. */
 sealed interface EditEvent {
@@ -151,8 +99,6 @@ class EditViewModel @Inject constructor(
     private val savePreferences: SavePreferences,
     private val imageImporter: ImageImporter,
     private val imageLoader: PageImageLoader,
-    private val formReader: FormReader,
-    private val fontCoverage: FontCoverage,
 ) : ViewModel() {
 
     private val route = savedStateHandle.toRoute<Destination.Edit>()
@@ -193,14 +139,6 @@ class EditViewModel @Inject constructor(
     /** True while a picked PDF or the picked images are being read. */
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
-    private val _fillLoad = MutableStateFlow<FillLoad?>(null)
-    /** Null until "Fill and sign" is opened. */
-    val fillLoad: StateFlow<FillLoad?> = _fillLoad.asStateFlow()
-
-    private val _flattenChoice = MutableStateFlow<Boolean?>(null)
-    /** "Make final" as chosen in the save dialog; null = the default of spec §6.5 (on with a signature). */
-    val flattenChoice: StateFlow<Boolean?> = _flattenChoice.asStateFlow()
-
     private var renderer: PdfDocumentRenderer? = null
     private val renderersByRef = mutableMapOf<DocRef, PdfDocumentRenderer>()
     /** Documents the session draws pages from, main first. Doc `n` of [extraSources] is `DocRef(n + 1)`. */
@@ -211,7 +149,6 @@ class EditViewModel @Inject constructor(
     private var displayName = ""
     private var sourcePageCount = 0
     private var savedEncoded: String? = null
-    private var fillJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -412,85 +349,6 @@ class EditViewModel @Inject constructor(
 
     fun imageThumbnail(uri: String, maxSidePx: Int) = imageLoader.thumbnail(uri, maxSidePx)
 
-    // --- Fill and sign (spec §6.5) ---
-
-    /**
-     * Reads the page boxes of every document of the session and the form of the main one, if not
-     * read yet. Called whenever "Fill and sign" opens: PDFs added since then are read too.
-     */
-    fun loadFill() {
-        val current = (_fillLoad.value as? FillLoad.Ready)?.documents
-        val missing = sources.keys.filter { current?.boxes?.containsKey(it) != true }
-        if (missing.isEmpty() || fillJob?.isActive == true) return
-        if (current == null) _fillLoad.value = FillLoad.Loading
-        fillJob = viewModelScope.launch {
-            val boxes = current?.boxes.orEmpty().toMutableMap()
-            var form = current?.form
-            for (ref in missing) {
-                val uri = if (ref == DocRef.MAIN) sourceUri else extraSources.firstOrNull { it.docId == ref.id }?.uri ?: continue
-                val read = formReader.read({ context.contentResolver.openInputStream(uri.toUri()) }, withFields = ref == DocRef.MAIN)
-                if (read == null) {
-                    if (ref == DocRef.MAIN) {
-                        _fillLoad.value = FillLoad.Failed
-                        return@launch
-                    }
-                    continue
-                }
-                boxes[ref] = read.pageBoxes
-                if (ref == DocRef.MAIN) form = read
-            }
-            // The font's character table, read here rather than on the first keystroke.
-            withContext(Dispatchers.IO) { fontCoverage.sanitize("") }
-            _fillLoad.value = FillLoad.Ready(FillDocuments(boxes, form))
-        }
-    }
-
-    fun newOverlayId(): String = "o" + UUID.randomUUID().toString().take(ID_LENGTH)
-
-    fun addOverlay(overlay: Overlay) = apply { it.addOverlay(overlay) }
-
-    fun updateOverlay(overlay: Overlay) = apply { it.updateOverlay(overlay) }
-
-    fun removeOverlay(id: String) = apply { it.removeOverlay(id) }
-
-    /** A value equal to the one in the file clears the change. [typing]: one undo step per field while typing. */
-    fun setField(field: FormField, value: FieldValue, typing: Boolean = false) =
-        apply { it.setField(field.name, value.takeIf { v -> v != field.value }, typing) }
-
-    /** The text as the PDF will hold it: characters the font can't draw are dropped. */
-    fun sanitizeText(text: String): String = fontCoverage.sanitize(text)
-
-    fun setFlattenChoice(flatten: Boolean) {
-        _flattenChoice.value = flatten
-    }
-
-    /** "Make final" for this save: the user's choice, or on when the document carries a signature (spec §6.5). */
-    fun flattenForm(): Boolean {
-        val session = (_uiState.value as? EditUiState.Ready)?.session ?: return false
-        return _flattenChoice.value ?: session.fill.hasSignature
-    }
-
-    /** Copies and measures an image picked to place on a page (a signature, until phase 4b's archive). */
-    suspend fun importOverlayImage(uri: Uri): PickedImage? {
-        val copy = imageImporter.import(uri) ?: return null
-        val dimensions = withContext(Dispatchers.IO) { imageLoader.probe(copy) } ?: return null
-        return PickedImage(copy, dimensions)
-    }
-
-    /**
-     * Renders [item] as its source shows it, at [pxPerPoint], for "Fill and sign"; at most
-     * [maxPixels] pixels, so a deep zoom gets a softer page rather than an allocation failure.
-     */
-    suspend fun renderPage(item: PageItem.FromPdf, pxPerPoint: Float, maxPixels: Int): android.graphics.Bitmap? {
-        val renderer = renderersByRef[item.docRef] ?: return null
-        val size = sources[item.docRef]?.pageSizes?.getOrNull(item.pageIndex) ?: return null
-        val area = size.width * size.height
-        val scale = minOf(pxPerPoint, sqrt(maxPixels / area))
-        val width = (size.width * scale).toInt().coerceAtLeast(1)
-        val height = (size.height * scale).toInt().coerceAtLeast(1)
-        return renderer.render(PageKey(item.pageIndex, width, height, scale))
-    }
-
     // --- Saving ---
 
     fun setOverwriteChoice(overwrite: Boolean) {
@@ -513,7 +371,7 @@ class EditViewModel @Inject constructor(
             pages = ready.session.encode(),
             extraSources = extraSources.toList(),
             fill = ready.session.encodeFill(),
-            flattenForm = flattenForm(),
+            flattenForm = ready.session.fill.hasSignature,
             annotations = ready.session.encodeAnnotations(),
         )
         val savedPages = savedKey(ready.session)

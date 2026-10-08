@@ -47,7 +47,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -69,42 +68,14 @@ import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.edit.DocRef
 import com.marcogn.pdftoolkit.domain.edit.InsertionPoint
 import com.marcogn.pdftoolkit.domain.edit.PageItem
-import com.marcogn.pdftoolkit.domain.fill.FieldValue
-import com.marcogn.pdftoolkit.domain.fill.FormField
-import com.marcogn.pdftoolkit.domain.fill.Overlay
 import com.marcogn.pdftoolkit.domain.model.OpenFailure
-import com.marcogn.pdftoolkit.domain.model.PdfTool
-import com.marcogn.pdftoolkit.ui.fill.FILL_IMAGE_SIDE_PX
-import com.marcogn.pdftoolkit.ui.fill.FillActions
-import com.marcogn.pdftoolkit.ui.fill.FillPane
-import com.marcogn.pdftoolkit.ui.fill.FillTool
-import com.marcogn.pdftoolkit.ui.fill.FillToolBar
 import com.marcogn.pdftoolkit.ui.fill.ToolButtonFrame
 import com.marcogn.pdftoolkit.ui.common.ToolStrip
 import com.marcogn.pdftoolkit.ui.common.TransientHint
 import com.marcogn.pdftoolkit.ui.common.UndoRedo
 import com.marcogn.pdftoolkit.ui.common.isLandscape
-import com.marcogn.pdftoolkit.ui.fill.MAX_PAGE_PIXELS
-import com.marcogn.pdftoolkit.ui.fill.rememberFillPaneState
-import com.marcogn.pdftoolkit.ui.signatures.SignatureCreationHost
-import com.marcogn.pdftoolkit.ui.signatures.SignaturePickerSheet
-import com.marcogn.pdftoolkit.ui.signatures.SignaturesViewModel
-import com.marcogn.pdftoolkit.ui.signatures.rememberSignatureCreationState
-import com.marcogn.pdftoolkit.data.signatures.Signature
 import com.marcogn.pdftoolkit.ui.viewer.takePersistableAccess
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-
-private enum class EditPane { ORGANIZE, FILL }
-
-private fun PdfTool?.initialPane(): EditPane = when (this) {
-    PdfTool.FILL_AND_SIGN -> EditPane.FILL
-    else -> EditPane.ORGANIZE
-}
-
-/** Id of the first-generation page [n] of the main document (`EditSession.of`). */
-private const val PAGE_ID_PREFIX = "p"
 
 /** 1-based position in [pages] of page [mainPageIndex] of the main document, or null if unknown or removed. */
 internal fun viewerPageNumber(pages: List<PageItem>?, mainPageIndex: Int): Int? {
@@ -123,15 +94,13 @@ private const val PICK_ID_PREFIX = "pick"
 private val SelectionSaver = listSaver<Set<String>, String>(save = { it.toList() }, restore = { it.toSet() })
 
 /**
- * The edit screen on one edit session (spec §6): "Organize pages" (reorder, rotate, remove and add pages,
- * merge) and "Fill and sign" are panes of this one screen so they share the session, the renderer and the
- * save state. Highlight, draw and the eraser happen in the viewer (plan V-b); the screen opens straight on
- * its tool, and the system back leaves it (asking about unsaved changes). In landscape the tools of a pane
- * sit in a rail at the side instead of a bar at the bottom (plan U18).
+ * The edit screen (spec §6): "Organize pages" on one edit session (reorder, rotate, remove and add pages,
+ * merge). Everything done on the pages themselves (highlight, draw, fill and sign) happens in the viewer
+ * (ADR 0005). The system back leaves it, asking about unsaved changes. In landscape the tools sit in a
+ * rail at the side instead of a bar at the bottom (plan U18).
  *
- * @param startTool `FILL_AND_SIGN` opens "Fill and sign"; anything else (or null) "Organize pages".
- * @param startPage the page the reader was on in the main document, or -1 (from Home): the Fill pane
- * starts on it and the insertion dialogs default to "after" it (plan U1).
+ * @param startPage the page the reader was on in the main document, or -1 (from Home): the insertion
+ * dialogs default to "after" it (plan U1).
  * @param onBack leaves the edit.
  * @param onResultReady an overwrite finished: the original has new content, so the caller must
  * drop any screen still showing the old one and open [uri].
@@ -140,7 +109,6 @@ private val SelectionSaver = listSaver<Set<String>, String>(save = { it.toList()
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditScreen(
-    startTool: PdfTool?,
     startPage: Int,
     onBack: () -> Unit,
     onResultReady: (uri: String) -> Unit,
@@ -154,15 +122,11 @@ fun EditScreen(
     val pendingPdf by viewModel.pendingPdf.collectAsStateWithLifecycle()
     val pendingImages by viewModel.pendingImages.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
-    val fillLoad by viewModel.fillLoad.collectAsStateWithLifecycle()
-    val flattenChoice by viewModel.flattenChoice.collectAsStateWithLifecycle()
-    val fillState = rememberFillPaneState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val resources = LocalResources.current
 
-    val pane = startTool.initialPane()
     var selection by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf(emptySet<String>()) }
     var rangeAnchor by rememberSaveable { mutableStateOf<String?>(null) }
     var showSaveDialog by rememberSaveable { mutableStateOf(false) }
@@ -177,8 +141,6 @@ fun EditScreen(
     var highlighted by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf(emptySet<String>()) }
     var scrollToId by rememberSaveable { mutableStateOf<String?>(null) }
     var autoSaveHandled by rememberSaveable { mutableStateOf(false) }
-    // The page the Fill pane shows, so a second visit (after rotating the phone) resumes there.
-    var panePageId by rememberSaveable { mutableStateOf(if (startPage >= 0) PAGE_ID_PREFIX + startPage else null) }
     // Saving from the exit dialog leaves once the copy is written (plan U3).
     var leaveAfterSave by rememberSaveable { mutableStateOf(false) }
 
@@ -210,32 +172,6 @@ fun EditScreen(
     val imageFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         viewModel.pickImages(uris)
     }
-    // Phase 4b: the signature comes from the archive ("My signatures"), or is created on the spot.
-    val signaturesViewModel: SignaturesViewModel = hiltViewModel()
-    val signatureCreation = rememberSignatureCreationState()
-    var showSignatureSheet by rememberSaveable { mutableStateOf(false) }
-    val placeSignature: (Signature) -> Unit = { signature ->
-        scope.launch {
-            val image = viewModel.importOverlayImage(signaturesViewModel.file(signature).toUri())
-            if (image == null) {
-                snackbarHostState.showSnackbar(resources.getString(R.string.fill_image_unreadable))
-            } else {
-                fillState.image = image
-                fillState.tool = FillTool.SIGNATURE
-                fillState.selected = null
-            }
-        }
-    }
-    SignatureCreationHost(signatureCreation, signaturesViewModel, onCreated = placeSignature)
-    if (showSignatureSheet) {
-        SignaturePickerSheet(
-            viewModel = signaturesViewModel,
-            onPick = { showSignatureSheet = false; placeSignature(it) },
-            onNew = { showSignatureSheet = false; signatureCreation.start() },
-            onDismiss = { showSignatureSheet = false },
-        )
-    }
-
     val savedMessage = stringResource(R.string.save_done)
     LaunchedEffect(saveState) {
         (saveState as? SaveUiState.Overwritten)?.let { onResultReady(it.uri) }
@@ -300,7 +236,6 @@ fun EditScreen(
     }
     val handleBack = {
         when {
-            pane == EditPane.FILL && fillState.consumesBack -> fillState.back()
             picking -> {
                 viewModel.dropPendingPdf()
                 selection = emptySet()
@@ -351,55 +286,22 @@ fun EditScreen(
     // In "Organize pages" with pages selected, after the last of them (plan U4).
     val insertionDefault = run {
         val lastSelected = ready?.session?.pages?.indexOfLast { it.id in selection } ?: -1
-        if (pane == EditPane.ORGANIZE && lastSelected >= 0) {
+        if (lastSelected >= 0) {
             InsertionPoint(InsertionPoint.Kind.AFTER_PAGE, lastSelected + 1)
         } else {
             viewerPageNumber(ready?.session?.pages, startPage)
                 ?.let { InsertionPoint(InsertionPoint.Kind.AFTER_PAGE, it) } ?: InsertionPoint.END_OF_DOCUMENT
         }
     }
-    // "Fill and sign" reads the documents' page boxes and form when it opens (and again for PDFs added since).
-    LaunchedEffect(pane, ready?.sources?.size) {
-        if (pane == EditPane.FILL && ready != null) viewModel.loadFill()
-    }
-    val currentShowMessage by rememberUpdatedState(showMessage)
-    val fillActions = remember(viewModel) {
-        object : FillActions {
-            override suspend fun renderPage(item: PageItem.FromPdf, pxPerPoint: Float) = viewModel.renderPage(item, pxPerPoint, MAX_PAGE_PIXELS)
-            override suspend fun image(uri: String) = withContext(Dispatchers.IO) { viewModel.imageThumbnail(uri, FILL_IMAGE_SIDE_PX) }
-            override fun addOverlay(overlay: Overlay) { viewModel.addOverlay(overlay) }
-            override fun updateOverlay(overlay: Overlay) { viewModel.updateOverlay(overlay) }
-            override fun removeOverlay(id: String) { viewModel.removeOverlay(id) }
-            override fun setField(field: FormField, value: FieldValue, typing: Boolean) { viewModel.setField(field, value, typing) }
-            override fun newOverlayId() = viewModel.newOverlayId()
-            override fun sanitize(text: String) = viewModel.sanitizeText(text)
-            override fun message(text: String) = currentShowMessage(text)
-        }
-    }
-
-    // Phase 4b / plan U8: with no saved signature "Signature" goes straight to the creation, with one it
-    // arms it, with several it opens the picker; a long press always opens the picker.
-    val savedSignatures by signaturesViewModel.signatures.collectAsStateWithLifecycle()
-    val onSignature: () -> Unit = {
-        val list = savedSignatures
-        when {
-            list == null || list.size > 1 -> showSignatureSheet = true
-            list.isEmpty() -> signatureCreation.start()
-            else -> placeSignature(list.first())
-        }
-    }
     val undoRedo = UndoRedo(ready?.session?.canUndo == true, ready?.session?.canRedo == true, viewModel::undo, viewModel::redo)
-    // The tools of the pane: a bar under the content, or a rail at its side in landscape (plan U18); undo and
+    // The tools: a bar under the content, or a rail at its side in landscape (plan U18); undo and
     // redo are in it, where the thumb is (plan U21).
     val controls: @Composable (Boolean) -> Unit = { sideMode ->
         if (ready != null && !picking) {
             val stripModifier = if (sideMode) Modifier.fillMaxHeight() else Modifier.fillMaxWidth()
-            when (pane) {
-                EditPane.ORGANIZE -> OrganizeToolBar(undoRedo, sideMode, stripModifier) {
-                    addPoint = insertionDefault
-                    showAddSource = true
-                }
-                EditPane.FILL -> FillToolBar(fillState, ready.session.fill.overlays, fillActions, undoRedo, sideMode, onSignature) { showSignatureSheet = true }
+            OrganizeToolBar(undoRedo, sideMode, stripModifier) {
+                addPoint = insertionDefault
+                showAddSource = true
             }
         }
     }
@@ -445,7 +347,7 @@ fun EditScreen(
                             }
                         },
                     )
-                    pane == EditPane.ORGANIZE && selection.isNotEmpty() -> TopAppBar(
+                    selection.isNotEmpty() -> TopAppBar(
                         title = { Text(pluralStringResource(R.plurals.edit_selected_count, selection.size, selection.size)) },
                         navigationIcon = {
                             IconButton(onClick = { selection = emptySet(); rangeAnchor = null }) {
@@ -478,22 +380,15 @@ fun EditScreen(
                     else -> TopAppBar(
                         title = {
                             Text(
-                                stringResource(
-                                    when (pane) {
-                                        EditPane.FILL -> R.string.tool_fill_and_sign
-                                        EditPane.ORGANIZE -> R.string.tool_organize_pages
-                                    },
-                                ),
+                                stringResource(R.string.tool_organize_pages),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         },
                         navigationIcon = { BackButton(handleBack) },
                         actions = {
-                            if (pane == EditPane.ORGANIZE) {
-                                IconButton(onClick = { selection = ready.session.pages.map { it.id }.toSet() }) {
-                                    Icon(Icons.Filled.SelectAll, contentDescription = stringResource(R.string.edit_select_all))
-                                }
+                            IconButton(onClick = { selection = ready.session.pages.map { it.id }.toSet() }) {
+                                Icon(Icons.Filled.SelectAll, contentDescription = stringResource(R.string.edit_select_all))
                             }
                             if (ready.hasUnsavedChanges) SaveAction(enabled = !saving) { showSaveDialog = true }
                         },
@@ -567,20 +462,8 @@ fun EditScreen(
                     },
                     padding = padding,
                 )
-            } else when (pane) {
-                EditPane.FILL -> FillPane(
-                    pages = state.session.pages,
-                    overlays = state.session.fill.overlays,
-                    values = state.session.fill.fields,
-                    load = fillLoad,
-                    state = fillState,
-                    actions = fillActions,
-                    initialPageId = panePageId,
-                    onPageChanged = { panePageId = it },
-                    onChangeSignature = { showSignatureSheet = true },
-                    modifier = Modifier.padding(padding),
-                )
-                EditPane.ORGANIZE -> PagesPane(
+            } else {
+                PagesPane(
                     state = state,
                     imageThumbnail = { uri -> viewModel.imageThumbnail(uri, THUMBNAIL_PX) },
                     highlighted = highlighted,
@@ -628,8 +511,6 @@ fun EditScreen(
     }
 
     if (showSaveDialog) {
-        // "Make final" is offered once the form has been read, i.e. after "Fill and sign" was opened.
-        val hasForm = (fillLoad as? FillLoad.Ready)?.documents?.form?.hasFields == true
         SaveDialog(
             overwrite = overwriteChoice && canOverwrite,
             canOverwrite = canOverwrite,
@@ -639,8 +520,6 @@ fun EditScreen(
                 showSaveDialog = false
                 leaveAfterSave = false
             },
-            flatten = if (hasForm) flattenChoice ?: ready?.session?.fill?.hasSignature ?: false else null,
-            onFlattenChange = viewModel::setFlattenChoice,
         )
     }
     if (showUnsaved) {

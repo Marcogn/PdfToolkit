@@ -1,834 +1,181 @@
 # PdfToolkit — project memory
 
-Android app to read and edit PDFs locally. The full specification is `docs/spec.md` (in Italian):
-this file doesn't repeat it, it holds commands, non-obvious rules, status and decisions.
+Android app to read and edit PDFs on the phone, offline. The specification is `docs/spec.md`
+(Italian); decisions still in force are in `docs/decisions.md`, the big ones as ADRs in `docs/adr/`.
+This file holds what a session needs to work: protocol, commands, where things are, rules, status.
 
 ## Fixed rule
 At the end of every task, update `README.md`, `CLAUDE.md` and `CHANGELOG.md` if something changed.
-Every user-visible change goes into `CHANGELOG.md` right away under `## [Unreleased]`, in the form
-`- **Summary.** detail` (`release.yml` reads it for the release notes).
+Every user-visible change goes into `CHANGELOG.md` right away under `## [Unreleased]`, as
+`- **Summary.** detail` (`release.yml` turns that section into the release notes). New decisions go
+into `docs/decisions.md`.
 
-## Phase glossary
-"Phase" means two different things in `docs/spec.md`:
-- **Development phases 0–6** (spec §13): the order in which the code gets written. "Next phase"
-  always means the next development phase.
-- **Product phase 1 / product phase 2** (spec §1, §7, §14): product phase 1 is everything in
-  development phases 0–6; product phase 2 is the future features (scan, OCR, cloud, highlight,
-  draw, ODF export). Spec sentences like "in Fase 1 nessun permesso INTERNET" or "Fase 2
-  (pianificata, non implementare)" refer to the **product**.
-
-So development phase 2 (edit session and page management) has nothing to do with product
-phase 2. Product phase 2 is planned in `docs/plan-v2.md` as **development phases 7–12** (rows below);
-implement a product phase 2 feature only inside its own sub-phase, never ahead of it.
+## Phases
+- **Development phases** are the order the code is written in: 0–6 (spec §13, product phase 1,
+  released as 1.0.0), then 7–12 for product phase 2 (`docs/plan-v2.md`), with two inserted series:
+  U-a/U-b (usability, `docs/plan-usability.md`) and V-a/V-b/V-c (editing in the viewer,
+  `docs/plan-viewer-editing.md`). "Next phase" means the next development sub-phase.
+- **Product phase 1 / 2** (spec §1, §7, §14): the feature sets. Spec lines like "Fase 2 (pianificata,
+  non implementare)" or "in Fase 1 nessun permesso INTERNET" refer to the product. Implement a product
+  phase 2 feature only inside its own sub-phase.
+- Code comments cite plan items as "plan U7", "plan V-b": U-items are in `docs/plan-usability.md`,
+  V-items in `docs/plan-viewer-editing.md`.
 
 ## Session protocol
-Phases 1, 4, 5, 7, 8 and 10 are split into sub-phases **a** (Opus) and **b** (Sonnet); the others
-are a single sub-phase run by Sonnet. The table below is the plan; **Current status** names the next
-sub-phase. When the author says "go on" / "next phase" (or similar):
+When the author says "go on" / "next phase":
+0. **Model check first.** Find the next sub-phase (Current status) and its model (table). Check the
+   model you run on (system prompt; in a claude.ai cloud session the `get_session` tool). If it
+   differs or you can't tell, stop and reply in one line: sub-phase, model needed, how to switch
+   (`/model opus`, `/model sonnet`, or a new session). Go ahead only if the author says so.
+1. Read the sub-phase row, then the plan section and spec sections it points to.
+2. Check prerequisites (previous sub-phase merged, open questions answered); if unclear, ask.
+3. Do only that sub-phase. Anything else goes into Current status as a note.
+4. Close when "Done when" holds: lint + unit tests + `assembleDebug` green; docs updated; commit; PR.
+5. An **a** sub-phase writes a handoff (≤ 15 lines) in Current status for its **b**.
+6. End with the sub-phase's **device checks**: there is no emulator here, the author tests on a phone.
+7. Don't start the next sub-phase in the same session unless asked.
 
-0. **Model check, before anything else.** Find the next sub-phase in Current status and the model
-   assigned to it in the table. Check which model you are running on (stated in your system
-   prompt; in a claude.ai cloud session, the `get_session` tool reports it). If it is not the
-   assigned model, or you can't tell, **stop**: reply in one line with the sub-phase, the model it
-   needs and how to switch (`/model opus` or `/model sonnet`, or a new session with that model).
-   Don't read the spec or the code first. If the author explicitly says to go ahead anyway, do so.
-1. Read that sub-phase's row below, then spec §13 and the spec sections it points to.
-2. Check the prerequisites (previous sub-phase merged, handoff note read, open questions
-   answered). If something is missing or unclear, stop and ask.
-3. Do **only** that sub-phase, within its "Scope". Anything outside goes into Current status as a
-   note, not into the code.
-4. Close when its "Done when" holds: lint + unit tests + `assembleDebug` green; README, CLAUDE.md
-   (Current status, Decisions) and CHANGELOG updated; commit; PR.
-5. An **a** sub-phase also writes a short **handoff** in Current status for the **b** session: what
-   exists, public APIs to use, known limits, what is left. Keep it under ~15 lines.
-6. End by listing the **device checks** of the sub-phase: there is no emulator in the cloud
-   environment, so the author tests on a phone before merging.
-7. Don't start the next sub-phase in the same session unless the author asks.
-
-## Session and branch names
-The author asked for one session and one branch per sub-phase, named after it, so they don't have
-to repeat the names. Session title: `<sub-phase> <Name>` (e.g. `U-b Usability screens`); branch: the
-same in kebab-case (e.g. `u-b-usability-screens`). Set both at the start of a sub-phase.
-Current: session **V-b Viewer tools UI** (the cloud environment fixed its branch to `ccr-5fd3fb98-teqhcv`). Next: **V-c Fill and sign in the viewer** (session `V-c Fill and sign in the viewer`, branch `v-c-fill-and-sign-in-the-viewer`).
-
-## Sub-phases: model, scope, device checks
-Sonnet by default; Opus only for the cores where a wrong design is expensive to fix later.
-Haiku is not recommended for code in this project.
+Session title `<sub-phase> <Name>`, branch the same in kebab-case (e.g. `9-scan`), set at the start.
+The cloud environment may fix the branch name: then use the one it gives.
 
 | Sub-phase | Model | Scope | Done when | Check on the device |
 |---|---|---|---|---|
-| 1a Viewer core | **Opus** | `pdf/render` (`PdfRenderer` + mutex per document, LRU cache sized on `memoryClass`, ±2 prefetch, two-level render, tiling); zoom/pan state and gestures (pinch, double tap, pan, limits); continuous mode; first `PageCoordinateMapper` (page ↔ screen with zoom and pan) with unit tests. Minimal entry: "Open PDF" → SAF → viewer | Unit tests for the mapper and the cache; a PDF opens from Home and scrolls/zooms; handoff written | 200-page PDF opens in < 1 s; smooth scroll; pinch, double tap, pan; memory with a large PDF |
-| 1b Viewer complete | Sonnet | Single-page mode and remembered preference, scrubber, thumbnail bar, top bar menu, error screen, intents (`VIEW`, `SEND`), Room `RecentDocument` and Home recents, last page per file, password PDFs, viewer settings | Spec §13 phase 1 acceptance | Continuous ↔ single page; open from file manager and from "share"; recents; resume last page; password PDF |
-| 2 Edit session and pages | Sonnet | Spec §13 phase 2. Ask Opus only if the background save choice (WorkManager vs service) gets stuck | Spec §13 phase 2 acceptance | Remove/reorder/rotate on a 100-page PDF, save as copy and overwrite, open the result in another reader; undo/redo; rotate the screen while editing |
-| 3 Add pages and merge | Sonnet | Spec §13 phase 3 | Spec §13 phase 3 acceptance | Images in both modes (EXIF, HEIC); mixed A4/Letter PDF; merge 3 PDFs with reordering, check in another reader |
-| 4a Fill and sign core | **Opus** | AcroForm reading and Compose controls aligned to field rectangles; writing text, check marks, dates and signature images into the content stream at the right coordinates (extend `PageCoordinateMapper`: PDF bottom-left origin, page rotation); flatten; Noto Sans embedding. A plain test signature image is enough | Unit tests on coordinates incl. rotated pages; filled form and placed image saved correctly; handoff written | Text and image land exactly where placed, in the app and in another reader; form with fields |
-| 4b Fill and sign complete | Sonnet | Signature archive (Room, `filesDir/signatures/`), drawing canvas, import with background removal, free-fill UI (move/resize/rotate), legal note | Spec §13 phase 4 acceptance | Draw/import/save signatures; signature placement; backup exclusion of signatures |
-| 5a Search core | **Opus** | `pdf/text`: `PDFTextStripper` subclass with positions, NFD normalisation keeping the index mapping, line breaks as spaces, match → rectangles through `PageCoordinateMapper` (rotated pages) | Unit tests on normalisation, line-break matches, rotated pages; handoff written | (none, verified by tests) |
-| 5b Search complete | Sonnet | Search UI, progressive indexing with cancellation, overlay highlights, scanned-PDF message | Spec §13 phase 5 acceptance | Results appear while indexing a 200-page PDF; "perche" finds "perché"; highlights in the right place on rotated pages; scanned PDF message |
-| 6 Polish | Sonnet | Spec §13 phase 6 | Spec §13 phase 6 acceptance | Release build with R8 on the main flows; animations; TalkBack. The baseline profile needs a device or emulator to generate: run it locally |
-| 7a Annotation core | **Opus** | `docs/plan-v2.md` 7a: read annotations (user space), annotation layer, text selection model on the search index, annotations in `EditSession` and `PdfEditor` with appearance streams, ADR 0004 | Unit tests (selection, quads on rotated pages, round trip, foreign removal); handoff written | App highlight visible in another reader; Acrobat highlight visible and removable in the app |
-| 7b Highlight complete | Sonnet | `docs/plan-v2.md` 7b: selection UI + Copy, "Annotate" pane (highlight, underline, strikeout, eraser) | Plan 7b | Two-line and turned-page selection; save, other reader; erase foreign highlight |
-| 8a Freehand core | **Opus** | `docs/plan-v2.md` 8a: `androidx.ink`, draw vs pan arbitration, Ink annotation with outline appearance, "make final" | Unit tests on stroke geometry; handoff written | Stroke lands where drawn at any zoom and on turned pages, also in another reader |
-| 8b Freehand complete | Sonnet | `docs/plan-v2.md` 8b: pen, highlighter, eraser, colours, undo/redo | Plan 8b | Finger and stylus; erase; undo/redo; rotation while drawing |
-| U-a Usability flows | Sonnet | `docs/plan-usability.md` U-a: U1, U2, U3, U5, U13 (edit panes start on the viewer's page and can jump; back to hub; leave after exit-dialog save; Highlight from the viewer selection; page indicator → go to page) | Plan U-a | Edit from page 37 opens on 37; page jump; Home tool → back → hub; exit-dialog save leaves; viewer selection → Copy or Highlight |
-| U-b Usability screens | Sonnet | `docs/plan-usability.md` U-b: U4 (Organize pages, incl. U9), U6, U7, U8, U10, U11, U12, U15, U16, U18–U21 (landscape side rail, 48 dp touch targets, tap for full-screen viewer, Undo/Redo at the bottom, floating selection bar) | Plan U-b | Organize pages (select, rotate, delete, drag, add); overwrite in one dialog; compact draw bar; signature 0/1/many + reminder; one-hand resize; Annotate/Fill in landscape; full-screen tap; Undo/Redo at the bottom |
-| V-a Viewer editing core | **Opus** | `docs/plan-viewer-editing.md` V-a: viewer-scoped edit session (pages fixed), pending edits drawn in `PdfViewport`, markup and freehand on any page of the viewport, eraser, save from the viewer, ADR 0005 | Plan V-a; handoff written | Highlight/draw on several pages at different zooms, save copy/overwrite, other reader; undo/redo; back with changes; rotation |
-| V-b Viewer tools UI | Sonnet | `docs/plan-viewer-editing.md` V-b: tool bar/rail in the viewer, Save, "Pages" with save-first, Edit FAB and hub removed, Home Highlight/Draw open the viewer armed | Plan V-b | Every tool from the bar; Home tools; Pages with/without pending changes; landscape; full-screen tap |
-| V-c Fill and sign in the viewer | **Opus** | `docs/plan-viewer-editing.md` V-c: overlays and form controls in the continuous viewport, gestures vs scroll, Fill pane removed | Plan V-c | Multi-page form while scrolling; signature place/move/resize/turn; save, other reader |
 | 9 Scan | Sonnet | `docs/plan-v2.md` 9: ML Kit Document Scanner, availability, open/add pages | Plan 9; packaged manifest still without `INTERNET` | Scan, save, add to open PDF; airplane mode |
 | 10a OCR core | **Opus** | `docs/plan-v2.md` 10a: Text Recognition v2, invisible text layer in user space | Unit tests on line geometry and search after OCR; handoff written | OCR'd scan searchable in app and other reader |
 | 10b OCR complete | Sonnet | `docs/plan-v2.md` 10b: UI, progress, cancellation, background | Plan 10b | 20-page scan; cancel halfway |
 | 11 ODF export | Sonnet | `docs/plan-v2.md` 11 | Plan 11 | Result opens in LibreOffice / Collabora |
 | 12 Cloud (WebDAV) | Sonnet (Opus reviews the credential store) | `docs/plan-v2.md` 12; adds `INTERNET` | Plan 12 | Nextcloud upload, wrong password, no network |
 
+Done: 0, 1a, 1b, 2, 3, 4a, 4b, 5a, 5b, 6 (except the baseline profile), 7a, 7b, 8a, 8b, U-a, U-b,
+V-a, V-b, V-c. Haiku is not recommended for code here.
+
 ## Commands
 ```bash
 ./gradlew assembleDebug        # debug APK
-./gradlew testDebugUnitTest    # JVM tests, Robolectric for UI (sdk=34, see robolectric.properties)
+./gradlew testDebugUnitTest    # JVM tests, Robolectric for UI (sdk=34, robolectric.properties)
 ./gradlew lintDebug            # Android Lint
-./gradlew buildEnvironment     # check the resolved Kotlin/KSP plugin versions
+./gradlew assembleRelease      # R8 build (CI builds it too)
+./gradlew buildEnvironment     # resolved Kotlin/KSP plugin versions
 ```
-In this cloud environment: Android SDK in `/opt/android-sdk` (installed with `sdkmanager`,
-platform `android-37.0`; `local.properties` is gitignored), run Gradle with `LC_ALL=C.UTF-8`.
-Maven Central often answers 429 or fails to resolve: retry, preferably with `--max-workers=2`.
-Robolectric downloads `android-all-instrumented` at test time; if that gets a 429, download it
-with `curl` into `~/.m2/repository/org/robolectric/...` and rerun.
+Cloud environment: run Gradle with `LC_ALL=C.UTF-8` and `--max-workers=2`. The Android SDK may be
+missing in a fresh container: install the command-line tools into `/opt/android-sdk/cmdline-tools/latest`
+(from `dl.google.com/android/repository/`), accept the licences, then
+`sdkmanager "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"`, and write
+`sdk.dir=/opt/android-sdk` to `local.properties` (gitignored). Maven Central often answers 429 or fails
+to resolve plugins: retry. If Robolectric's `android-all-instrumented` download fails, fetch it with
+`curl` into `~/.m2/repository/org/robolectric/...` and rerun.
 
-## Architecture
-Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and KartLog (details in
-`docs/plan.md`):
-- `ui/<feature>/` Compose screens and ViewModels; `ui/navigation/` `@Serializable` routes
-  (`Destination`), NavHost and drawer; `ui/theme/` palette (`Color.kt`) and theme.
-- `domain/` models with no Android dependencies (`PdfTool`, `ThemeMode`, `domain/edit/`:
-  `EditSession`, `PageItem`, `SaveFailure`; `domain/fill/`: overlays, `FieldValue`, `FormField`,
-  `TextBlock`, `MarkShape`; `domain/signature/`: `InkStroke`/`InkWidth`, `BackgroundRemoval`;
-  `domain/annotate/`: `Quad`, `AnnotationShape`, `NewAnnotation`, `AnnotationRef`, `AnnotationEdits`,
-  `FreehandKind`, `CompactPolylineSerializer`;
-  `domain/cloud/`: `CloudTarget`, interface only, product phase 2).
-- `data/` DataStore (`data/settings/ThemePreferences`, `ReadingPreferences`), Room
-  (`data/recents/`: `AppDatabase` (v2, `MIGRATION_1_2`), `RecentDocument`, `RecentsRepository`, `ThumbnailStore`),
-  signatures (`data/signatures/`: `Signature`, `SignatureDao`, `SignatureRepository`,
-  `SignatureRendering`), background save (`data/save/`: `SaveScheduler`, `SaveWorker`, `PdfSaver`).
-  Room schemas are exported to `app/schemas/` and committed.
-- `pdf/render` (phase 1): `PdfDocumentRenderer`, `RenderScheduler`/`RenderPlanner`, `PageThumbnails`, caches, and
-  the geometry shared by all phases (`DocumentLayout`, `Viewport`, `PageCoordinateMapper`).
-  `pdf/edit` (phase 2: `PdfEditor`, `PdfBoxEditor`; phase 4: `FillWriter`, `FontSource`, `FontCoverage`),
-  `pdf/forms` (phase 4: `FormReader`), `pdf/text` (phase 5: `PdfTextExtractor`, `PositionedTextStripper`,
-  `TextNormalizer`, `PageTextIndex`, `DocumentSearch`; spec §12; 7a: `TextSelection`, `PageTextReader`),
-  `pdf/annotations` (7a: `AnnotationReader`, `AnnotationGeometry`, `AnnotationFingerprint`; the writer
-  is `pdf/edit/AnnotationWriter`; 7b: `AnnotationEraser`, `MarkupFactory`; 8a: `FreehandGeometry`; V-a:
-  `DocumentStrokes`). `ui/annotate/` draws annotations
-  (`AnnotationLayer`, `drawAnnotations`) and holds text selection (`TextSelectionState`, handles, gestures)
-  and the annotation tools' state and Style menu (`AnnotateTools.kt`: `AnnotateTool`, `AnnotatePaneState`,
-  `StyleButton`; the Annotate pane of `EditScreen` is gone since V-b); freehand
-  drawing on `androidx.ink` is `FreehandLayer`, `FreehandGestures`, `FreehandInk` (8a). `ui/search/` is the search bar, notices and
-  highlights used by the viewer. Editing in the viewer (V-a, ADR 0005): `ui/viewer/ViewerEditSession`
-  (page-fixed session), `ViewerEditing.kt` (`ViewerPageTools`, back guard, `ViewerSaveUi`), `ViewerToolBar` (V-b), `PdfViewport`'s
-  `drawing`/`onTap(PageTap)`; the shared save is `ui/edit/SaveRunner`. `ui/fill/` is the
-  "Fill and sign" pane of `EditScreen`; `ui/signatures/` is "My signatures" plus the creation flow
-  (draw, import) and the picker sheet that `EditScreen` reuses.
-- `di/` Hilt modules, when needed.
-- `.github/workflows/`: generic, shared with the author's other Android projects (only the `env`
-  block at the top is per project); how they work and how to reuse them in `docs/ci.md`.
+## Where things are
+Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/plan.md`):
+- `ui/<feature>/` screens and view models. `ui/navigation/`: `@Serializable` routes (`Destination`),
+  NavHost, drawer. `ui/theme/`: palette (`Color.kt`, an [ASSUNZIONE] of the spec) and theme.
+  `ui/common/`: `ToolStrip` (bottom bar or landscape rail), `TransientHint`, page chip.
+- `ui/viewer/`: the viewer and all page editing. `ReadyViewer` (bars, modes, tools, save UI),
+  `PdfViewport` (one Canvas: tiles, annotations, overlays, highlights, selection; detectors on its
+  `Box`; form controls and the ink layer as children), `PdfViewportState`, `ViewerViewModel`,
+  `ViewerEditSession` (page-fixed session), `ViewerEditing.kt` (`ViewerPageTools`, back steps, save and
+  fill bundles), `ViewportFill` (fill geometry across pages), `ViewerToolBar`.
+- `ui/edit/`: `EditScreen` = "Organize pages" (and merge), `EditViewModel`, save dialogs, `SaveRunner`
+  (shared by both save UIs). `ui/merge/`: merge list.
+- `ui/annotate/`: annotation drawing (`AnnotationLayer`, `drawAnnotations`), text selection
+  (`TextSelectionState`, handles, gestures), tool state and Style menu (`AnnotateTools.kt`), freehand
+  on `androidx.ink` (`FreehandGestures`, `FreehandInk`, `ViewportInkLayer`).
+- `ui/fill/`: fill tools state and buttons (`FillTools.kt`), form controls (`FormFieldControls.kt`),
+  `OverlayPainter`, overlay gestures, text dialog. `ui/signatures/`: "My signatures", creation (draw,
+  import), picker sheet. `ui/search/`: search bar, notices, highlights.
+- `domain/`: no Android. `edit/` (`EditSession`, `PageItem`, `PageSizing`, `SaveFailure`), `fill/`
+  (overlays, `FieldValue`, `FormField`, `TextBlock`, `MarkShape`), `annotate/` (`Quad`, shapes,
+  `NewAnnotation`, `AnnotationRef`, `AnnotationEdits`, `CompactPolylineSerializer`), `signature/`,
+  `cloud/` (`CloudTarget`, interface only).
+- `data/`: DataStore preferences, Room (`AppDatabase` v2: recents, signatures; schemas in
+  `app/schemas/`, committed), `save/` (`SaveScheduler`, `SaveWorker`, `PdfSaver`), `images/`.
+- `pdf/render`: `PdfRenderer` wrapper, scheduler/planner, caches, and the shared geometry
+  (`DocumentLayout`, `Viewport`, `PageCoordinateMapper`, `PdfPageSpace`, `OverlayGeometry`).
+  `pdf/edit`: `PdfEditor`/`PdfBoxEditor`, `FillWriter`, `AnnotationWriter`, fonts. `pdf/forms`:
+  `FormReader`. `pdf/text`: extraction, normalisation, index, search, selection. `pdf/annotations`:
+  reader, geometry, eraser, markup factory, freehand geometry, `DocumentStrokes`.
+- `.github/workflows/`: generic, shared with the author's other projects (`docs/ci.md`).
 
-## Non-obvious rules
-- One page open at a time per `PdfRenderer` instance: one mutex per document, rendering on
-  `Dispatchers.Default`, page always closed after rendering (ADR 0001).
-- All writes go through `PdfEditor`; the UI never touches PdfBox (ADR 0002). `PdfBoxEditor`
-  rearranges the open document in place (keeps fonts, annotations, forms) and materialises the
-  inheritable page attributes (`MediaBox`, `CropBox`, `Resources`, `Rotate`) before detaching pages.
-- Saving: source copy → result in `cacheDir/work/` → verified → copied over the destination with
-  mode `"wt"`; runs in `SaveWorker` (WorkManager, ADR 0003). The page list travels as
-  `EditSession.encode()` in a JSON file, not in WorkManager `Data`.
+## Rules that aren't obvious
+- **Renderer**: one page open at a time per `PdfRenderer`, a mutex per document, rendering on
+  `Dispatchers.Default`, page always closed (ADR 0001).
+- **Coordinates** go only through `PageCoordinateMapper` (page points top-left ↔ layout px ↔ screen
+  px) and `PdfPageSpace` (user space, matrices follow pdfium). Never convert by hand in the UI.
+  Overlays and annotations are stored in **PDF user space**, so they turn with their page.
+- **Writes** go through `PdfEditor`; the UI never touches PdfBox (ADR 0002). `PdfBoxEditor` edits the
+  open document in place, materialises inheritable page attributes before detaching pages, and removes
+  existing annotations **before** anything else touches `/Annots`.
+- **Saving**: copy of the source → result in `cacheDir/work/` → verified → copied over the destination
+  with mode `"wt"`, in `SaveWorker` (ADR 0003). The request is a JSON file, not WorkManager `Data`.
+  After an **overwrite** nothing may keep the old file open: navigate to the result with `popUpTo<Home>`.
+- **Viewer editing** (ADR 0005): `ViewerEditSession` never changes the page list (ids `p<index>`), so
+  the viewer renders the saved file and draws pending edits on top. Tools need
+  `EditAvailability.READY` (annotations read, not password-protected). Edits are `SavedStateHandle`
+  keys `viewerFill`/`viewerAnnotations`. "Pages" with unsaved changes asks to save or discard first.
+- **Gesture arbitration**: the selection, overlay and freehand detectors sit after
+  `detectZoomPanFling` and stop it through `SelectionGrab`/`OverlayGrab`/`FreehandGrab.active`
+  (`suppressed`). Freehand runs in the **initial** pass and arbitrates by consuming. A live overlay
+  change is local until the fingers lift (one undo step).
+- **Freehand**: strokes in document points (`DocumentStrokes`), page = the one under the first point,
+  then page display points → user space (`FreehandGeometry`). One stroke = one Ink annotation; the
+  outline is the appearance, `/InkList` the centre line. Ink brush versions pinned (`V1`).
+- **Text selection** is one page at a time, in that page's display points, stored as (page, glyph
+  range) and resolved again from the text (`ResolveTextSelection`).
+- **Annotations**: the renderer draws none, so the app draws them (`drawAnnotations`) from the same
+  `AnnotationGeometry` the writer uses. **Form widgets** are drawn by the renderer (API 35+) with the
+  file's value, so form controls are opaque and a pending value stays drawn when the tool is down.
+- **Signatures, text, ticks, dates** are written into the page content stream, not as annotations;
+  screen and writer share `OverlayGeometry`, `PdfPageSpace` and `TextBlock` (Noto Sans metrics).
+- Search highlights are overlay only, never written. Search is in the viewer only.
+- **No `INTERNET`** in product phase 1: the manifest removes it with `tools:node="remove"` and CI
+  checks the packaged manifest. Don't add dependencies that need it (phase 12 is the exception).
+- **Navigation**: every `navigate()`/`popBackStack()` goes through the owning entry's
+  `lifecycleIsResumed()` guard, except navigation from an activity result (the picker). Transitions
+  200–250 ms; `NavHost` needs both pop and `predictivePop*` transitions. Don't turn the edit screen into
+  a nested graph.
+- `SavedStateHandle` also holds the route arguments by name: never reuse `uri`, `tool`, `mergeWith`,
+  `autoSave`, `uris`, `page` as a state key; list arguments are arrays.
+- Single-page mode is a `HorizontalPager` of one-page viewports (`pageIndexOffset = page`); keys carry
+  the real page index, viewports share one `RenderScheduler`.
 - `PageItem.rotation` is the rotation the user *added*; the page's own `/Rotate` is added on write.
-  Grids draw the source thumbnail and turn it, so thumbnails are never re-rendered for a rotation.
-- After an *overwrite* nothing may keep the old file open: the nav graph opens the result with
-  `popUpTo<Home>`.
-- Signatures, text, check marks and dates are written into the page content stream, not as
-  annotations. Overlays are stored in **PDF user space** (`OverlayBox`: centre, size, angle), so they
-  turn with their page; screen and writer both go through `OverlayGeometry` + `PdfPageSpace`, and
-  text layout through `TextBlock` (Noto Sans metrics as constants, kerning/ligatures off on screen).
-- Form controls in the fill pane are opaque: the rendered page already contains each widget's
-  appearance (with the saved value), and the control is the only picture of the field.
-- Overlay gestures (`ui/fill/OverlayGestures`): the overlay handler sits after `detectZoomPanFling`
-  and tells it to stand down through `OverlayGrab.active` (`suppressed` parameter). Live changes are
-  a local copy in `FillPage`, committed once on lift (one undo step); the maths is
-  `OverlayGeometry.transformed` + `UserTransform`, in user space.
-- Annotations (7a, ADR 0004): the system renderer draws none, on any API level, so the app draws
-  them (`drawAnnotations`, from `AnnotationGeometry`, the same paths the writer puts in the
-  appearance stream). New ones are standard annotations with our own appearance (not PdfBox's
-  handlers). `/QuadPoints` in Acrobat's order (`Quad`). `PdfBoxEditor` removes existing annotations
-  **before** anything else touches `/Annots` (refs are indices + fingerprint).
-- Text selection (7b): one page at a time, in the **source** page's display points (`TextSelection`),
-  never in screen or layout pixels; a screen point goes through the page's mapper, and in the edit
-  pane also `space.displayToUser` → `sourceSpace.userToDisplay` (the page may be turned by the user).
-  Selection state is saved as (page key, glyph range) and the text model is read again
-  (`ResolveTextSelection`). The gesture layer (`detectSelectionGestures`) sits after
-  `detectZoomPanFling` and stops it through `SelectionGrab.active` (`suppressed` parameter), like the
-  overlay gestures; a handle is dragged by the line's middle point, offset by where it was grabbed.
-- Freehand (8a, ADR 0004 "Freehand ink"): ink strokes are made in **display points of the page as
-  shown** (pointer→stroke matrix = inverse of `pageToScreenTransform`, set as each stroke starts) and
-  go to user space through `space.displayToUser` (`FreehandGeometry`). `detectFreehandGestures` runs
-  in the **initial** pass and arbitrates by consuming (the ink layer cancels consumed strokes); the
-  page's zoom/pan stands down through `FreehandGrab.active`. One stroke = one Ink annotation; outlines
-  are the appearance (nonzero fill), `/InkList` the centre line. Ink brush versions are pinned (`V1`).
-  Ink polylines are serialized with `CompactPolylineSerializer` (saved state limit).
-- `PageBackdrop` (`ui/fill`) is the page bitmap/image under what a pane draws; the Fill and Annotate
-  panes both use it, so the resolution logic lives once.
-- Viewer editing (V-a, ADR 0005): `ViewerEditSession` never changes the page list (ids `p<index>`), so the
-  viewer keeps rendering the saved file and draws pending edits on top (`AnnotationLayer.of(document, edits)`).
-  Tools only with `EditAvailability.READY` (annotations read, not password-protected). Freehand strokes in the
-  viewport are in **document points** (`DocumentStrokes`): the page is the one under the stroke's first point,
-  read from the finished stroke; then page display points → `FreehandGeometry` as in 8a. `PdfViewport`'s
-  detectors sit on its `Box` (the ink layer is a child). An overwrite from the viewer reopens it
-  (`popUpTo<Home>`); viewer edits are `SavedStateHandle` keys `viewerFill`/`viewerAnnotations`.
-- Search highlights are overlay only, never written into the PDF. Search is in the viewer only,
-  not in the edit screens (spec §5.1).
-- No `INTERNET` permission in product phase 1: the manifest removes it with `tools:node="remove"`
-  and CI checks the packaged manifest. Don't add dependencies that need it.
-- Every `navigate()`/`popBackStack()` goes through the `lifecycleIsResumed()` guard of the entry
-  that owns the callback (double tap during a transition). Home from the drawer:
-  `popUpTo<Home>{inclusive}`. Exception: navigation from an activity result (the SAF picker),
-  which arrives before the entry is RESUMED again; the tap that launches the picker is guarded.
-- "Organize pages" and "Fill and sign" are panes of one `EditScreen` (`Destination.Edit(uri, tool)`, no hub since
-  V-b), sharing one `EditViewModel`; don't turn them into a nested nav graph (ADR 0003).
-- Single-page mode is a `HorizontalPager` of one-page layouts: each page has its own
-  `PdfViewportState` and `PdfViewport(pageIndexOffset = page, requestSource = page)`, so keys carry
-  the real page index and several viewports can share one `RenderScheduler` (it merges the lists
-  per source). A one-finger horizontal drag the page can't absorb is left unconsumed for the pager.
-- Viewer coordinates go only through `PageCoordinateMapper` (page points top-left ↔ layout px ↔
-  screen px; user space through `PdfPageSpace`, whose matrices follow pdfium). Don't convert by hand
-  in the UI.
-- Navigation transitions 200–250 ms, never above 300 (spec §9). `NavHost` needs both the pop and
-  the `predictivePop*` transitions: system back uses the latter, and the library default is a
-  `scaleOut(0.7f)` towards the centre.
-- `MainActivity` is an `AppCompatActivity`: `setApplicationLocales()` needs it for the per-app
-  language.
-- No hardcoded UI strings: `values/` (Italian, default) and `values-en/`.
-- AGP 9 built-in Kotlin: no `org.jetbrains.kotlin.android` plugin, compiler options in
-  `kotlin { compilerOptions { } }`. In composables read resources with `LocalResources.current`,
-  not `LocalContext.current` (lint error).
+- `MainActivity` is an `AppCompatActivity` (per-app language). No hardcoded UI strings: `values/`
+  (Italian, default) and `values-en/`. In composables read resources with `LocalResources.current`.
+- AGP 9 built-in Kotlin: no `org.jetbrains.kotlin.android` plugin; options in `kotlin { compilerOptions { } }`.
 
 ## Conventions
-- Documentation and code comments in English. App UI in Italian with English translation.
-  Identifiers in English.
-- `PT` prefix only where needed to avoid name clashes.
-- Choices marked **[ASSUNZIONE]** in the spec: implemented as written and kept isolated (e.g. the
-  palette in `ui/theme/Color.kt`).
+- English for docs, comments and identifiers; UI Italian with English translation.
+- `PT` prefix only to avoid name clashes. Spec choices marked **[ASSUNZIONE]** are implemented as
+  written and kept isolated.
 - If a requirement is unclear or not feasible, stop and ask.
 
-## References
-- Specification: `docs/spec.md`. Plan, alignment with the references, upgrade steps:
-  `docs/plan.md`. Product phase 2 plan: `docs/plan-v2.md`. Usability review and plan:
-  `docs/plan-usability.md`. Editing in the viewer: `docs/plan-viewer-editing.md`.
-- ADRs: `docs/adr/0001-viewer.md`, `docs/adr/0002-pdfbox-android.md`,
-  `docs/adr/0003-background-save-and-edit-session.md`, `docs/adr/0004-annotations.md`,
-  `docs/adr/0005-editing-in-the-viewer.md`.
+## Current status (2026-10-08)
+- Product phase 1 released as **1.0.0** (2026-10-04). Still open from it: the **baseline profile**
+  (needs a device: `androidx.baselineprofile` plugin + a macrobenchmark module, startup / open viewer /
+  open organize) and the **signing secrets** in the repository (Build APK and Release need them).
+- Done since: 7a–8b (annotations, freehand), U-a/U-b (usability), V-a…V-c (editing in the viewer).
+- **V-c Fill and sign in the viewer done (2026-10-08)**, PR #24; lint (0 errors), 440 unit tests,
+  `assembleDebug` and CI green; device checks passed (author, 2026-10-08). **Next: 9 Scan (Sonnet).**
+- Open questions for later sub-phases (`docs/plan-v2.md`): OCR bundled or not (10a), ODG or ODT (11),
+  release numbering.
 
-## Current status
-<!-- Update at the end of every session. -->
-- **Phase 0 done (2026-10-01)**: skeleton, theme, languages, navigation, drawer, Home, signing,
-  CI, docs, ADR 0001–0002. Toolchain and libraries upgraded to the latest stable versions
-  (`docs/plan.md`). Verified with lint, JVM/Robolectric tests, debug and release builds; the
-  author installed the phase 0 APK (pre-upgrade build) and confirmed it works.
-- PR #1 merged.
-- **1a Viewer core done (2026-10-01)**, PR #3 merged; device checks passed (author). Follow-up fix:
-  system back no longer shrinks the screen (predictive pop transitions).
-- **1b Viewer complete done (2026-10-01)**, PR #5; lint, 63 unit tests and `assembleDebug` green;
-  device checks passed (author).
-- **Phase 2 Edit session and pages done (2026-10-01)**, PR #6; lint (0 errors), 95 unit tests and
-  `assembleDebug` green; device checks passed (author). Follow-up fix: page thumbnails with no added
-  rotation were laid out with zero height (blank cells).
-- **Phase 3 Add pages and merge done (2026-10-01)**, PR #7 merged; lint (0 errors), 144 unit tests
-  and `assembleDebug` green; device checks passed (author).
-- **4a Fill and sign core done (2026-10-02)**, PR #8; lint, 194 unit tests and `assembleDebug`
-  green; device checks passed (author). Follow-up fix: form controls on a turned page now turn with
-  it (they showed the text across the field).
-- **4b Fill and sign complete done (2026-10-02)**, PR #9 merged; lint (0 errors), 220 unit tests and
-  `assembleDebug` green; device checks passed (author). Follow-up fix (author's device test):
-  a form saved and reopened showed each value twice, the page bitmap's widget appearance under the
-  semi-transparent control; controls are now opaque white under their tint. Radio buttons drawn as
-  two offset circles in Acrobat: the writer only switches `/AS` (test), the drawings are the
-  source PDF's own appearance streams (author confirmed: the original shows them the same way).
-- **5a Search core done (2026-10-03)**, PR #10 merged; lint (0 errors), 251 unit tests and
-  `assembleDebug` green. No device checks (verified by tests).
-- **5b Search complete done (2026-10-03)**, PR #11; lint (0 errors), 277 unit tests and
-  `assembleDebug` green; device checks passed (author), the 25-file merge included. 
-  Same PR, fix from the author's device test: merging 25 PDFs (~1 GB, 2031 pages) failed with
-  `OUT_OF_MEMORY` (see Decisions, 2026-10-03, save memory).
-- **Phase 6 Polish done (2026-10-03), except the baseline profile**; lint, unit tests (incl. the new
-  palette contrast test) and `assembleDebug` green, `assembleRelease` (R8) builds. Needs the author's
-  device checks (below). **Next: product phase 1 is complete once those pass and the baseline profile
-  is generated locally; no further development phase.**
-- The author still has to add the signing secrets to the repository.
-- **1.0.0 released (2026-10-04).** Baseline profile still not generated (see phase 6 notes).
-- **Product phase 2 planned (2026-10-04)** in `docs/plan-v2.md`: order 7a → 7b → 8a → 8b → 9 → 10a →
-  10b → 11 → 12. Author's answers: Annotate pane in `EditScreen` + selection/Copy in the viewer; Play
-  services accepted, `ACCESS_NETWORK_STATE` to be removed in phase 9. Questions 3–5 still open.
-- **7a Annotation core done (2026-10-04)**, same PR as the plan (#13, merged); lint (0 errors), 315 unit
-  tests, `assembleDebug` and `assembleRelease` green. Its device checks are covered by 7b's (author).
-- **7b Highlight complete done (2026-10-05)**, PR #14 merged; lint (0 errors), 350 unit tests and
-  `assembleDebug` green; device checks passed (author).
-- **8a Freehand core done (2026-10-05)**, PR #15; lint (0 errors), 373 unit tests, `assembleDebug` and
-  `assembleRelease` (R8) green; device checks passed on the signed release build (author, 2026-10-07).
-- **8b Freehand complete done (2026-10-07)**, PR #18; lint (0 errors), 375 unit tests and `assembleDebug`
-  green; device checks passed (author, 2026-10-07). **Next: U-a (Sonnet), see the usability review below.**
-- **Usability review (2026-10-07)**, author's request while testing 8b: `docs/plan-usability.md`
-  (findings U1–U17). Author's answers recorded there; sub-phases U-a and U-b (Sonnet) go after 8b
-  (done) and before 9. Order now: 8b → U-a → U-b → 9 → 10a → 10b → 11 → 12.
-- **U-a Usability flows done (2026-10-07)**, PR #20; lint, 379 unit tests and `assembleDebug` green;
-  device checks passed (author, 2026-10-08).
-- **U-b Usability screens done (2026-10-08)**, branch `u-b-usability-screens`; lint (0 errors), unit tests and
-  `assembleDebug` green; device checks passed (author, 2026-10-08), PR #21. **Next: V-a (Opus), `docs/plan-viewer-editing.md`.**
-- **Viewer editing planned (2026-10-08)**, author's request while testing U-b (option "C"): page tools in the
-  viewer, document tools in the edit screen. `docs/plan-viewer-editing.md`, sub-phases V-a (Opus), V-b
-  (Sonnet), V-c (Opus). Order: U-b → V-a → V-b → V-c → 9 → 10a → 10b → 11 → 12 (the author started V-a
-  right after U-b, which settles "before 9").
-- **V-a Viewer editing core done (2026-10-08)**, branch `v-a-viewer-editing-core`, PR #22; lint (0 errors), 420 unit
-  tests and `assembleDebug` green, CI green; device checks passed (author, 2026-10-08). Author noticed the edit hub
-  still offers Highlight/Draw: expected until V-b removes the hub and the Annotate pane (Fill goes in V-c).
-- **V-b Viewer tools UI done (2026-10-08)**, same cloud branch as this session; lint (0 errors), 425 unit tests
-  and `assembleDebug` green, CI green; device checks passed (author, 2026-10-08), PR #23. Same PR, after the author's first
-  device test: markup tools apply on release (see Decisions, V-b follow-up). **Next: V-c (Opus).**
+### Device checks V-c (author, passed 2026-10-08)
+Fill a multi-page form while scrolling in continuous mode (text, check box, radio, list; keyboard
+"Next"; a field near the bottom stays above the keyboard); fields filled then Fill put down: the new
+values still show; text, date, tick, cross on several pages at different zooms; signature with 0/1/many
+saved, place, move, resize and turn (two fingers and the corner handle), long press to grab another;
+undo/redo; single-page mode; landscape rail; Home → Fill and sign opens the viewer armed; save as copy
+and overwrite with "make final" on and off, open in another reader; back with changes; rotate the
+phone mid-edit; password PDF says it can't be edited.
 
-### Notes from V-b (viewer tools UI), for V-c
-- The bar is `ui/viewer/ViewerToolBar` (`ToolStrip`; `ViewerToolGroup` MARKUP/DRAW/ERASER): a button is named after
-  the tool of its family that a tap arms (`AnnotatePaneState.markupTool/brushTool`, `choose(tool)`); `StyleButton` (public,
-  in `ui/annotate/AnnotateTools.kt`) also picks the other tools of the family. V-c adds its tools next to "Fill" (today
-  a button that opens `EditScreen` on the Fill pane) in the same strip.
-- `ReadyViewer`: `armed = annotating && pageTools != null`; the bar shows unless immersive / searching / thumbnails
-  (`toolBarVisible`); in landscape (`isLandscape()`) it is a rail at the end under the top bar (`TOP_BAR_HEIGHT`), overlaying
-  the page (the viewport never resizes), with the scrubber and snackbars moved clear of it. Hint = `TransientHint`.
-- Save first: `openEdit(tool)` → `saveFirstFor` dialog (`UnsavedChangesDialog` with its own texts) → Save sets
-  `afterSave = tool.name` (or `"leave"` for the exit dialog) and the save dialog; on `Saved`/`Overwritten` the effect calls
-  `onOpenEdit(uri, tool, page, reopenViewer = true)`: nav graph replaces the viewer by one on the saved file
-  (`popUpTo<Home>`) and opens `Edit` above it. Discard → `editing.discard()` then `onOpenEdit(..., false)`.
-- `Destination.Viewer(uri, tool)`: Home Highlight/Draw open it armed (`viewerTools` in the nav graph); the viewer says so
-  once if the document can't take tools (`startToolChecked`). `Destination.Edit` lost `selectionStart/End`; `EditScreen`
-  has panes `ORGANIZE, FILL` only and back leaves (exit dialog if unsaved). `EditViewModel` lost the annotate parts.
-  FAB, hub, `EditContainerTransform` and the shared transition layout are gone.
-- Markup tools (follow-up): the mark is made when the finger lifts (`ReadyViewer.applyMarkup`, `onSelectionReleased`;
-  `selecting.job` makes a release wait for the page text to load); the floating Copy/Highlight bar shows only with no
-  markup tool armed. `AnnotateTools.kt` has `appliedLabel()` for the snackbar text.
-- Known limits: the rail covers the right edge of a page at fit width in landscape (tap to hide, or zoom); the bar's
-  dimmed state for unavailable tools is visual only (a tap says why); with the thumbnails open the tools bar is hidden;
-  after "Pages" with a saved copy the viewer below shows the copy, not the original.
-
-### Device checks V-b (author, passed 2026-10-08)
-Every tool from the bar (Highlight, Draw, Eraser, Fill, Pages) and Style (underline/strikeout, marker); Home →
-Highlight / Draw opens the viewer armed; Pages and Fill with and without pending changes (save copy, overwrite,
-discard, cancel); landscape rail; tap for full screen with a tool armed; markup applied on release with the
-Undo message (one word, stretched over two lines, Undo from the message and from the bar).
-
-### Handoff V-a → V-b (viewer editing)
-- Session: `ViewerUiState.Ready.editing` (`ViewerEditSession`: `edits` flow with `session` + `hasUnsavedChanges`,
-  `addAnnotation`/`removeAnnotation`/`removeExistingAnnotation`/`undo`/`redo`/`discard`, `saveRequest`, `markSaved`)
-  and `editAvailability` (`LOADING`, `READY`, `PROTECTED`, `UNREADABLE`). Page ids: `ViewerEditSession.pageId(i)`.
-- Tools: `ViewerPageTools(editing, document)`: `inkAnnotation`, `markupAnnotation`, `erase`, `spaceOf`. V-c adds the
-  overlays and fields there (the session already holds `fill`; `saveRequest(flattenForm = null)` = on with a signature).
-- Viewport: `PdfViewport(drawing = ViewportDrawing(kind, color, width, onStroke), onTap = (PageTap?) -> Unit,
-  selection = null to disable selecting)`. Single page: only the settled page gets `drawing`; pager off while drawing.
-- UI now (minimal, for V-b to replace): a pen `IconToggleButton` in the top bar arms `annotating`, which shows
-  `AnnotateToolBar(showApply = false)` at the bottom (no rail yet; thumbnails hidden); the floating selection bar
-  applies the armed markup kind (Highlight when reading); "Save" text button in the top bar; Edit FAB hidden while
-  annotating or with unsaved changes (V-b: "Pages" with save-first, FAB and hub removed).
-- Save: `ViewerViewModel.save/dismissSaveResult/saveState/overwriteChoice/canOverwrite/flattenInkChoice`, bundled as
-  `ViewerSaveUi` by `ViewerScreen`; `onReopen` (overwrite) and `onOpenCopy` navigate with `popUpTo<Home>`.
-- Back: `viewerBackStep` (search → selection → put tool down → ask to save → leave); the top-bar arrow asks if unsaved.
-- Taps: eraser erases (nothing else), a brush ignores taps (dot), otherwise clear selection / toggle full screen.
-- Left for V-b: the real tool bar/rail (Highlight, Draw, Eraser, Fill, Pages), immersive hiding it, Home tools opening
-  the viewer armed (`Destination.Viewer(uri, tool)`), removing the Annotate pane, the hub and the FAB; the route
-  arguments `Destination.Edit.selectionStart/End` are no longer sent by the viewer and can go with the pane.
-
-### Device checks V-a (author, passed 2026-10-08)
-Pen button → highlight/underline/strikeout via the selection bar, pen and marker strokes on several pages in
-continuous mode at different zooms (incl. across the gap: the stroke stays on the page it started on), and in
-single-page mode; eraser on new and on the file's annotations; undo/redo; Save → copy (Open/Share) and overwrite
-(viewer reopens on the new file); open both results in another reader; back with changes → Save/Discard/Cancel;
-rotate the phone mid-edit and with a stroke in progress; password PDF: the pen button says it can't be edited.
-
-### Notes from U-b (usability screens)
-- `PdfTool.ORGANIZE_PAGES` replaces Add/Insert/Remove/Reorder. `EditPane` is `HUB, ORGANIZE, FILL, ANNOTATE`; the hub
-  stays a read-only grid (decision: not the organizer, so its tool bar keeps one job); `PagesMode` is `ORGANIZE, PICK, VIEW`.
-  Drag uses Reorderable's `draggableHandle` on a handle per cell (`DragHandle`); the ⋮ menu stays for moves without dragging.
-  "Add" (`AddSourceDialog`) captures the insertion point (`addPoint`: after the last selected page, else after the page
-  read in the viewer, else the end) before the pickers; the selection is cleared when the PDF picker opens (it is reused for the picked pages).
-- `ui/common/EditBars.kt`: `ToolStrip(side, undoRedo, trailing, tools)` lays the same tools out as a bottom bar or, in
-  landscape (`isLandscape()`), as a rail at the end of the content; `EditScreen` puts the strip in `bottomBar` or beside the
-  content (`railed`). `TransientHint` is the over-the-page message that replaces the hint rows (4.5 s).
-- Annotate style (colour + brush size) is the `StyleButton` menu (`trailing` of the strip). `ToolButtonFrame` is 56 dp min and
-  takes `onLongClick`; swatches and width cells have a 48 dp touch box.
-- Signature tap: `savedSignatures` null/many → picker, none → creation, one → armed; long press → picker (`EditScreen.onSignature`).
-- Overwrite: `SaveDialog` is the only confirmation (`OverwriteConfirmDialog` is gone).
-- Corner handle (U11): `UserTransform.about` (scale and turn about the centre), gesture first in `detectOverlayGestures`.
-- Viewer: `PdfViewport(onTap, selectionBar)`; `SelectionBarPlacement` puts the floating Copy/Highlight bar above the
-  selection (below if no room, hidden if off screen). A tap clears a selection, else toggles `immersive` (system bars via
-  `WindowInsetsControllerCompat`, restored on dispose). The top bar (and the search bar) is an overlay in the
-  page area, which is always the whole screen (`contentWindowInsets` 0): showing/hiding bars never resizes the
-  viewport (it flickered when it did, author's device test). FAB and snackbar pad for the navigation bar themselves.
-- Known limits: the Annotate tool row scrolls on a narrow phone (Style and Undo/Redo stay fixed); no per-element
-  semantics for the corner handle; hub and Organize have no "move selection to start/end" (use the page menu); immersive
-  bar covers the top of the first page when the document opens (scroll a little; a top inset in `DocumentLayout` would
-  fix it but touches the shared geometry); Compose `ConfigurationScreenWidthHeight` lint warning on `isLandscape()`.
-
-### Device checks U-b (author, passed 2026-10-08)
-Organize pages (select, range by long press, rotate, delete, drag the handle, Add from PDF / blank / photos / files,
-default position after the selected page); overwrite in one dialog; Annotate with the pen: Style button, hint fades, more
-page on screen; signature with 0 / 1 / several saved and the reminder on "My signatures"; resize and turn from the corner
-handle with one hand; Date placed directly; Annotate and Fill in landscape (rail); colours and sizes easy to hit; tap for
-full-screen reading and back; Undo/Redo at the bottom in every pane and the hub; floating Copy/Highlight by the selection
-in continuous and single-page mode; pane titles; Settings "Dynamic colors".
-
-### Notes from U-a (usability flows)
-- `Destination.Edit` has `page` (index in the main document, -1 from Home), `selectionStart/End` (glyph
-  range, -1 none). The viewer passes its current page with Edit and Highlight; `EditScreen` takes
-  `startPage`/`startSelection`. Panes start on `"p<page>"` (the main document's original page id) and
-  report the page they show (`panePageId`, saved), so a second visit resumes there; the insertion dialogs
-  take `initialPoint` (`viewerPageNumber`: position of that page in the session, null if removed).
-- `ui/common/PageIndicatorChip` (chip + `GoToPageDialog` from the viewer) and `ReportCurrentPage` serve
-  both panes. Viewer: the selection's top bar has Copy and Highlight (U-b's U21 moves them to a floating
-  bar); Highlight sends the key (page) and glyph range, `rememberTextSelectionState(initialKey, initialRange)`
-  restores it and `ResolveTextSelection` reads the page text again.
-- Back: opened on a tool from Home, a pane goes to the hub once `hasUnsavedChanges`. Exit dialog "Save"
-  sets `leaveAfterSave` (reset on cancel/failure); on `Saved` the screen toasts "PDF saved" and leaves
-  (no Open/Share snackbar, it would die with the screen); an overwrite already navigates.
-- Known limits: highlight from the viewer works on the main document only and needs the PDF to be
-  editable (protected PDFs can't be, as before); the GoTo dialog in the panes has no thumbnails.
-
-### Device checks U-a (author, passed 2026-10-08)
-Edit from page 37 opens Fill and Annotate on 37; page chip jump; insertion dialogs default to "after
-page 37" from the viewer and to the end from Home; Home tool → change → back lands on the hub, and with
-no change leaves; exit dialog Save → picker → closes with "PDF saved"; Cancel in the picker stays;
-viewer selection → Copy still works, Highlight opens Annotate on that page with the words selected;
-tap "Page X of N" in the viewer; rotate the phone in each case.
-
-### Notes from 8b (freehand complete)
-- `FreehandOptions` (domain): colours and widths per `FreehandKind`; `AnnotatePaneState` holds the chosen
-  indices (pen/marker colour and width, saved across rotation) and `colorFor/widthFor(FreehandKind)`.
-  `FreehandKind.width/color` are only the defaults. Brush colour and width go `AnnotatePane` →
-  `AnnotatePage(brushColor, brushWidth)` → `FreehandLayer` → `FreehandInk.brush`; the annotation style
-  takes the chosen colour. Changing colour or width applies to the next stroke only.
-- `PdfTool.DRAW` is available (Home + hub): same `EditPane.ANNOTATE` as Highlight, with the pen armed
-  (`rememberAnnotatePaneState(initialTool)`). The pane title is "Annotate" (`tool_annotate`).
-- Already there from 8a and unchanged: eraser per stroke, session undo/redo, "make final" checkbox,
-  stylus rule. The choices aren't persisted across app restarts (not asked for).
-- Device checks 8b (passed): finger and stylus; each colour/size of pen and marker, in the app and another
-  reader; erase a stroke; undo/redo; rotate the phone while drawing and with a stroke in progress;
-  "Draw" from Home and from the hub opens with the pen; Highlight from Home still opens on the highlighter.
-
-### Handoff 8a → 8b (freehand)
-- Tools: `AnnotateTool.PEN` / `MARKER` (`freehand: FreehandKind`), in the Annotate tool bar (now scrollable).
-  `FreehandKind` holds the fixed width and colour: 8b moves colour/width into `AnnotatePaneState`
-  and passes them to `FreehandLayer` (`FreehandInk.brush(kind, color, pxPerPoint)`; width = `Brush.size`).
-- Flow: `AnnotatePage` → `FreehandLayer` (ink `InProgressStrokes`, current page only) → `FreehandStroke`
-  → `FreehandGeometry.toInk(stroke, space.displayToUser, highlighter)` → `touchesPage` →
-  `NewAnnotation` → `actions.addAnnotation` (+ local `pending` list against a one-frame flicker).
-- Erase is already per stroke (`AnnotationGeometry.hits` on outlines); undo/redo is the session's.
-- "Make final": `WriteOptions.flattenInk` ← `SaveRequest.flattenInk` ← save dialog checkbox
-  (`EditViewModel.flattenInkChoice`, off by default, shown when `AnnotationEdits.hasInk`). 8b can restyle.
-- Gestures: `detectFreehandGestures` (initial pass). Pager paging is off while a freehand tool is armed.
-- Known limits: reopened ink is drawn from its centre line (even width); the marker is translucent
-  while wet, multiply once lifted; no double-tap zoom in draw mode; `Stroke → FreehandStroke`
-  (`FreehandInk.toFreehandStroke`) has no unit test (native library); ~5.4 MB of native code (universal APK).
-- Stylus (author, 2026-10-07): it draws **only** with a freehand tool armed; with the markup tools it
-  behaves like a finger (select, pan), as now. Palm rejection beyond "ignore other touches while the
-  stylus draws" isn't in ink 1.0.
-
-### Notes from 7b (for 8a onwards)
-- Viewer: long press → `TextSelectionState` (selection + handles drawn by `PdfViewport`, `onLongPress`
-  callback to `ReadyViewer`, which loads the page through `ViewerUiState.Ready.textReader`); the top bar
-  becomes "Selected text · Copy"; Android 12 and below show a snackbar after copying.
-- Edit: `EditPane.ANNOTATE` (hub tool "Highlight", Home tool `HIGHLIGHT`); `EditViewModel.loadAnnotate()`
-  reads every document's annotations (`AnnotateLoad`, `AnnotateDocuments`), `pageText(item)` serves
-  selections (one `PageTextReader` per document), `addAnnotation/removeAnnotation/removeExistingAnnotation`.
-  `AnnotatePage` is the per-page canvas (backdrop, `drawAnnotations`, selection, eraser tap): 8a's
-  drawing layer goes there, and its draw-vs-pan arbitration can copy the `SelectionGrab` pattern
-  (`detectZoomPanFling(suppressed = …)`). `AnnotatePaneState.tool` is the place for pen / highlighter tools.
-- Tools: `AnnotateTool` (highlight, underline, strikeout, eraser), one colour index for highlights and one
-  shared by the two line kinds (`AnnotationPalette`). "Apply" turns the selection into one
-  `NewAnnotation` through `MarkupFactory` (quads via `LineRun.toUser(sourceSpace)`).
-- Known limits: no colour change after adding (erase and redo); squiggly can be read and drawn but has no
-  tool; selection works on one page and in extraction order; no magnifier; the viewer can't start
-  annotating from a selection (go through Edit → Highlight); the page thumbnails still show no annotations.
-
-### Handoff 7a → 7b (annotations)
-- Model `domain/annotate/`: `NewAnnotation(id, pageId, shape, style)`, shapes `TextMarkup(kind, quads)`
-  and `Ink`; `ExistingAnnotation(ref, subtype, shape?, style, bounds)` (no shape = listed, not drawn).
-- Session: `addAnnotation / updateAnnotation / removeAnnotation / removeExistingAnnotation(ref)`, already
-  saved, restored and written. `AnnotationReader.read(open, password, docId = DocRef.id)`.
-- Drawing: `drawAnnotations(list, mapper.userToScreen(page, space), mapper.screenPxPerPoint)`; the viewer
-  does it. The edit pane must draw the existing ones minus `removed`, plus `addedOn(pageId)`.
-- Selection: `PdfTextExtractor.reader()` (close it) → `TextSelection(page)`: `wordAt`, `boundaryAt`,
-  `between`, `text`, `runs` → `LineRun.toUser(space)` → quads. It works in the **source** page's
-  display points: on an edit page turned by the user, go tap → `space.displayToUser` →
-  `sourceSpace.userToDisplay`, and quads with `toUser(sourceSpace)`.
-- Eraser: `AnnotationGeometry.hits`; existing ones without a shape only by `bounds`.
-- Left for 7b: selection UI (handles, Copy) in the viewer, the Annotate pane and tools, colours
-  (`AnnotationColor` has `YELLOW`, `BLACK` only), "Highlight" enabled on Home, annotations in the edit pane.
-
-### Notes from phase 6 (polish)
-- Release: `isMinifyEnabled` and `isShrinkResources` on; the only project rule is `-dontwarn` for
-  `com.gemalto.jp2.*` (PdfBox's optional JPX decoder); the library's own `proguard.txt` keeps what it
-  loads by reflection. Built only, **not run**: no device in the cloud, so the main flows on a release
-  build are the author's check. CI builds `assembleRelease` too.
-- Workflows rewritten as generic (author's request, same PR #12; `docs/ci.md`): Android CI only verifies
-  (no APK), Build APK is the APK to try on the phone (signed release + `mapping.txt`), Release attaches
-  `mapping.txt`. Checked with actionlint (incl. shellcheck); the signature step and Release's version
-  bump and notes scripts were run locally on a test keystore and a copy of the files. Build APK and
-  Release can't run until the signing secrets are in the repository.
-- FAB → hub: shared-bounds transition (`EditContainerTransform.kt`); **removed in V-b** with the FAB and the hub.
-- Thumbnail cascade: `cascadeIn` in `PagesGrid`, only for cells composed in the first 400 ms.
-- System "remove animations": Compose animations follow the animator duration scale
-  ([release notes, Compose Animation 1.2.0-alpha05](https://developer.android.com/jetpack/androidx/releases/compose-animation));
-  everything here uses Compose `tween`/`Animatable`, and the cascade skips its delays at scale 0.
-- Accessibility: the viewer's page area has a description ("Page N of M") and next/previous page
-  actions; `ThemeContrastTest` checks WCAG 4.5:1 on the fixed palette (dynamic colour is the system's).
-  Canvas-drawn pages, overlays and form controls in the fill pane still have no per-element semantics.
-- **Baseline profile: not done.** It needs a device or emulator to record. A hand-written profile
-  would be a guess, so none is shipped; generate it locally with the `androidx.baselineprofile` Gradle
-  plugin and a macrobenchmark module (startup, open viewer, open edit hub) and commit the result.
-
-### Notes from phase 5 (search)
-- Core (`pdf/text`): `PdfTextExtractor.pages(open, password): Flow<PageText>` (Hilt-bound to
-  `PdfBoxTextExtractor`), `PageTextIndex.build(page).find(SearchQuery)` → `TextMatch` (page points,
-  one rectangle per line), `TextNormalizer`. `DocumentSearch` (plain Kotlin, tests with a fake
-  extractor) runs the index in the background, matches each new page against the current query, and
-  exposes `SearchState` (`matches`, `current`, `focusToken`, `status`, `noSearchableText`).
-- It is created by `ViewerViewModel` (`ViewerUiState.Ready.search`, scope `viewModelScope`, stream from
-  `PdfDocumentOpener.openStream`, the password typed for the viewer), so rotation keeps index and
-  results. `ReadyViewer` owns `searchOpen`/`searchText` (saved); `start()`+`setQuery` on open,
-  `close()` on close. Indexing starts on the first open and runs to the end, then the index stays
-  until the document closes.
-- `focusToken` changes on the first result of a query and on next/previous only: `ReadyViewer`
-  turns it into a `RevealRequest` (`Channel`, one-shot) that `ContinuousPages` and `SinglePages`
-  answer with `PdfViewportState.centerOnPageRect` (zoom kept, `ViewportBounds.centerOn`); in single
-  page mode the request waits in `pendingReveal` until the target page is composed and laid out.
-- Highlights: `ui/search/SearchHighlights` → `PdfViewport(highlights = …)`, drawn after the tiles
-  with `PageCoordinateMapper.pageRectToScreen`; `pageIndexOffset` maps the viewport's page to the
-  document's. Colours in `ui/theme/Color.kt`.
-- Known limits: extraction order is PdfBox's (columns, tables); no de-hyphenation; RTL not handled;
-  highlight boxes are axis-aligned (loose on text at other angles); the index is in memory only (a
-  200-page dense PDF took ~2 s to extract and 0.3 s to index on a desktop JVM, not measured on a
-  phone); no search in the edit screens (spec); the Edit button is hidden while searching.
-
-### Notes from phase 4 (fill and sign)
-- Model: `EditSession.fill` (`FillContent`: `overlays`, `fields`) is part of the undo history;
-  `addOverlay/updateOverlay/removeOverlay`, `setField(name, value, typing)`. `encodeFill()` →
-  `SavedStateHandle` (`fill`) and `SaveRequest.fill`.
-- Geometry: place with `OverlayGeometry.uprightAt`; gestures through `OverlayGeometry.transformed`
-  (move, pinch scale, twist; text scales its font size). `PdfPageSpace.displayAngle/userAngle` for angles.
-- Signatures: Room table `signatures` (v2), PNGs in `filesDir/signatures/`; `SignaturesViewModel`
-  (Hilt) serves "My signatures" and the picker sheet. Placing copies the PNG to `cacheDir/images/`
-  (`EditViewModel.importOverlayImage`), so deleting a signature never breaks an unsaved session.
-  Creation state (`SignatureCreationState`) is saved across rotation; the drawing dialog forces
-  landscape while open. The legal note shows once (DataStore `signature_prefs`) before the first
-  creation, and is in About.
-- Known limits: no tiling in the fill pane (one bitmap per page, ≤ 4 Mpx); "Next" moves only within
-  the current page; static XFA is removed when fields are filled or flattened; flatten-before-merge
-  (spec §6.6) not done yet; fields of PDFs added to the session (not the main one) aren't fillable;
-  an overlay can't be resized on one axis (proportions are locked); the crop in the import dialog
-  has corner handles only; the signature drawing isn't smoothed beyond the width (straight segments).
-
-### Notes for phase 4 onwards (edit, from phase 3)
-- Edit code: `domain/edit/` (`EditSession`: immutable, undo/redo by swapping lists, `isModified`
-  against the original; `PageItem.FromPdf` / `Blank` / `FromImage`; `PageSizing` has the §6.2 size
-  rules as pure functions; `InsertionPoint`), `pdf/edit/PdfBoxEditor.applySession(session, sources,
-  output)` (main PDF rearranged in place; pages of other PDFs through `importPage` with the other
-  documents kept open until saved; blank and image pages built at write time; one bitmap alive at a
-  time), `pdf/edit/PageImageLoader` (interface; `AndroidPageImageLoader`: `ImageDecoder` on API 28+,
-  `BitmapFactory` + EXIF below), `data/save/*` (`SaveRequest.extraSources` lists the added PDFs, the
-  saver copies only the ones the final pages use), `data/images/ImageImporter` (picked images are
-  copied to `cacheDir/images/`, cleaned after 24 h), `ui/edit/` (`EditScreen`: hub, remove/reorder
-  panes, page picker for an added PDF, dialogs in `AddPagesDialogs`), `ui/merge/` (merge list).
-- `EditSession.encode()` is a typed format (`P`/`B`/`I` entries, URL-encoded fields); `decode` needs the
-  page count of every document (`Map<DocRef, Int>`). Doc ids of added PDFs are `DocRef(index + 1)` of
-  the `extras` list kept in `SavedStateHandle`; a merge is `Destination.Edit(uri = first, mergeWith =
-  rest, autoSave)` and starts from `EditSession.ofDocuments(...)`.
-- `PdfEditor` doesn't take overlays yet (spec §12 has `applySession(session, overlays, destination)`):
-  add them in phase 4 (they bind to `PageItem.id`). Destination copy lives in `PdfSaver`, not in the editor.
-- Known limits: FAB → hub is the normal slide+fade, not a container transform (phase 6 polish);
-  password-protected PDFs can't be edited, added or merged (PdfBox gets no password; the merge list and
-  "add pages" report it); a save can't be cancelled; if the app is killed during a save the result of
-  a *copy* isn't announced (the work finishes anyway); removed pages can stay in the file as orphan
-  objects if a bookmark/link references them; the Edit button hides on scroll in continuous mode only;
-  merging drops bookmarks and may break form fields (warned in the merge list; flatten-before-merge,
-  proposed by spec §6.6, waits for phase 4a's flatten); HEIC/HEIF need API 28+, AVIF is guaranteed only from Android 14;
-  `AndroidPageImageLoader` (both decoding paths) has no unit tests: only on-device checks cover it;
-  each image page probes the file twice at save time (size, then decode).
-- `SavedStateHandle` also receives the route arguments by name: never reuse an argument name
-  (`uri`, `tool`, `mergeWith`, `autoSave`, `uris`) as a state key, and its list arguments are arrays,
-  not `ArrayList` (the merge screen crashed on this).
-- The hub is the session's pages (`PagesGrid` in `PagesMode.VIEW`, read-only) plus `HubToolBar` at
-  the bottom. After an addition the new page ids are highlighted and scrolled to (`highlighted` /
-  `scrollToId` in `EditScreen`); the marks clear on the remove pane and after a save.
-- Merge is only on Home (`Destination.Merge`); the hub leaves it out, its job there is "Add pages →
-  from another PDF". Home's "Add pages" / "Insert images" show a dialog before the PDF picker
-  (`toolsPickingTwice` in the nav graph).
-- `importPage` keeps link annotations whose destinations point into the source PDF: those page
-  objects (and what they reach) are written as unreferenced objects, so a merged file with internal
-  links can be larger than the sum of its pages. Valid PDF, not addressed.
-
-### Notes for phase 2 onwards (viewer, from 1b)
-- The viewer is `ViewerScreen` (states) → `ReadyViewer` (top bar, `ContinuousPages` / `SinglePages`,
-  `PageScrubber`, `ThumbnailBar`). Jumps go through a `Channel<Int>`; `currentPage` is hoisted in
-  `ReadyViewer`. The Edit FAB (phase 2) goes in its `Scaffold`; the Search icon (phase 5b) in its top bar.
-- `ViewerViewModel` records the opening in `RecentsRepository` and saves the last page (debounced,
-  and in `onCleared` through the repository's own scope). `PdfDocumentOpener.open(uri, password)`.
-- Known limits: files opened from `VIEW`/`SEND` usually carry only a temporary permission, so they
-  show as "unavailable" in recents after the grant expires (no copy into app storage); in single
-  page mode zoom 1 is fit width, not fit page (landscape phones scroll vertically); Canvas still has
-  no accessibility semantics (phase 6); recents remove by long press only, no swipe.
-
-## Decisions
-- 2026-10-08 · V-a (ADR 0005): the viewer's session never changes pages and is drawn over the saved file;
-  freehand strokes in document points, page = the one under the first point (a stroke across the gap stays on
-  its page, clipped); editing waits for the annotations and is off for password PDFs; one `SaveRunner` for both
-  save UIs; after a copy the viewer stays on the original (session marked saved), after an overwrite it reopens.
-  Open points of the plan settled: single-page paging off while a brush is armed; opening search puts the tool
-  down; protected PDFs show the tools as unavailable (a message). Until V-b the Edit FAB hides while the viewer
-  has unsaved changes instead of asking to save first.
-- 2026-10-08 · V-b follow-up (author's device test): with a markup tool armed the mark is applied when the finger lifts
-  (`detectSelectionGestures(onRelease)` → `PdfViewport(onSelectionReleased)` → `ReadyViewer.applyMarkup`), with a snackbar
-  "Undo"; the floating bar is hidden then and only shows while reading. Replaces 7b's "arm, select, then apply" in the viewer
-  (the author chose it over keeping two steps); a long press alone marks one word, undo or a longer drag fixes it.
-- 2026-10-08 · V-b: the bar is always there (not only with a tool armed) and a tap on the page hides it with the top bar;
-  the pen button, the Edit FAB, the hub and the FAB → hub transition are removed (the transition had no start left).
-  "Fill" opens the edit screen (with save-first) until V-c; the Annotate pane and the edit-side annotation code
-  (`AnnotatePage`, `EditViewModel.loadAnnotate`, `pageText`...) are deleted, not kept dormant. After a save-first the
-  viewer is replaced by one on the saved file with the edit screen above it, so back lands on what was saved. In landscape
-  the rail overlays the page rather than narrowing it (no re-layout on tap).
-- 2026-10-08 · Editing in the viewer (author's answers, `docs/plan-viewer-editing.md`): highlight, draw, eraser
-  **and fill and sign** happen in the viewer; "Pages" (organize, add, merge) stays in `EditScreen`, which loses
-  the hub and opens on Organize; with unsaved viewer changes "Pages" asks to **save first** (no shared unsaved
-  session). The viewer never changes the page list, so it keeps rendering the saved file and draws pending
-  edits on top. Replaces the 7b "one save path" UI decision and U5's route through `EditScreen`; the save
-  engine stays one. ADR 0005 to be written in V-a.
-- 2026-10-08 · U-b: the hub stays a read-only grid and "Organize pages" is its own pane (the plan left it open); hints are
-  transient messages over the page, not rows; style (colour/size) is one menu button; in landscape the tool strip is a rail;
-  the viewer's tap toggles full screen only when no selection is active (a tap then clears it); date placement and the
-  single-signature shortcut skip their dialogs, undo covers them. Pane title follows the armed tool (U15 first option).
-- 2026-10-07 · U-a: the Highlight button of the viewer selection lives in the top bar next to Copy for
-  now (U-b's floating bar will move both). After a save started from the exit dialog the edit closes
-  with a Toast, not the Open/Share snackbar: showing it on the screen below would need plumbing through
-  the nav graph for little gain (plan U3 allowed either). Pane page: remembered per edit screen, so
-  Fill → hub → Annotate stays on the same page.
-- 2026-10-07 · 8b: pen colours are black, red, blue, green, orange (not the light highlight palette:
-  a pen doesn't multiply); marker colours are the highlight palette. Sizes 1/2/4/6 pt (pen) and
-  8/12/18/26 pt (marker), the 8a defaults being among them. "Draw" shares the Annotate pane rather than
-  getting its own, since tools, undo and save are the same; it only arms the pen.
-- 2026-10-07 · Usability plan (author's answers, `docs/plan-usability.md`): one "Organize pages"
-  section replaces Remove, Reorder, Add pages and Insert images (spec §4.1 deviation); the viewer
-  selection offers Copy and Highlight side by side (Highlight goes through the edit screen, one save
-  path; replaces the 2026-10-05 "selection + Copy only"); the save dialog with an "Overwrite" button
-  is §6.7's explicit confirmation (no second dialog); with one saved signature "Signature" arms it
-  directly, with a reminder on "My signatures"; phase U-a/U-b before 9; later the same day U18–U21 (screen space and ergonomics) added to U-b.
-- 2026-10-07 · Stylus (author's answer to the 8a open question): it draws only with Pen/Marker armed;
-  with the markup tools a stylus selects text like a finger, so the two uses don't get mixed up.
-- 2026-10-05 · 8a: freehand on `androidx.ink` 1.0.0 (stable), outline-based appearance, stroke space =
-  display points of the page as shown, one Ink annotation per stroke, compact polyline encoding in
-  the saved session, "make final" as a save-dialog checkbox off by default (needed for the 8a device
-  check; 8b may restyle it). Details and consequences in ADR 0004, "Freehand ink".
-- 2026-10-05 · 8a: draw vs zoom: one finger or a stylus draws, a second finger cancels the stroke and
-  zooms/pans; the stylus ignores other touches while drawing; the pager doesn't turn pages while a
-  freehand tool is armed. Strokes entirely off the page are dropped; the ink layer masks the
-  background and finished annotations are clipped to the page on screen, as readers clip them.
-- 2026-10-05 · 7b: the markup tools **arm, select, then apply** (an "Apply" button over the tool bar)
-  instead of applying on release: a mistaken selection costs nothing, and the same long press / handle
-  gestures serve all three kinds. One undo step per annotation (session undo, as every edit).
-- 2026-10-05 · 7b: highlights get light colours (yellow, green, light blue, pink, orange) because they
-  multiply with the text; underline and strikeout get strong ones (red, blue, black, dark green).
-  Underline and strikeout share one chosen colour, the highlighter has its own.
-- 2026-10-05 · 7b: the eraser also takes annotations the app can't draw (notes, stamps) by their
-  rectangle, as the 7a handoff said; it is an explicit tool and undo brings them back.
-- 2026-10-05 · 7b: the viewer only gets selection + Copy (author's answer in the plan); annotating from
-  there would need a second save path. The page bitmap logic of `FillPage` moved to `PageBackdrop`
-  and `OverlayPainter.drawBitmap` went with it (no behaviour change).
-- 2026-10-04 · 7a: the app draws all annotations; the renderer draws none (checked in the platform
-  sources, ADR 0004). Our own appearance streams from `AnnotationGeometry` instead of PdfBox's
-  handlers (axis-aligned quads only). Existing annotations are referenced by `/Annots` index +
-  fingerprint (subtype and `/Rect` to 0.1 pt); a mismatch skips the removal. Removing one also
-  removes its pop-up and its replies (`/IRT`), as Acrobat does.
-- 2026-10-04 · 7a: underline thickness 1/14 of the line height (min 0.5 pt), strikeout through the
-  middle (pdfium), squiggly a zig-zag of half-waves a quarter line height long. Highlight blends with
-  Multiply (Acrobat); on screen only from API 29 (translucent before).
-- 2026-10-04 · Product phase 2 order (author): highlight and draw first, then scan, then the rest
-  (OCR, ODF, cloud last because it brings `INTERNET`). Numbered as development phases 7–12 so
-  "phase 2" keeps meaning the edit session. Plan and checked facts in `docs/plan-v2.md`.
-- 2026-10-04 · CI uploads no debug APK any more (author's decision; spec §13 phase 0 acceptance
-  asked for it): it needed uninstalling the app to install and wasn't minified, so it didn't test the
-  build that ships. Build APK (signed release, R8) is the APK for device checks. The four workflows
-  are generic, per-project values in their `env` block, meant to be copied into the other projects.
-- 2026-10-03 · Phase 6: `CloudTarget` (spec §7.3) is a minimal interface (`displayName`, `suspend
-  upload(fileName, mimeType, content)` returning `Result<Unit>`); the spec names it without a shape,
-  so the members are an assumption, easy to change since nothing uses it.
-- 2026-10-03 · Phase 6: FAB → hub uses Compose shared bounds (scale-to-bounds, the default) rather than
-  re-measuring the hub every frame: cheaper with a thumbnail grid, at the cost of the content looking
-  scaled during the 250 ms. If it looks wrong on the device, switch `resizeMode` in
-  `editContainerBounds()`.
-- 2026-10-03 · Phase 6: no in-app "reduce motion" switch, only the system setting (spec §9).
-- 2026-10-03 · Save memory: `PdfBoxEditor` loads every document of a save with
-  `MemoryUsageSetting.setupTempFileOnly()` (was `setupMixed(16 MB)` each). All the documents of a
-  merge stay open until the result is written and PdfBox 2.0 copies parsed streams into each one's
-  scratch buffer, so the RAM shares added up. Measured with 25 generated PDFs (938 MB, 2000 pages):
-  Java heap held after loading 516 MB → 121 MB, same total time (~27 s on a desktop JVM); with a
-  320 MB heap the old setting failed with `OutOfMemoryError` and the new one completed. The rest
-  (~4 MB per open file) is PdfBox's file read cache. Single-document readers (`FormReader`, text
-  extraction, `hasFormFields`) keep `setupMixed`. No unit test: it needs ~1 GB of input.
-- 2026-10-03 · Phase 5b: indexing is not cancelled when the search is closed: it runs once to the end
-  and the index stays in memory while the document is open (spec §5.1). "Cancellation" is a new
-  query replacing the one waiting or scanning, and closing the document (view model cleared). Resuming
-  a half-built index would need the extractor to start from a page: not worth it.
-- 2026-10-03 · Phase 5b: the first result of a query is the first in the document, not the first
-  after the page being read; results only ever append while a query stays the same, so the current
-  one never shifts under the reader. Revealing always centres the result (zoom kept), even if visible.
-- 2026-10-03 · Phase 5b: the search bar replaces the viewer's top bar (not an overlay on it) and the
-  Edit button hides while it is open; the scanned-PDF message and the progress bar sit under the bar.
-- 2026-10-03 · Phase 5a: folding is NFKD (spec says NFD) + drop `Mn` and format characters +
-  per-code-point case folding + typographic apostrophes/quotes/dashes to ASCII + white space runs to
-  one space; the same function for index and query. NFKD also turns ligatures ("ﬁ") into letters,
-  common in PDFs; the punctuation folding makes "l'anno" (phone keyboard) find "l’anno".
-- 2026-10-03 · Phase 5a: word breaks come from the glyph geometry on the display (same line, gap
-  > 0.15 line heights), not from PdfBox's separators: PdfBox 2.0 splits words between letters on
-  pages turned by 90°/270° (seen in the tests). PdfBox still orders glyphs, merges diacritics and
-  drops fake-bold duplicates. Lines (one highlight rectangle per line) use the same geometry.
-- 2026-10-03 · Phase 5a: positions from `TextPosition.textMatrix` and `endX/endY` plus the crop box
-  corner PdfBox subtracts, then `PdfPageSpace.userToDisplay`; heights from the font descriptor in
-  thousandths (PDF 32000-1 §9.8), not `PDFont.getFontMatrix`, which PdfBox-Android reports for its
-  substitute font (1/2048 for Helvetica). Index kept compact per page (folded string, glyph per
-  character, one box and line per glyph); no disk cache (spec: only if measurements call for it).
-- 2026-10-02 · Phase 4b: the drawing canvas is my own Compose implementation (spec allows it, or
-  `androidx.ink`): per-point width from finger speed (`InkWidth`, smoothed, 0.55–1.25 × base), drawn
-  as round-capped segments; strokes are rendered to a transparent PNG cropped to their bounds (max
-  1600 px). Avoids a new dependency.
-- 2026-10-02 · Phase 4b: the signature archive is created from a dialog flow rather than nav
-  destinations, so "create on the spot" from the fill pane returns without touching the nav graph;
-  its state is saved across rotation. A new signature is saved straight away with a default name
-  ("Firma N") and renamed from the archive, to keep the flow short.
-- 2026-10-02 · Phase 4b: "remove background" is a luminance threshold with a soft ramp
-  (`BackgroundRemoval`, default 0.75, slider 0.3–0.95) and then trims to the ink; spec §6.5 says
-  "soglia sul bianco → trasparente". The result is trimmed only when the background is removed.
-- 2026-10-02 · Phase 4b: gestures on overlays: a touch that starts on the selected overlay (20 dp
-  margin) drags/pinches it; long press on any other one selects and drags (author's request after
-  the 4a device test). Pinch scales with locked proportions (spec), text scales via font size.
-- 2026-10-02 · Phase 4b: the legal note is a once-only dialog before the first creation (DataStore
-  flag), not a permanent banner; it is also in About (already there from phase 0).
-- 2026-10-02 · Phase 4a: overlays and form values live in `EditSession` (one undo history for pages
-  and fill) rather than as a separate `overlays` argument of `applySession` (spec §12): the session
-  already travels to the save; `WriteOptions(flattenForm)` carries the save-time choice.
-- 2026-10-02 · Phase 4a: overlay coordinates in PDF user space with an angle, not screen/display
-  space: they don't depend on zoom or on rotations added later, and the writer needs no conversion.
-  Visible box = `/CropBox` ∩ `/MediaBox`, `/Rotate` truncated to quarter turns, as pdfium
-  (`CPDF_Page::UpdateDimensions`, [source](https://pdfium.googlesource.com/pdfium/+/refs/heads/main/core/fpdfapi/page/cpdf_page.cpp)).
-- 2026-10-02 · Phase 4a: Noto Sans Regular 2.015 (static, unhinted, from notofonts.github.io; OFL 1.1,
-  licence in `assets/fonts/OFL.txt`) in `assets/`, read by both PdfBox and Android. Embedded as a
-  subset for overlays and in full only when a form field needs it (a viewer may regenerate field
-  appearances with other characters). Characters it lacks are dropped (screen and PDF alike).
-- 2026-10-02 · Phase 4a: ticks and crosses are stroked paths, not glyphs (Noto Sans has no ✓/✗).
-- 2026-10-02 · Phase 4a: "Fill and sign" is a pane of `EditScreen` (shares session and save, like the
-  other tools), one page at a time in a pager; "make final" is in the save dialog once the form has
-  been read, default on when an image (signature) was placed (spec §6.5). Dynamic XFA: message, free
-  filling only; static XFA: the AcroForm is filled and `/XFA` removed so readers use the new values.
-- 2026-10-02 · Phase 4a: until the signature archive (4b), the Signature tool places any image
-  picked with the photo picker (copied to `cacheDir/images/` like page images).
-- 2026-10-02 · No "Merge PDFs" in the edit hub (spec §6.6 has "Unisci con altro PDF" there): on an
-  open document it duplicates "Add pages → from another PDF" (author's decision after the device
-  test). It also never worked from the hub: its navigation came from an activity result and went
-  through the `lifecycleIsResumed()` guard, which drops it (see Non-obvious rules).
-- 2026-10-01 · Edit hub: page thumbnails of the session with the tools in a bottom bar, instead of
-  the tool grid of spec §4.3 (author's request after the phase 3 device test: the tool grid looked
-  like Home and didn't show the document being edited).
-- 2026-10-01 · Phase 3: images are copied to `cacheDir/images/` when picked (Photo Picker grants are
-  temporary and a save resumed by the system must still read them); cleaned after 24 h at startup,
-  not when the screen closes, because a background save may still need them. Added PDFs are read from
-  their URIs (persistable read grant taken when the provider allows it).
-- 2026-10-01 · Phase 3: a photo's DPI is used for "original size" only if it is ≥ 100; below that
-  (cameras write 72) 150 DPI is used. This reads spec §6.2's "DPI dei metadati se presenti" together
-  with its own remark that 72 DPI would make a 1.4 m page. Original-size images are decoded at most
-  8000 px on the long side (the spec sets no cap; this only guards memory). Pages added at the start
-  take the *next* page's size, others the previous one, using the visible size (rotation applied).
-- 2026-10-01 · Phase 3: protected PDFs are rejected when added or merged (message), consistently
-  with the phase 2 decision; spec §6.6 asks for a password prompt per file, which would need the
-  password kept until save (not persisted) or a decrypted copy: left out, to revisit with the
-  author. Merge is its own `Destination.Merge` list screen; "Merge"/"Merge and edit" then open
-  `Edit` with `mergeWith`, so no merge logic lives outside `EditSession`/`PdfEditor` (spec §6.6).
-- 2026-10-01 · Phase 3: `ImageDecoder` applies the EXIF orientation and reports oriented sizes
-  (AOSP `libs/hwui/hwui/ImageDecoder.cpp`); below API 28 the orientation is applied by hand with
-  the matrices of Glide's `TransformationUtils`. `androidx.exifinterface` 1.4.2 added (DPI and
-  orientation); `android.media.ExifInterface` is discouraged by lint.
-- 2026-10-01 · Phase 3: `PdfDocumentOpener` no longer deletes every file in `cacheDir/open/` on
-  each non-seekable open (it would break other open documents); only copies older than 1 hour.
-- 2026-10-01 · Phase 2 saving runs in WorkManager (expedited, `dataSync` foreground fallback), not
-  a hand-written service; the page list goes through a JSON file; the worker reaches `PdfSaver`
-  through a Hilt `EntryPoint` (no `hilt-work`). Reasons in ADR 0003.
-- 2026-10-01 · Page drag & drop with Reorderable 3.1.0 (Apache 2.0 from the POM, builds on Compose
-  1.7+). One drag = one undo step (local copy while dragging, one `move` on release).
-- 2026-10-01 · The picker now requests write + persistable grants (`OpenPdfContract`) and
-  `takePersistableAccess` keeps write access when given: that is what makes "overwrite" possible
-  (a plain `OpenDocument` only yields read access). Overwrite is offered only if
-  `checkUriPermission(WRITE)` passes. `VIEW`/`SEND` files are usually copy-only.
-- 2026-10-01 · `cacheDir/work/` startup cleanup removes only files older than 1 hour (spec §8 says
-  "emptied at startup"): a save interrupted by the system is re-run by WorkManager and needs its
-  request file.
-- 2026-10-01 · Encrypted PDFs are not edited (PdfBox isn't given the password; spec §14 excludes
-  writing protected files).
-<!-- One line per decision: date, what, why. Append, don't rewrite. -->
-- 2026-10-01 · Product phase 2 tools in a separate "Coming up" section on
-  Home, with a "Soon" badge; a tap shows a snackbar and doesn't navigate.
-  `GridCells.Adaptive(100.dp)`.
-- 2026-10-01 · "My signatures" from Home uses the same navigation as the drawer entry, so the
-  screen never appears twice on the back stack.
-- 2026-10-01 · Backup rules excluding `filesDir/signatures/` already in phase 0 (no cost).
-- 2026-10-01 · Room in the version catalog but not a dependency until there is an entity (phase 1).
-- 2026-10-01 · Robolectric Compose tests: Italian locale set explicitly with
-  `@Config(qualifiers = "it-...")`, otherwise Robolectric starts in English and loads `values-en/`.
-- 2026-10-01 · Icon in `mipmap-anydpi-v26/` as in the references. Lint reports `ObsoleteSdkInt`,
-  but after moving it to `mipmap-anydpi/` aapt2 no longer found `@mipmap/ic_launcher`: left as is.
-- 2026-10-01 · Documentation and code comments in English (author's decision; overrides the
-  initial Italian choice).
-- 2026-10-01 · Spec moved to `docs/spec.md` (author's decision); spec §12 tree updated to match.
-- 2026-10-01 · Upgrade to the latest stable toolchain and libraries (author's request; the same
-  will be applied to TPGH and KartLog): steps and sources in `docs/plan.md`. Hilt ≥ 2.59 requires
-  AGP 9, so the two go together. `compileSdk`/`targetSdk` 37, the maximum for AGP 9.4.
-- 2026-10-01 · Gradle wrapper with `distributionSha256Sum` (official checksum from
-  services.gradle.org, cross-checked with the downloaded file).
-- 2026-10-01 · Release keystore: dedicated to this app, generated once (RSA 2048, 10,000 days,
-  alias `pdftoolkit`, PKCS12), handed to the author, never committed. Same scheme as TPGH.
-- 2026-10-01 · Model per phase and device checks added to this file (author's request, to save
-  tokens): Sonnet by default, Opus only for the cores of phases 1, 4 and 5, as explicit
-  sub-phases 1a/4a/5a with a handoff note for 1b/4b/5b. Every session starts with a model check
-  and stops in one line if it isn't its turn. `PageCoordinateMapper`
-  starts in phase 1 (zoom and pan already need page ↔ screen conversion) and is extended in
-  phases 4 and 5 (rotation, PDF bottom-left origin); spec §12 wants a single class for all of it.
-- 2026-10-01 · `PageCoordinateMapper`, `DocumentLayout` and `Viewport` live in `pdf/render`, not
-  `pdf/forms` as the spec §12 tree suggests: they start with the viewer and phases 4–5 extend them.
-- 2026-10-01 · Zoom 1 = fit width of the widest page (one scale per document, so mixed sizes keep
-  their proportions, narrower pages centred). Min zoom = fit page (< 1 only when the page is taller
-  than the screen, e.g. landscape), max 5x relative to fit width. Double tap: the tapped point
-  stays under the finger (reading of "centrato sul punto toccato", spec §4.2; easy to change in
-  `ViewportBounds.doubleTapTarget`).
-- 2026-10-01 · Render cache: half of `memoryClass`, 32–256 MB, 2/3 pages and 1/3 tiles in separate
-  LRUs; page bitmap capped at 1/4 of the page cache (max 32 MB), above it tiles take over. Tiles
-  512 px at zoom levels quantised to quarter octaves, rounded up. Since API 26 bitmap pixels are
-  in the native heap ([source](https://developer.android.com/topic/performance/graphics/manage-memory)),
-  so `memoryClass` is a measure of the device, not a hard limit.
-- 2026-10-01 · One render worker reading a "wanted list" (`RenderScheduler`) instead of a queue:
-  fast scrolling never piles up stale renders. `PdfRenderer` serialises pdfium globally anyway
-  (static `sPdfiumLock` in AOSP).
-- 2026-10-01 · Non-seekable sources (pipes from some providers) are copied to `cacheDir/open/`,
-  deleted on close: `PdfRenderer` requires a seekable descriptor (AOSP source).
-- 2026-10-01 · Drawer swipe disabled in the viewer (it would fight horizontal pan); the drawer
-  still opens from Home and the other drawer screens.
-- 2026-10-01 · Reading mode: one global preference (DataStore `reading_prefs`); the viewer menu and
-  the Settings default are the same value (spec §4.2 [ASSUNZIONE]).
-- 2026-10-01 · Passwords use `PdfRenderer(fd, LoadParams)`, available from API 35 (checked in the
-  SDK's `api-versions.xml`; it also exists with SDK extension 13 on API 31–34, not used). Below 35
-  the file fails with `PASSWORD_UNSUPPORTED` and a message. The password is kept only in memory
-  (`remember`, not saved instance state).
-- 2026-10-01 · Recents: Room table `recent_documents`, max 10 (older ones trimmed on insert, with
-  their thumbnails); accessibility checked by opening the descriptor; thumbnails are JPEGs in
-  `cacheDir/thumbnails/` named by SHA-256 of the URI. The database is excluded from backup.
-- 2026-10-01 · Intents: `VIEW` (content, file) and `SEND` for `application/pdf` on `MainActivity`
-  (standard launch mode); the URI opens the viewer on top of Home, only on a fresh launch
-  (`savedInstanceState == null`), so rotation doesn't reopen it.
-- 2026-10-01 · Scrubber: only the thumb takes touches (the rest of the edge keeps panning and
-  doesn't fight the system back gesture); linear page mapping.
+### Technical limits worth knowing
+- Form controls are recomposed on every scroll frame for the pages on screen; fine for usual forms,
+  not measured on very dense ones. "Next" on the keyboard follows Compose focus order, which only
+  reaches controls currently composed (pages on screen).
+- A focused text field is kept above the keyboard by panning, which can't go past the end of the
+  document (a field at the very bottom of the last page may stay partly covered).
+- Freehand coordinates are floats in document points: beyond about a thousand A4 pages their
+  resolution drops to about 0.1 pt (not visible in practice).
+- Canvas-drawn content (pages, overlays, the corner handle) has no per-element accessibility semantics.
+- Reopened ink is drawn from its centre line (even width) in the app; other readers show the outline.
+- `AndroidPageImageLoader` and `Stroke → FreehandStroke` have no unit tests (device only).
+- Lint warns about `ConfigurationScreenWidthHeight` on `isLandscape()`.

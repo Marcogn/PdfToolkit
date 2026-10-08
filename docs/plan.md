@@ -1,4 +1,4 @@
-# PdfToolkit plan and alignment with the reference projects
+# Alignment with the reference projects and dependency upgrade
 
 Written in phase 0 (2026-10-01) after reading the two reference projects locally:
 [ThePatientGamerHelper](https://github.com/Marcogn/ThePatientGamerHelper) (TPGH) and
@@ -28,7 +28,7 @@ specification (`docs/spec.md`) explicitly asks for something different, the spec
 | Palette | TPGH: Compose's default purple palette + dynamic colour. KartLog: custom bright palette | Own petrol blue palette with amber accent (spec §9, **[ASSUMPTION]**, approved by the author), isolated in `ui/theme/Color.kt` |
 | Language | `values/` Italian + `values-en/`, `locales_config.xml`, `AppLanguage` + `setApplicationLocales()`, `autoStoreLocales` in the manifest, `MainActivity : AppCompatActivity`, AppCompat XML theme | Same |
 | Icon | Adaptive icon with a raster foreground | Vector adaptive icon (sheet with folded corner and a pen) with `monochrome` for Android 13+ (spec §9 asks for it, the references don't have it) |
-| CI | `android-ci.yml`: lint, tests, assembleDebug on push/PR to `main`; KartLog also uploads the debug APK | Copied from KartLog (with the debug APK upload, required by phase 0 acceptance). Plus a check that the packaged manifest doesn't contain `INTERNET`. Phase 6: made generic and verification-only (no APK; lint, tests, R8 release build, permission check on the release manifest), see `docs/ci.md` |
+| CI | `android-ci.yml`: lint, tests, assembleDebug on push/PR to `main`; KartLog also uploads the debug APK | Generic and verification-only: lint, tests, R8 release build, check that the packaged manifest has no `INTERNET`; no APK (`docs/ci.md`) |
 | Build APK | `build-apk.yml`: manual, keystore from a base64 secret, `assembleRelease` | Copied from KartLog (without TPGH's `signingReport` step, which was there for Google OAuth). Phase 6: secrets check, signature check, `mapping.txt` upload, generic |
 | Release | `release.yml`: manual with a `version` input, cuts CHANGELOG and version, signed build, publishes the release, then commits the bump to `main` | Copied from KartLog. Phase 6: generic (asset name and title from the repository name), secrets check, signature check, `mapping.txt` attached to the release |
 | Actions cleanup | KartLog only: manual `cleanup-runs.yml` | Copied, translated to English |
@@ -44,8 +44,8 @@ specification (`docs/spec.md`) explicitly asks for something different, the spec
 
 - No `INTERNET` permission (spec §1): the manifest has `tools:node="remove"` and CI checks the
   packaged manifest. Both references declare it.
-- Backup rules: `data_extraction_rules.xml` and `backup_rules.xml` already exclude
-  `filesDir/signatures/` (spec §6.5). They get verified properly in phase 4, when signatures exist.
+- Backup rules: `data_extraction_rules.xml` and `backup_rules.xml` exclude `filesDir/signatures/`
+  (spec §6.5) and the recents database.
 
 ## Dependency upgrade (2026-10-01)
 
@@ -132,32 +132,9 @@ From the official release notes (checked on 2026-10-01):
 - The manifest merger warns that `tools:node="remove"` on `INTERNET` has nothing to remove.
   Expected: it is a safeguard.
 
-## Phases
+## Notes
 
-Each phase closes with a green debug build, green tests, and README, CLAUDE.md and CHANGELOG up to
-date. What each phase contains is in spec §13; here only operational notes.
-
-| Phase | Content | Notes |
-|---|---|---|
-| 0 | Skeleton: Gradle, Hilt, theme, languages, navigation, drawer, Home, signing, CI, docs, ADR 0001–0002 | Done |
-| 1 | Viewer, opening from SAF and intents, recents (Room), passwords | 1a done (render core, zoom/pan, continuous mode); 1b done (single page, scrubber, thumbnails, intents, Room recents, passwords, settings). `app/schemas/` committed as in KartLog |
-| 2 | `EditSession` with undo/redo, edit hub, removal, reordering, rotation, saving | PdfBox-Android comes in (ADR 0002) with `PDFBoxResourceLoader.init`. Reasoned choice between WorkManager and a foreground service for saving (spec §6.7). Evaluate Reorderable (licence and compatibility with the Compose version in use) |
-| 3 | Adding pages (PDF, blank, images) and Merge PDFs | Unit tests on page sizes |
-| 4 | Fill and sign, signature archive | Noto Sans font (OFL) bundled; verify the backup rules already in place |
-| 5 | Text search | `PageCoordinateMapper` with tests on rotated pages |
-| 6 | Polish | Animations (including the system "remove animations" setting), baseline profile, accessibility, R8, `CloudTarget` interface (spec §7.3). Done except the baseline profile (needs a device) |
-
-## Decisions taken with the author (2026-10-01)
-
-1. **Documentation language**: English, always. Code comments too.
-2. **Specification**: renamed to `docs/spec.md`. The repository tree in spec §12 was updated to
-   match; nothing else in the spec changed.
-3. **Signing**: same setup as the references, with a dedicated keystore generated for this app
-   and handed to the author. The repository needs the secrets `RELEASE_KEYSTORE_BASE64`,
-   `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD` and
-   `RELEASE_PUSH_TOKEN`.
-4. **Dependencies**: upgraded to the latest stable versions (section above).
-5. **Palette**: approved after a test on a device.
-
-Still open, no impact on code: the spec gives `pdf-toolkit` as the repository slug, while the
-repository is `PdfToolkit`.
+- Signing needs the repository secrets `RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`,
+  `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD` and `RELEASE_PUSH_TOKEN` (`docs/ci.md`).
+- The spec gives `pdf-toolkit` as the repository slug; the repository is `PdfToolkit`. No impact.
+- Phases and their status are in `CLAUDE.md`; decisions in `docs/decisions.md`.

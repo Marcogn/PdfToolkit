@@ -1,6 +1,7 @@
 # ADR 0003 — Background save with WorkManager; one edit screen on one session
 
-Date: 2026-10-01. Status: accepted.
+Date: 2026-10-01. Status: accepted; the "one edit screen" part is amended by ADR 0005 (page tools in
+the viewer, the edit screen is "Organize pages" only).
 
 ## Context
 
