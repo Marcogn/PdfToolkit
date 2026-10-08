@@ -139,7 +139,7 @@ Tap su uno strumento senza documento aperto: si apre il selettore PDF e, scelto 
 
 ### 4.2 Viewer
 
-> **Nota (2026-10-08):** il viewer avrà una barra strumenti per evidenziare, disegnare e compilare direttamente sulla pagina; vedi `docs/plan-viewer-editing.md`. Da V-a (2026-10-08) evidenziazione, disegno e gomma funzionano già nel viewer, con salvataggio proprio (ADR 0005); la barra completa arriva con V-b, compila e firma con V-c.
+> **Nota (2026-10-08):** il viewer avrà una barra strumenti per evidenziare, disegnare e compilare direttamente sulla pagina; vedi `docs/plan-viewer-editing.md`. Da V-a (2026-10-08) evidenziazione, disegno e gomma funzionano già nel viewer, con salvataggio proprio (ADR 0005); la barra strumenti è in V-b (2026-10-08), compila e firma nel viewer arriva con V-c.
 
 - Top bar: nome file (ellissi al centro se lungo), indicatore "pagina X di N", icona **Cerca** (§5.1), menu con: modalità di scorrimento, vai a pagina, condividi, informazioni documento.
 - **Modalità continua** (default): scorrimento verticale di tutte le pagine.
@@ -149,11 +149,11 @@ Tap su uno strumento senza documento aperto: si apre il selettore PDF e, scelto 
 - **Scrubber**: barra laterale trascinabile per saltare velocemente tra le pagine, con fumetto del numero pagina.
 - Barra miniature apribile dal basso per saltare a una pagina.
 - La pagina di lettura si salva per file e si riprende alla riapertura.
-- **FAB "Modifica"**: in basso a destra, si nasconde scorrendo in giù e riappare scorrendo in su o fermandosi. Apre l'Hub modifiche sul documento corrente.
+- ~~**FAB "Modifica"**~~ (rimosso in V-b, 2026-10-08): al suo posto la barra strumenti in basso (a lato in orizzontale), che un tap sulla pagina nasconde insieme alla top bar.
 
 ### 4.3 Hub modifiche
 
-> **Nota (2026-10-08):** l'hub sarà rimosso e gli strumenti di pagina (evidenzia, disegna, compila e firma) passeranno nel viewer (§4.2); vedi `docs/plan-viewer-editing.md`.
+> **Nota (2026-10-08):** l'hub è stato rimosso (V-b) e il FAB "Modifica" con esso: nel viewer una barra degli strumenti (Evidenzia, Disegna, Gomma, Compila, Pagine) apre gli strumenti di pagina sul posto e la schermata di modifica (Organizza pagine, Compila e firma); la compilazione passerà nel viewer in V-c. Vedi `docs/plan-viewer-editing.md`.
 
 Stessi strumenti della Home, legati al documento aperto. Presentazione: schermata a griglia con transizione dal FAB (container transform o equivalente). In alto, nome del documento e numero di pagine.
 

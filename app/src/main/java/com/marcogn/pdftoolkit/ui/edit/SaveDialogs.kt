@@ -2,6 +2,7 @@ package com.marcogn.pdftoolkit.ui.edit
 
 import android.content.ClipData
 import android.content.Intent
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
@@ -134,11 +135,17 @@ private fun SaveOption(title: Int, hint: Int, selected: Boolean, enabled: Boolea
 
 /** Save / Discard / Cancel when leaving with changes (spec §6.1). */
 @Composable
-fun UnsavedChangesDialog(onSave: () -> Unit, onDiscard: () -> Unit, onDismiss: () -> Unit) {
+fun UnsavedChangesDialog(
+    onSave: () -> Unit,
+    onDiscard: () -> Unit,
+    onDismiss: () -> Unit,
+    @StringRes titleRes: Int = R.string.edit_unsaved_title,
+    @StringRes messageRes: Int = R.string.edit_unsaved_message,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.edit_unsaved_title)) },
-        text = { Text(stringResource(R.string.edit_unsaved_message)) },
+        title = { Text(stringResource(titleRes)) },
+        text = { Text(stringResource(messageRes)) },
         confirmButton = { TextButton(onClick = onSave) { Text(stringResource(R.string.edit_unsaved_save)) } },
         dismissButton = {
             Row {

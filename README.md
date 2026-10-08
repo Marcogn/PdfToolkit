@@ -18,19 +18,18 @@ form fields, text, dates, ticks and crosses, and signatures are written into the
 are drawn or imported into an archive ("My signatures") and every placed item can be moved, resized
 and turned with the fingers. Text search (phase 5) is in: case- and accent-insensitive, with results that appear while the
 text is read and are highlighted on the page. Polish (phase 6) is done except the baseline profile,
-which has to be generated on a device: the Edit button morphs into the edit hub, thumbnails fade in, the viewer
+which has to be generated on a device: thumbnails fade in, the viewer
 announces the page to screen readers, and the release build is minified (R8). Version 1.0.0 is
 released. Product phase 2 has started (`docs/plan-v2.md`): the viewer shows the highlights and
 drawings already in a PDF, selects and copies text (7a, 7b), and the "Highlight" tool (7b) highlights,
 underlines and strikes out text and erases annotations, also those made by other apps. Freehand
-drawing is done (8a, 8b): the "Draw" tool opens the annotate pane with the pen; pen and marker have
+drawing is done (8a, 8b): the "Draw" tool opens the viewer with the pen; pen and marker have
 their own colours and sizes, and drawings are saved as ink annotations or made final. The usability
-review (`docs/plan-usability.md`) is under way: U-a is in (the edit panes open on the page being read and
-can jump to any page, Highlight from the viewer selection, back from a Home tool goes to the hub after
-changes, saving from the exit dialog leaves); U-b (screens) is done too. Editing moves into the viewer
-(`docs/plan-viewer-editing.md`): since V-a, highlighting, drawing and erasing work right on the pages
-being read, with undo/redo and saving from the viewer; the full tool bar (V-b) and fill and sign in the
-viewer (V-c) are next.
+review (`docs/plan-usability.md`) is done (U-a, U-b). Editing moves into the viewer
+(`docs/plan-viewer-editing.md`): since V-a and V-b, highlighting, drawing and erasing work right on the
+pages being read, from a tools bar (Highlight, Draw, Eraser, Fill, Pages), with undo/redo and saving from the
+viewer; "Pages" (organize, add, merge) and "Fill" open the edit screen, asking to save first. The edit hub is
+gone. Fill and sign in the viewer itself (V-c) is next.
 
 ## Features
 
@@ -162,9 +161,10 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   touch means zoom. The drawing library adds about 5 MB of native code to the APK.
 - Editing in the viewer (highlight, draw, erase) waits until the document's annotations are read, a
   moment after it opens; password-protected PDFs stay read-only. After "save as copy" the viewer keeps
-  showing the original with your changes on top: "Open" in the message shows the copy. The Edit button
-  hides while the viewer has unsaved changes (save first). In the viewer a tap with the pen or the marker
-  draws a dot instead of switching to full screen.
+  showing the original with your changes on top: "Open" in the message shows the copy. "Pages" and "Fill" ask
+  to save (or discard) the viewer's changes first, then open the edit screen on the saved file. In the viewer a
+  tap with the pen or the marker draws a dot instead of switching to full screen. In landscape the rail
+  covers the right edge of a page shown at fit width: tap the page to hide it, or zoom in.
 - Overwriting needs a file that grants write access (most local files do, some providers don't);
   otherwise only "save as copy" is offered.
 

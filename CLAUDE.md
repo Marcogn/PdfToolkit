@@ -49,7 +49,7 @@ sub-phase. When the author says "go on" / "next phase" (or similar):
 The author asked for one session and one branch per sub-phase, named after it, so they don't have
 to repeat the names. Session title: `<sub-phase> <Name>` (e.g. `U-b Usability screens`); branch: the
 same in kebab-case (e.g. `u-b-usability-screens`). Set both at the start of a sub-phase.
-Current: session **V-a Viewer editing core**, branch `v-a-viewer-editing-core`. Next: **V-b Viewer tools UI** (session `V-b Viewer tools UI`, branch `v-b-viewer-tools-ui`).
+Current: session **V-b Viewer tools UI** (the cloud environment fixed its branch to `ccr-5fd3fb98-teqhcv`). Next: **V-c Fill and sign in the viewer** (session `V-c Fill and sign in the viewer`, branch `v-c-fill-and-sign-in-the-viewer`).
 
 ## Sub-phases: model, scope, device checks
 Sonnet by default; Opus only for the cores where a wrong design is expensive to fix later.
@@ -119,10 +119,11 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   is `pdf/edit/AnnotationWriter`; 7b: `AnnotationEraser`, `MarkupFactory`; 8a: `FreehandGeometry`; V-a:
   `DocumentStrokes`). `ui/annotate/` draws annotations
   (`AnnotationLayer`, `drawAnnotations`) and holds text selection (`TextSelectionState`, handles, gestures)
-  and the "Annotate" pane of `EditScreen` (`AnnotatePane`, `AnnotatePage`, `AnnotateToolBar`); freehand
+  and the annotation tools' state and Style menu (`AnnotateTools.kt`: `AnnotateTool`, `AnnotatePaneState`,
+  `StyleButton`; the Annotate pane of `EditScreen` is gone since V-b); freehand
   drawing on `androidx.ink` is `FreehandLayer`, `FreehandGestures`, `FreehandInk` (8a). `ui/search/` is the search bar, notices and
   highlights used by the viewer. Editing in the viewer (V-a, ADR 0005): `ui/viewer/ViewerEditSession`
-  (page-fixed session), `ViewerEditing.kt` (`ViewerPageTools`, back guard, `ViewerSaveUi`), `PdfViewport`'s
+  (page-fixed session), `ViewerEditing.kt` (`ViewerPageTools`, back guard, `ViewerSaveUi`), `ViewerToolBar` (V-b), `PdfViewport`'s
   `drawing`/`onTap(PageTap)`; the shared save is `ui/edit/SaveRunner`. `ui/fill/` is the
   "Fill and sign" pane of `EditScreen`; `ui/signatures/` is "My signatures" plus the creation flow
   (draw, import) and the picker sheet that `EditScreen` reuses.
@@ -189,8 +190,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   that owns the callback (double tap during a transition). Home from the drawer:
   `popUpTo<Home>{inclusive}`. Exception: navigation from an activity result (the SAF picker),
   which arrives before the entry is RESUMED again; the tap that launches the picker is guarded.
-- Edit hub, "Organize pages", "Fill and sign" and "Annotate" are panes of one `EditScreen` (`Destination.Edit(uri,
-  tool)`), sharing one `EditViewModel`; don't turn them into a nested nav graph (ADR 0003).
+- "Organize pages" and "Fill and sign" are panes of one `EditScreen` (`Destination.Edit(uri, tool)`, no hub since
+  V-b), sharing one `EditViewModel`; don't turn them into a nested nav graph (ADR 0003).
 - Single-page mode is a `HorizontalPager` of one-page layouts: each page has its own
   `PdfViewportState` and `PdfViewport(pageIndexOffset = page, requestSource = page)`, so keys carry
   the real page index and several viewports can share one `RenderScheduler` (it merges the lists
@@ -286,7 +287,28 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - **V-a Viewer editing core done (2026-10-08)**, branch `v-a-viewer-editing-core`, PR #22; lint (0 errors), 420 unit
   tests and `assembleDebug` green, CI green; device checks passed (author, 2026-10-08). Author noticed the edit hub
   still offers Highlight/Draw: expected until V-b removes the hub and the Annotate pane (Fill goes in V-c).
-  **Next: V-b (Sonnet).**
+- **V-b Viewer tools UI done (2026-10-08)**, same cloud branch as this session; lint (0 errors), 425 unit tests
+  and `assembleDebug` green; device checks pending (author). **Next: V-c (Opus).**
+
+### Notes from V-b (viewer tools UI), for V-c
+- The bar is `ui/viewer/ViewerToolBar` (`ToolStrip`; `ViewerToolGroup` MARKUP/DRAW/ERASER): a button is named after
+  the tool of its family that a tap arms (`AnnotatePaneState.markupTool/brushTool`, `choose(tool)`); `StyleButton` (public,
+  in `ui/annotate/AnnotateTools.kt`) also picks the other tools of the family. V-c adds its tools next to "Fill" (today
+  a button that opens `EditScreen` on the Fill pane) in the same strip.
+- `ReadyViewer`: `armed = annotating && pageTools != null`; the bar shows unless immersive / searching / thumbnails
+  (`toolBarVisible`); in landscape (`isLandscape()`) it is a rail at the end under the top bar (`TOP_BAR_HEIGHT`), overlaying
+  the page (the viewport never resizes), with the scrubber and snackbars moved clear of it. Hint = `TransientHint`.
+- Save first: `openEdit(tool)` → `saveFirstFor` dialog (`UnsavedChangesDialog` with its own texts) → Save sets
+  `afterSave = tool.name` (or `"leave"` for the exit dialog) and the save dialog; on `Saved`/`Overwritten` the effect calls
+  `onOpenEdit(uri, tool, page, reopenViewer = true)`: nav graph replaces the viewer by one on the saved file
+  (`popUpTo<Home>`) and opens `Edit` above it. Discard → `editing.discard()` then `onOpenEdit(..., false)`.
+- `Destination.Viewer(uri, tool)`: Home Highlight/Draw open it armed (`viewerTools` in the nav graph); the viewer says so
+  once if the document can't take tools (`startToolChecked`). `Destination.Edit` lost `selectionStart/End`; `EditScreen`
+  has panes `ORGANIZE, FILL` only and back leaves (exit dialog if unsaved). `EditViewModel` lost the annotate parts.
+  FAB, hub, `EditContainerTransform` and the shared transition layout are gone.
+- Known limits: the rail covers the right edge of a page at fit width in landscape (tap to hide, or zoom); the bar's
+  dimmed state for unavailable tools is visual only (a tap says why); with the thumbnails open the tools bar is hidden;
+  after "Pages" with a saved copy the viewer below shows the copy, not the original.
 
 ### Handoff V-a → V-b (viewer editing)
 - Session: `ViewerUiState.Ready.editing` (`ViewerEditSession`: `edits` flow with `session` + `hasUnsavedChanges`,
@@ -444,10 +466,7 @@ tap "Page X of N" in the viewer; rotate the phone in each case.
   `mapping.txt`. Checked with actionlint (incl. shellcheck); the signature step and Release's version
   bump and notes scripts were run locally on a test keystore and a copy of the files. Build APK and
   Release can't run until the signing secrets are in the repository.
-- FAB → hub: `SharedTransitionLayout` around the `NavHost` (`ui/navigation/EditContainerTransform.kt`),
-  `editContainerBounds()` on the viewer's Edit button and on the `EditScreen` scaffold; each nav
-  destination provides its `AnimatedVisibilityScope` through `LocalDestinationScope`. Where only one
-  end exists (hub opened from Home) it does nothing. Never above 250 ms.
+- FAB → hub: shared-bounds transition (`EditContainerTransform.kt`); **removed in V-b** with the FAB and the hub.
 - Thumbnail cascade: `cascadeIn` in `PagesGrid`, only for cells composed in the first 400 ms.
 - System "remove animations": Compose animations follow the animator duration scale
   ([release notes, Compose Animation 1.2.0-alpha05](https://developer.android.com/jetpack/androidx/releases/compose-animation));
@@ -558,6 +577,12 @@ tap "Page X of N" in the viewer; rotate the phone in each case.
   Open points of the plan settled: single-page paging off while a brush is armed; opening search puts the tool
   down; protected PDFs show the tools as unavailable (a message). Until V-b the Edit FAB hides while the viewer
   has unsaved changes instead of asking to save first.
+- 2026-10-08 · V-b: the bar is always there (not only with a tool armed) and a tap on the page hides it with the top bar;
+  the pen button, the Edit FAB, the hub and the FAB → hub transition are removed (the transition had no start left).
+  "Fill" opens the edit screen (with save-first) until V-c; the Annotate pane and the edit-side annotation code
+  (`AnnotatePage`, `EditViewModel.loadAnnotate`, `pageText`...) are deleted, not kept dormant. After a save-first the
+  viewer is replaced by one on the saved file with the edit screen above it, so back lands on what was saved. In landscape
+  the rail overlays the page rather than narrowing it (no re-layout on tap).
 - 2026-10-08 · Editing in the viewer (author's answers, `docs/plan-viewer-editing.md`): highlight, draw, eraser
   **and fill and sign** happen in the viewer; "Pages" (organize, add, merge) stays in `EditScreen`, which loses
   the hub and opens on Organize; with unsaved viewer changes "Pages" asks to **save first** (no shared unsaved

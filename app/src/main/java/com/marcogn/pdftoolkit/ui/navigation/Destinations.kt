@@ -8,21 +8,22 @@ sealed interface Destination {
     @Serializable
     data object Home : Destination
 
-    /** Viewer (spec §4.2) on the document at [uri] (`content://` from SAF, or `file://`). */
+    /**
+     * Viewer (spec §4.2) on the document at [uri] (`content://` from SAF, or `file://`). [tool] is the name of the
+     * [com.marcogn.pdftoolkit.domain.model.PdfTool] armed on opening (Highlight or Draw tapped on Home, plan V-b), or null.
+     */
     @Serializable
-    data class Viewer(val uri: String) : Destination
+    data class Viewer(val uri: String, val tool: String? = null) : Destination
 
     /**
-     * Edit hub and page tools (spec §4.3, §6) on the document at [uri]. [tool] is the name of the
-     * [com.marcogn.pdftoolkit.domain.model.PdfTool] to open straight on (from Home), or null for the hub.
+     * The edit screen (spec §6): "Organize pages" on the document at [uri], or with [tool] set to
+     * `FILL_AND_SIGN` (the name of a [com.marcogn.pdftoolkit.domain.model.PdfTool]) "Fill and sign".
      *
      * A merge (spec §6.6) is an edit whose [mergeWith] lists the other PDFs, in order, after the
      * main one at [uri]; with [autoSave] it asks where to save the result straight away.
      *
      * Opened from the viewer, [page] is the page being read (index in the main document, -1 from Home):
-     * the panes start on it and the insertion dialogs default to "after" it. [selectionStart] and
-     * [selectionEnd] are a glyph range selected on that page (-1 when none), which the Annotate pane
-     * restores; since V-a the viewer highlights in place and no longer sends them (V-b removes the pane).
+     * the Fill pane starts on it and the insertion dialogs default to "after" it.
      */
     @Serializable
     data class Edit(
@@ -31,8 +32,6 @@ sealed interface Destination {
         val mergeWith: List<String> = emptyList(),
         val autoSave: Boolean = false,
         val page: Int = -1,
-        val selectionStart: Int = -1,
-        val selectionEnd: Int = -1,
     ) : Destination
 
     /** Merge list (spec §6.6): the PDFs at [uris] in the order picked, to reorder, add to and combine. */

@@ -30,7 +30,6 @@
     <string name="tool_scan">Scan</string>
     <string name="tool_cloud_upload">Upload to cloud</string>
     <string name="tool_highlight">Highlight</string>
-    <string name="tool_annotate">Annotate</string>
     <string name="tool_draw">Draw</string>
     <string name="tool_export_odf">Export to ODF</string>
 
@@ -126,12 +125,10 @@
     <string name="settings_thumbnails_cleared">Cache cleared</string>
 
     <!-- Edit (phase 2) -->
-    <string name="edit_fab">Edit</string>
     <plurals name="edit_hub_subtitle">
         <item quantity="one">%1$d page</item>
         <item quantity="other">%1$d pages</item>
     </plurals>
-    <string name="edit_tool_unavailable">%1$s will be available in a future version.</string>
     <string name="edit_error_title">Can\'t edit this file</string>
     <string name="edit_error_protected">Password-protected PDFs can\'t be edited yet.</string>
     <string name="edit_error_back">Back</string>
@@ -248,7 +245,6 @@
     <string name="images_from_files_hint">Choose from the phone\'s files</string>
     <string name="add_new_badge">New</string>
     <string name="add_review_hint">The new pages are highlighted: if they are not where you wanted, drag them into place.</string>
-    <string name="add_review_hint_hub">The new pages are highlighted. To move them use \"Organize pages\".</string>
 
     <!-- Fill and sign (phase 4a) -->
     <string name="fill_tool_text">Text</string>
@@ -331,12 +327,10 @@
     <string name="annotate_apply_highlight">Highlight</string>
     <string name="annotate_apply_underline">Underline</string>
     <string name="annotate_apply_strikeout">Strike out text</string>
-    <string name="annotate_cancel">Cancel</string>
     <string name="annotate_hint_select">Press and hold a word, then drag the handles</string>
     <string name="annotate_style">Style</string>
     <string name="annotate_hint_erase">Tap an annotation to remove it</string>
     <string name="annotate_hint_draw">Draw with a finger or a stylus; two fingers move and zoom. Colour and size: Style button</string>
-    <string name="annotate_page_no_text">This page has no selectable text (a scan?)</string>
     <string name="annotate_load_failed">Couldn\'t read the document\'s annotations</string>
     <string name="color_yellow">Yellow</string>
     <string name="color_green">Green</string>
@@ -348,4 +342,8 @@
     <string name="color_black">Black</string>
     <string name="color_dark_green">Dark green</string>
     <string name="color_other">Other colour</string>
+    <string name="viewer_tool_fill">Fill</string>
+    <string name="viewer_tool_pages">Pages</string>
+    <string name="viewer_save_first_title">Save before continuing</string>
+    <string name="viewer_save_first_message">The changes made here must be saved before working on the file. Save them?</string>
 </resources>

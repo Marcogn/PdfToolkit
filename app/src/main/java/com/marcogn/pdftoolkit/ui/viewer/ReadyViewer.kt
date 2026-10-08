@@ -10,14 +10,12 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import com.marcogn.pdftoolkit.domain.annotate.MarkupKind
 import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
 import com.marcogn.pdftoolkit.ui.annotate.AnnotateTool
-import com.marcogn.pdftoolkit.ui.annotate.AnnotateToolBar
 import com.marcogn.pdftoolkit.ui.annotate.applyLabel
 import com.marcogn.pdftoolkit.ui.annotate.rememberAnnotatePaneState
 import com.marcogn.pdftoolkit.ui.common.UndoRedo
@@ -32,9 +30,15 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBarsPadding
+import com.marcogn.pdftoolkit.domain.model.PdfTool
+import com.marcogn.pdftoolkit.ui.annotate.hint
+import com.marcogn.pdftoolkit.ui.common.TransientHint
+import com.marcogn.pdftoolkit.ui.common.isLandscape
 import androidx.compose.animation.slideOutVertically
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
@@ -52,16 +56,13 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.BorderColor
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.ViewCarousel
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -107,7 +108,6 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
-import com.marcogn.pdftoolkit.ui.navigation.editContainerBounds
 import com.marcogn.pdftoolkit.domain.model.ReadingMode
 import com.marcogn.pdftoolkit.pdf.render.RenderBudget
 import com.marcogn.pdftoolkit.ui.search.RevealRequest
@@ -121,21 +121,25 @@ import com.marcogn.pdftoolkit.ui.search.SearchHighlights
 import com.marcogn.pdftoolkit.ui.search.SearchNotice
 import com.marcogn.pdftoolkit.ui.search.SearchTopBar
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 private const val MODE_CROSSFADE_MS = 200
 private const val PANEL_MS = 220
-private const val FAB_SCROLL_SLOP = 8f
-private const val FAB_REAPPEAR_MS = 1_500L
+
+/** Height of the top bar without the status bar, for what floats just under it (the rail, the hint). */
+private val TOP_BAR_HEIGHT = 64.dp
+
+/** What a save started from the viewer does once the file is written, besides showing it. */
+private const val AFTER_SAVE_LEAVE = "leave"
 
 /** How far from an annotation the eraser still takes it, so a thin underline isn't a precision job. */
 private val ERASE_TOLERANCE = 14.dp
 
 /**
  * The open document (spec §4.2): top bar with page indicator and menu, the pages in the chosen
- * [ReadingMode], the scrubber and the thumbnail bar, the Edit FAB and the text search (spec §5.1).
+ * [ReadingMode], the scrubber and the thumbnail bar, the text search (spec §5.1) and the tools bar
+ * (plan V-b): page tools that act here, and the buttons that open the edit screen.
  *
  * [currentPage] lives here and is fed by whichever mode is on screen, so switching mode, the top
  * bar and the thumbnail bar always agree. Jumps (scrubber, thumbnails, "go to page") are sent
@@ -150,7 +154,8 @@ fun ReadyViewer(
     readingMode: ReadingMode,
     onReadingModeChange: (ReadingMode) -> Unit,
     onPageChanged: (Int) -> Unit,
-    onEdit: (page: Int) -> Unit,
+    startTool: PdfTool?,
+    onOpenEdit: (uri: String, tool: PdfTool, page: Int, reopenViewer: Boolean) -> Unit,
     save: ViewerSaveUi,
     onBack: () -> Unit,
     onReopen: (uri: String) -> Unit,
@@ -161,7 +166,7 @@ fun ReadyViewer(
     var showThumbnails by rememberSaveable { mutableStateOf(false) }
     var showGoTo by rememberSaveable { mutableStateOf(false) }
     var showInfo by rememberSaveable { mutableStateOf(false) }
-    // A single tap on the page hides the top bar, the Edit button and the system bars, and shows them again (plan U20).
+    // A single tap on the page hides the top bar, the tools bar and the system bars, and shows them again (plan U20).
     var immersive by rememberSaveable { mutableStateOf(false) }
     val jumps = remember { Channel<Int>(Channel.CONFLATED) }
     val reveals = remember { Channel<RevealRequest>(Channel.CONFLATED) }
@@ -231,9 +236,10 @@ fun ReadyViewer(
     val pageTools = remember(editing, documentAnnotations, availability) {
         documentAnnotations?.takeIf { availability == EditAvailability.READY }?.let { ViewerPageTools(editing, it) }
     }
-    val annotateTools = rememberAnnotatePaneState()
-    var annotating by rememberSaveable { mutableStateOf(false) }
-    // A tool is in effect only while the tool bar is out and the document can be edited.
+    // Opened from Home on Highlight or Draw: that tool is armed as soon as the document can take it.
+    val annotateTools = rememberAnnotatePaneState(if (startTool == PdfTool.DRAW) AnnotateTool.PEN else AnnotateTool.HIGHLIGHT)
+    var annotating by rememberSaveable { mutableStateOf(startTool == PdfTool.HIGHLIGHT || startTool == PdfTool.DRAW) }
+    // A tool is in effect only while it is armed and the document can be edited.
     val armed = annotating && pageTools != null
     val armedTool = annotateTools.tool.takeIf { armed }
     val applyKind = armedTool?.kind ?: MarkupKind.HIGHLIGHT
@@ -269,16 +275,33 @@ fun ReadyViewer(
             else -> R.string.viewer_edit_loading
         },
     )
-    val toggleTools = {
-        if (annotating) {
+    val showUnavailable = {
+        snackbarHostState.currentSnackbarData?.dismiss()
+        scope.launch { snackbarHostState.showSnackbar(unavailableMessage) }
+        Unit
+    }
+    // A tap on the button of the armed family puts the tool down; on another one arms its last tool (plan V-b).
+    val onGroup: (ViewerToolGroup) -> Unit = { group ->
+        if (pageTools == null) {
+            showUnavailable()
+        } else if (annotating && annotateTools.tool.group() == group) {
             annotating = false
-        } else if (pageTools == null) {
-            snackbarHostState.currentSnackbarData?.dismiss()
-            scope.launch { snackbarHostState.showSnackbar(unavailableMessage) }
         } else {
+            annotateTools.choose(annotateTools.toolOf(group))
             annotating = true
             showThumbnails = false
             immersive = false
+        }
+    }
+    // Opened on a tool that this document can't take (protected, unreadable): say so once, nothing is armed.
+    var startToolChecked by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(availability) {
+        if (!startToolChecked && availability != EditAvailability.LOADING) {
+            startToolChecked = true
+            if (annotating && availability != EditAvailability.READY) {
+                annotating = false
+                showUnavailable()
+            }
         }
     }
 
@@ -286,10 +309,13 @@ fun ReadyViewer(
     val saving = save.state is SaveUiState.Saving
     var showSaveDialog by rememberSaveable { mutableStateOf(false) }
     var showUnsaved by rememberSaveable { mutableStateOf(false) }
-    // Saving from the exit dialog leaves once the file is written (plan U3).
-    var leaveAfterSave by rememberSaveable { mutableStateOf(false) }
+    // What follows a save started from a dialog: leave (plan U3), or open the edit screen on the saved file
+    // (Pages and Fill and sign with changes pending, plan V-b); null for a plain Save.
+    var afterSave by rememberSaveable { mutableStateOf<String?>(null) }
+    // The edit-screen tool asked for while the viewer has unsaved changes: the "save first" dialog is up.
+    var saveFirstFor by rememberSaveable { mutableStateOf<String?>(null) }
     val copyLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
-        if (uri != null) save.onSave(uri, false) else leaveAfterSave = false
+        if (uri != null) save.onSave(uri, false) else afterSave = null
     }
     val copySuffix = stringResource(R.string.save_copy_suffix)
     val startSave = {
@@ -305,23 +331,37 @@ fun ReadyViewer(
     val shareTitle = stringResource(R.string.viewer_share_title)
     LaunchedEffect(save.state) {
         when (val result = save.state) {
-            // The file on screen is the old one: leave, or open the new one in its place (ADR 0003).
-            is SaveUiState.Overwritten -> if (leaveAfterSave) {
-                leaveAfterSave = false
-                Toast.makeText(context, savedMessage, Toast.LENGTH_SHORT).show()
-                onBack()
-            } else {
-                onReopen(result.uri)
+            // The file on screen is the old one: leave, open the edit screen on the new one, or show the new one in its place (ADR 0003).
+            is SaveUiState.Overwritten -> when (val next = afterSave) {
+                null -> onReopen(result.uri)
+                AFTER_SAVE_LEAVE -> {
+                    afterSave = null
+                    Toast.makeText(context, savedMessage, Toast.LENGTH_SHORT).show()
+                    onBack()
+                }
+                else -> {
+                    afterSave = null
+                    onOpenEdit(result.uri, PdfTool.valueOf(next), currentPage, true)
+                }
             }
-            is SaveUiState.Saved -> if (leaveAfterSave) {
-                leaveAfterSave = false
+            is SaveUiState.Saved -> afterSave?.let { next ->
+                afterSave = null
                 save.onDismissResult()
-                Toast.makeText(context, savedMessage, Toast.LENGTH_SHORT).show()
-                onBack()
+                if (next == AFTER_SAVE_LEAVE) {
+                    Toast.makeText(context, savedMessage, Toast.LENGTH_SHORT).show()
+                    onBack()
+                } else {
+                    // The copy is the file the pages are worked on: the viewer shows it too, under the edit screen.
+                    onOpenEdit(result.uri, PdfTool.valueOf(next), currentPage, true)
+                }
             }
-            is SaveUiState.Failed -> leaveAfterSave = false
+            is SaveUiState.Failed -> afterSave = null
             else -> Unit
         }
+    }
+    // Pages and Fill and sign work on the saved file: with changes pending the reader saves or discards first (plan V-b).
+    val openEdit: (PdfTool) -> Unit = { tool ->
+        if (edits.hasUnsavedChanges && !saving) saveFirstFor = tool.name else onOpenEdit(state.uri, tool, currentPage, false)
     }
     val requestExit = {
         if (edits.hasUnsavedChanges && !saving) showUnsaved = true else onBack()
@@ -336,8 +376,12 @@ fun ReadyViewer(
             ViewerBackStep.LEAVE -> onBack()
         }
     }
-    val toolBarVisible = annotating && !immersive && !searchOpen
+    // The tools bar is out except in full screen, while searching and over the thumbnails (plan V-b).
+    val toolBarVisible = !immersive && !searchOpen && !showThumbnails
+    val railed = isLandscape()
+    // How much of the page area the bar covers, so the scrubber and the snackbars keep clear of it.
     var toolBarHeight by remember { mutableStateOf(0.dp) }
+    var toolBarWidth by remember { mutableStateOf(0.dp) }
     // Selecting is for reading and for the markup tools; a brush or the eraser takes the touch.
     val pageSelection = selection.takeIf { armedTool == null || armedTool.kind != null }
 
@@ -348,22 +392,6 @@ fun ReadyViewer(
         val session = edits.session.annotations
         val waiting = pending.filter { p -> session.added.none { it.id == p.id } }
         AnnotationLayer.of(documentAnnotations, session.copy(added = session.added + waiting), ViewerEditSession::pageId)
-    }
-    // The Edit button hides while the reader scrolls down and comes back on scrolling up or after a
-    // pause (spec §4.2).
-    var fabHidden by remember { mutableStateOf(false) }
-    var scrollTick by remember { mutableIntStateOf(0) }
-    val onScroll: (Float) -> Unit = { delta ->
-        if (delta > FAB_SCROLL_SLOP) {
-            fabHidden = true
-            scrollTick++
-        } else if (delta < -FAB_SCROLL_SLOP) {
-            fabHidden = false
-        }
-    }
-    LaunchedEffect(scrollTick) {
-        delay(FAB_REAPPEAR_MS)
-        fabHidden = false
     }
     val reportPage: (Int) -> Unit = { page ->
         if (page != currentPage) {
@@ -454,9 +482,6 @@ fun ReadyViewer(
                         if (edits.hasUnsavedChanges) {
                             TextButton(onClick = { showSaveDialog = true }, enabled = !saving) { Text(stringResource(R.string.edit_save)) }
                         }
-                        IconToggleButton(checked = annotating, onCheckedChange = { toggleTools() }) {
-                            Icon(Icons.Outlined.Draw, contentDescription = stringResource(R.string.tool_annotate))
-                        }
                         IconButton(onClick = { searchOpen = true }) {
                             Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.cd_search))
                         }
@@ -480,25 +505,8 @@ fun ReadyViewer(
     Scaffold(
         // No insets: the page area is the whole screen; each floating element pads itself.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        floatingActionButton = {
-            AnimatedVisibility(
-                // Not while the pages are being edited here: the edit screen would start from the saved file (plan V-b adds save-first).
-                visible = !fabHidden && !showThumbnails && !searchOpen && !selection.isActive && !immersive && !annotating && !edits.hasUnsavedChanges,
-                enter = scaleIn(tween(PANEL_MS)) + fadeIn(tween(PANEL_MS)),
-                exit = scaleOut(tween(PANEL_MS)) + fadeOut(tween(PANEL_MS)),
-            ) {
-                ExtendedFloatingActionButton(
-                    onClick = { onEdit(currentPage) },
-                    icon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
-                    text = { Text(stringResource(R.string.edit_fab)) },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.navigationBarsPadding().editContainerBounds(),
-                )
-            }
-        },
         snackbarHost = {
-            Column(Modifier.navigationBarsPadding().padding(bottom = if (toolBarVisible) toolBarHeight else 0.dp)) {
+            Column(Modifier.navigationBarsPadding().padding(bottom = if (toolBarVisible && !railed) toolBarHeight else 0.dp)) {
                 (save.state as? SaveUiState.Saved)?.let { saved ->
                     SavedSnackbar(
                         onOpen = {
@@ -540,7 +548,7 @@ fun ReadyViewer(
                 modifier = Modifier.fillMaxSize(),
             ) { mode ->
                 when (mode) {
-                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, selectionBar, drawing, reportPage, onScroll)
+                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, selectionBar, drawing, reportPage)
                     ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, selectionBar, drawing, reportPage)
                 }
             }
@@ -578,28 +586,50 @@ fun ReadyViewer(
                 modifier = Modifier.align(Alignment.CenterEnd).padding(
                     bottom = when {
                         showThumbnails -> ThumbnailBarHeight
-                        toolBarVisible -> toolBarHeight
+                        toolBarVisible && !railed -> toolBarHeight
                         else -> 0.dp
                     },
+                    end = if (toolBarVisible && railed) toolBarWidth else 0.dp,
                 ),
             )
 
-            // The page tools (plan V-a, a plain bar until V-b's): over the pages, gone in full screen.
+            // A few seconds when a tool is armed, over the page rather than a permanent row (plan U7).
+            Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = if (immersive) 0.dp else TOP_BAR_HEIGHT)) {
+                TransientHint(armedTool?.hint(), key = armedTool)
+            }
+
+            // The tools (plan V-b): over the pages, a bar at the bottom or a rail at the end in landscape; gone in full screen.
             AnimatedVisibility(
                 visible = toolBarVisible,
-                enter = slideInVertically(tween(PANEL_MS)) { it },
-                exit = slideOutVertically(tween(PANEL_MS)) { it },
-                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = if (railed) slideInHorizontally(tween(PANEL_MS)) { it } else slideInVertically(tween(PANEL_MS)) { it },
+                exit = if (railed) slideOutHorizontally(tween(PANEL_MS)) { it } else slideOutVertically(tween(PANEL_MS)) { it },
+                modifier = if (railed) {
+                    // Under the top bar, which spans the whole width.
+                    Modifier.align(Alignment.CenterEnd).systemBarsPadding().padding(top = TOP_BAR_HEIGHT)
+                } else {
+                    Modifier.align(Alignment.BottomCenter)
+                },
             ) {
-                Box(Modifier.onSizeChanged { toolBarHeight = with(density) { it.height.toDp() } }) {
-                    AnnotateToolBar(
+                Box(
+                    Modifier.onSizeChanged {
+                        toolBarHeight = with(density) { it.height.toDp() }
+                        toolBarWidth = with(density) { it.width.toDp() }
+                    },
+                ) {
+                    ViewerToolBar(
                         state = annotateTools,
-                        selection = selection,
-                        undoRedo = UndoRedo(edits.session.canUndo, edits.session.canRedo, { editing.undo() }, { editing.redo() }),
-                        side = false,
-                        // The bar by the selection applies it.
-                        showApply = false,
-                    ) {}
+                        armed = armed,
+                        editable = pageTools != null,
+                        undoRedo = if (edits.session.canUndo || edits.session.canRedo) {
+                            UndoRedo(edits.session.canUndo, edits.session.canRedo, { editing.undo() }, { editing.redo() })
+                        } else {
+                            null
+                        },
+                        side = railed,
+                        onGroup = onGroup,
+                        onFillAndSign = { openEdit(PdfTool.FILL_AND_SIGN) },
+                        onPages = { openEdit(PdfTool.ORGANIZE_PAGES) },
+                    )
                 }
             }
 
@@ -646,7 +676,7 @@ fun ReadyViewer(
             onConfirm = startSave,
             onDismiss = {
                 showSaveDialog = false
-                leaveAfterSave = false
+                afterSave = null
             },
             flattenInk = if (edits.session.annotations.hasInk) save.flattenInk else null,
             onFlattenInkChange = save.onFlattenInkChange,
@@ -656,7 +686,7 @@ fun ReadyViewer(
         UnsavedChangesDialog(
             onSave = {
                 showUnsaved = false
-                leaveAfterSave = true
+                afterSave = AFTER_SAVE_LEAVE
                 showSaveDialog = true
             },
             onDiscard = {
@@ -665,6 +695,23 @@ fun ReadyViewer(
                 onBack()
             },
             onDismiss = { showUnsaved = false },
+        )
+    }
+    saveFirstFor?.let { toolName ->
+        UnsavedChangesDialog(
+            titleRes = R.string.viewer_save_first_title,
+            messageRes = R.string.viewer_save_first_message,
+            onSave = {
+                saveFirstFor = null
+                afterSave = toolName
+                showSaveDialog = true
+            },
+            onDiscard = {
+                saveFirstFor = null
+                editing.discard()
+                onOpenEdit(state.uri, PdfTool.valueOf(toolName), currentPage, false)
+            },
+            onDismiss = { saveFirstFor = null },
         )
     }
     (save.state as? SaveUiState.Failed)?.let { failed ->
@@ -780,7 +827,6 @@ private fun ContinuousPages(
     selectionBar: @Composable () -> Unit,
     drawing: ViewportDrawing?,
     onPageChanged: (Int) -> Unit,
-    onScroll: (Float) -> Unit,
 ) {
     val viewportState = rememberSaveable(saver = PdfViewportState.Saver) {
         PdfViewportState(ViewportAnchor(startPage, pageFractionY = 0f, contentFractionX = 0.5f, zoom = 1f))
@@ -793,13 +839,6 @@ private fun ContinuousPages(
     }
     LaunchedEffect(viewportState, reveals) {
         reveals.receiveAsFlow().collect { viewportState.centerOnPageRect(it.match.pageIndex, it.match.bounds) }
-    }
-    LaunchedEffect(viewportState) {
-        var previous = viewportState.viewport.offset.y
-        snapshotFlow { viewportState.viewport.offset.y }.collect { y ->
-            onScroll(y - previous)
-            previous = y
-        }
     }
     PdfViewport(
         pageSizes = state.pageSizes,
