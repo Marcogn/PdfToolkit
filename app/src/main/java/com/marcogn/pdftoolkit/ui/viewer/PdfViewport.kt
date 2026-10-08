@@ -3,6 +3,9 @@ package com.marcogn.pdftoolkit.ui.viewer
 import androidx.compose.animation.core.DecayAnimationSpec
 import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
@@ -13,7 +16,9 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,6 +50,7 @@ import com.marcogn.pdftoolkit.pdf.render.RenderPlanner
 import com.marcogn.pdftoolkit.pdf.render.RenderScheduler
 import com.marcogn.pdftoolkit.ui.annotate.AnnotationLayer
 import com.marcogn.pdftoolkit.ui.annotate.HandleMetrics
+import com.marcogn.pdftoolkit.ui.annotate.SelectionBarPlacement
 import com.marcogn.pdftoolkit.ui.annotate.SelectionGrab
 import com.marcogn.pdftoolkit.ui.annotate.SelectionHandles
 import com.marcogn.pdftoolkit.ui.annotate.TextSelectionState
@@ -97,6 +103,10 @@ fun PdfViewport(
     selection: TextSelectionState? = null,
     /** A press and hold at [point] (page points) of document page [documentPage]: start a selection there. */
     onLongPress: (documentPage: Int, point: Offset) -> Unit = { _, _ -> },
+    /** A single tap on the page (after the double-tap timeout, so a double tap stays "zoom"): full-screen reading (plan U20). */
+    onTap: () -> Unit = {},
+    /** The bar that floats by the selection (Copy, Highlight; plan U21); null for none. */
+    selectionBar: (@Composable () -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val decay = rememberSplineBasedDecay<Float>()
@@ -115,6 +125,7 @@ fun PdfViewport(
     val selectionFill = MaterialTheme.colorScheme.primary.copy(alpha = SELECTION_ALPHA)
     val handleColor = MaterialTheme.colorScheme.primary
     val currentOnLongPress by rememberUpdatedState(onLongPress)
+    val currentOnTap by rememberUpdatedState(onTap)
 
     DisposableEffect(bitmaps, requestSource) { onDispose { bitmaps.release(requestSource) } }
 
@@ -136,11 +147,16 @@ fun PdfViewport(
             }
     }
 
+    Box(modifier) {
     Canvas(
-        modifier = modifier
+        modifier = Modifier
+            .fillMaxSize()
             .onSizeChanged { state.setContent(pageSizes, it.toSize(), gapPx) }
             .pointerInput(state) {
-                detectTapGestures(onDoubleTap = { tap -> state.launchAnimation(scope) { state.animateDoubleTap(tap) } })
+                detectTapGestures(
+                    onTap = { currentOnTap() },
+                    onDoubleTap = { tap -> state.launchAnimation(scope) { state.animateDoubleTap(tap) } },
+                )
             }
             .pointerInput(state, yieldHorizontalToParent) {
                 detectZoomPanFling(state, scope, decay, yieldHorizontalToParent, suppressed = { selectionGrab.active })
@@ -195,7 +211,49 @@ fun PdfViewport(
             }
         }
     }
+    if (selection != null && selectionBar != null) {
+        SelectionBarHost(selection, state, pageIndexOffset, pageSizes.size, selectionBar)
+    }
+    }
 }
+
+/** Puts [content] by the selection when it is on one of this viewport's pages and on screen (plan U21). */
+@Composable
+private fun SelectionBarHost(
+    selection: TextSelectionState,
+    state: PdfViewportState,
+    pageIndexOffset: Int,
+    pageCount: Int,
+    content: @Composable () -> Unit,
+) {
+    val density = LocalDensity.current
+    val gapPx = with(density) { SELECTION_BAR_GAP.toPx() }
+    val marginPx = with(density) { SELECTION_BAR_MARGIN.toPx() }
+    var barSize by remember { mutableStateOf(IntSize.Zero) }
+    val position by remember(selection, state, pageIndexOffset, pageCount) {
+        derivedStateOf {
+            val local = selection.key?.toIntOrNull()?.minus(pageIndexOffset)
+            val mapper = state.mapper
+            if (!selection.isActive || local == null || local !in 0 until pageCount || mapper == null || local !in mapper.layout.pageRects.indices) {
+                null
+            } else {
+                SelectionBarPlacement.screenBounds(selection.runs, mapper.pageToScreenTransform(local))?.let { bounds ->
+                    SelectionBarPlacement.place(bounds, barSize.toSize(), state.viewportSize, gapPx, marginPx)
+                }
+            }
+        }
+    }
+    position?.let { at ->
+        Box(
+            Modifier
+                .onSizeChanged { barSize = it }
+                .offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) },
+        ) { content() }
+    }
+}
+
+private val SELECTION_BAR_GAP = 12.dp
+private val SELECTION_BAR_MARGIN = 8.dp
 
 private const val NO_LEVEL = Int.MIN_VALUE
 

@@ -21,11 +21,10 @@
     <string name="home_coming_soon_message">%1$s will arrive in a future version.</string>
 
     <!-- Tools -->
+    <string name="tool_organize_pages">Organize pages</string>
+    <string name="organize_add">Add</string>
+    <string name="organize_add_title">Add pages</string>
     <string name="tool_merge">Merge PDFs</string>
-    <string name="tool_add_pages">Add pages</string>
-    <string name="tool_insert_images">Insert images</string>
-    <string name="tool_remove_pages">Remove pages</string>
-    <string name="tool_reorder_pages">Reorder pages</string>
     <string name="tool_fill_and_sign">Fill and sign</string>
     <string name="tool_my_signatures">My signatures</string>
     <string name="tool_scan">Scan</string>
@@ -50,7 +49,7 @@
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
-    <string name="settings_dynamic_color">Wallpaper colors</string>
+    <string name="settings_dynamic_color">Dynamic colors</string>
     <string name="settings_dynamic_color_summary">Use the system colors instead of the app\'s own.</string>
     <string name="settings_dynamic_color_unsupported">Requires Android 12 or later.</string>
     <string name="settings_language_label">Language</string>
@@ -144,8 +143,7 @@
         <item quantity="one">%1$d selected</item>
         <item quantity="other">%1$d selected</item>
     </plurals>
-    <string name="edit_remove_hint">Tap the pages to remove. Press and hold a page, then tap another to select a range.</string>
-    <string name="edit_reorder_hint">Press and hold a page and drag it. The menu on each page offers alternatives.</string>
+    <string name="organize_hint">Tap pages to select them (rotate, delete). Drag the handle to move them; press and hold, then tap another for a range.</string>
     <string name="edit_remove">Remove</string>
     <string name="edit_rotate">Rotate 90°</string>
     <string name="edit_clear_selection">Clear selection</string>
@@ -159,6 +157,7 @@
     <string name="edit_move_earlier">Move one earlier</string>
     <string name="edit_move_later">Move one later</string>
     <string name="cd_edit_page_menu">Actions for page %1$d</string>
+    <string name="cd_edit_page_drag">Drag page %1$d to move it</string>
     <string name="cd_edit_page">Page %1$d, rotated %2$d degrees</string>
     <string name="edit_unsaved_title">Unsaved changes</string>
     <string name="edit_unsaved_message">Do you want to save your changes before leaving?</string>
@@ -173,8 +172,7 @@
     <string name="save_overwrite_unavailable">Not available: the file doesn\'t allow writing.</string>
     <string name="save_confirm">Save</string>
     <string name="save_cancel">Cancel</string>
-    <string name="save_overwrite_confirm_title">Overwrite the original?</string>
-    <string name="save_overwrite_confirm_message">The original file will be replaced and can\'t be recovered.</string>
+    <string name="save_overwrite_warning">The original file will be replaced and can\'t be recovered.</string>
     <string name="save_done">PDF saved</string>
     <string name="save_open">Open</string>
     <string name="save_share">Share</string>
@@ -250,10 +248,7 @@
     <string name="images_from_files_hint">Choose from the phone\'s files</string>
     <string name="add_new_badge">New</string>
     <string name="add_review_hint">The new pages are highlighted: if they are not where you wanted, drag them into place.</string>
-    <string name="add_review_hint_hub">The new pages are highlighted. To move them, use \"Reorder pages\".</string>
-    <string name="home_pick_pdf_first_images">First choose the PDF to insert the images into, then the images to add.</string>
-    <string name="home_pick_pdf_first_pages">First choose the PDF to add pages to, then where they come from (another PDF or blank pages).</string>
-    <string name="home_pick_pdf_first_confirm">Choose the PDF</string>
+    <string name="add_review_hint_hub">The new pages are highlighted. To move them use \"Organize pages\".</string>
 
     <!-- Fill and sign (phase 4a) -->
     <string name="fill_tool_text">Text</string>
@@ -279,6 +274,7 @@
     <string name="save_flatten_ink">Make drawings final</string>
     <string name="save_flatten_ink_hint">The strokes become part of the page and can no longer be erased.</string>
     <string name="signatures_empty">You have no signatures yet. Draw one or load it from an image: you can reuse it on every document.</string>
+    <string name="signatures_single_hint">With only one saved signature, \"Signature\" in Fill and sign uses it straight away. Press and hold \"Signature\" to pick or create another.</string>
     <string name="signature_new">New signature</string>
     <string name="signature_draw">Draw with your finger</string>
     <string name="signature_from_image">From an image</string>
@@ -306,7 +302,8 @@
     <string name="signature_remove_background">Remove the background</string>
     <string name="signature_preview">Signature preview</string>
     <string name="signature_nothing_found">No signature found: lower the threshold or crop more tightly.</string>
-    <string name="fill_hint_move">Press and hold, then drag to move; use two fingers to resize and rotate.</string>
+    <string name="fill_hint_move">Drag to move; resize and turn with two fingers or from the corner.</string>
+    <string name="fill_change_signature">Change</string>
     <string name="search_hint">Search in document</string>
     <string name="search_counter">%1$d of %2$d</string>
     <string name="search_no_results">No results</string>
@@ -321,7 +318,6 @@
     <!-- Text selection in the viewer and the Annotate pane (7b) -->
     <string name="viewer_selection_title">Selected text</string>
     <string name="viewer_selection_copy">Copy</string>
-    <string name="viewer_selection_clear">Clear selection</string>
     <string name="viewer_selection_highlight">Highlight</string>
     <string name="viewer_text_copied">Text copied</string>
     <string name="annotate_tool_highlight">Highlight</string>
@@ -336,8 +332,9 @@
     <string name="annotate_apply_strikeout">Strike out text</string>
     <string name="annotate_cancel">Cancel</string>
     <string name="annotate_hint_select">Press and hold a word, then drag the handles</string>
+    <string name="annotate_style">Style</string>
     <string name="annotate_hint_erase">Tap an annotation to remove it</string>
-    <string name="annotate_hint_draw">Draw with a finger or a stylus; two fingers move and zoom</string>
+    <string name="annotate_hint_draw">Draw with a finger or a stylus; two fingers move and zoom. Colour and size: Style button</string>
     <string name="annotate_page_no_text">This page has no selectable text (a scan?)</string>
     <string name="annotate_load_failed">Couldn\'t read the document\'s annotations</string>
     <string name="color_yellow">Yellow</string>

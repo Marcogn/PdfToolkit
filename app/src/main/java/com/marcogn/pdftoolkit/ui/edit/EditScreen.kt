@@ -11,7 +11,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,19 +27,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.SnackbarDefaults
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Redo
-import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Deselect
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.RotateRight
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.Button
@@ -68,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -105,6 +106,11 @@ import com.marcogn.pdftoolkit.ui.annotate.rememberTextSelectionState
 import com.marcogn.pdftoolkit.ui.fill.FillPane
 import com.marcogn.pdftoolkit.ui.fill.FillTool
 import com.marcogn.pdftoolkit.ui.fill.FillToolBar
+import com.marcogn.pdftoolkit.ui.fill.ToolButtonFrame
+import com.marcogn.pdftoolkit.ui.common.ToolStrip
+import com.marcogn.pdftoolkit.ui.common.TransientHint
+import com.marcogn.pdftoolkit.ui.common.UndoRedo
+import com.marcogn.pdftoolkit.ui.common.isLandscape
 import com.marcogn.pdftoolkit.ui.fill.MAX_PAGE_PIXELS
 import com.marcogn.pdftoolkit.ui.fill.rememberFillPaneState
 import com.marcogn.pdftoolkit.ui.signatures.SignatureCreationHost
@@ -117,11 +123,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class EditPane { HUB, REMOVE, REORDER, FILL, ANNOTATE }
+private enum class EditPane { HUB, ORGANIZE, FILL, ANNOTATE }
 
 private fun PdfTool?.initialPane(): EditPane = when (this) {
-    PdfTool.REMOVE_PAGES -> EditPane.REMOVE
-    PdfTool.REORDER_PAGES -> EditPane.REORDER
+    PdfTool.ORGANIZE_PAGES -> EditPane.ORGANIZE
     PdfTool.FILL_AND_SIGN -> EditPane.FILL
     PdfTool.HIGHLIGHT, PdfTool.DRAW -> EditPane.ANNOTATE
     else -> EditPane.HUB
@@ -147,9 +152,10 @@ private const val PICK_ID_PREFIX = "pick"
 private val SelectionSaver = listSaver<Set<String>, String>(save = { it.toList() }, restore = { it.toSet() })
 
 /**
- * Edit hub and page tools on one edit session (spec §4.3, §6). Hub, "remove" and "reorder" are
- * panes of this one screen so they share the session, the renderer and the save state; the
- * system back goes pane → hub → leave (asking about unsaved changes).
+ * Edit hub and page tools on one edit session (spec §4.3, §6). The hub, "Organize pages", "Fill and
+ * sign" and "Annotate" are panes of this one screen so they share the session, the renderer and the
+ * save state; the system back goes pane → hub → leave (asking about unsaved changes). In landscape
+ * the tools of a pane sit in a rail at the side instead of a bar at the bottom (plan U18).
  *
  * @param startTool the tool tapped on Home, which opens straight on its pane or dialog (spec §4.1); null from the viewer.
  * @param startPage the page the reader was on in the main document, or -1 (from Home): the Fill and Annotate
@@ -198,13 +204,13 @@ fun EditScreen(
     var selection by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf(emptySet<String>()) }
     var rangeAnchor by rememberSaveable { mutableStateOf<String?>(null) }
     var showSaveDialog by rememberSaveable { mutableStateOf(false) }
-    var showOverwriteConfirm by rememberSaveable { mutableStateOf(false) }
     var showUnsaved by rememberSaveable { mutableStateOf(false) }
     var showAddSource by rememberSaveable { mutableStateOf(false) }
     var showBlankDialog by rememberSaveable { mutableStateOf(false) }
-    var showImageSource by rememberSaveable { mutableStateOf(false) }
     var showPickedPagesDialog by rememberSaveable { mutableStateOf(false) }
-    var startToolHandled by rememberSaveable { mutableStateOf(false) }
+    // Where "Add" was started from (after the selected page, after the one the reader was on, or the end).
+    var addPoint by rememberSaveable(stateSaver = InsertionPointSaver) { mutableStateOf(InsertionPoint.END_OF_DOCUMENT) }
+    val side = isLandscape()
     // Pages just added: shown highlighted, in the page grid, scrolled into view.
     var highlighted by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf(emptySet<String>()) }
     var scrollToId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -221,7 +227,8 @@ fun EditScreen(
     val startSave = {
         showSaveDialog = false
         if (overwriteChoice && canOverwrite) {
-            showOverwriteConfirm = true
+            // The save dialog already asked for explicit confirmation (plan U6).
+            viewModel.save(viewModel.sourceUri.toUri(), overwrite = true)
         } else {
             copyLauncher.launch(viewModel.suggestedCopyName(copySuffix))
         }
@@ -287,26 +294,17 @@ fun EditScreen(
     val ready = uiState as? EditUiState.Ready
     val saving = saveState is SaveUiState.Saving
     val picking = pendingPdf != null
-    // The "new" marks help find what was just added; picking pages to remove is a different
-    // question, and once saved there is nothing new any more.
-    LaunchedEffect(pane, saveState is SaveUiState.Saved) {
-        if (pane == EditPane.REMOVE || saveState is SaveUiState.Saved) {
+    // The "new" marks help find what was just added and drag it where it belongs; once saved there is
+    // nothing new any more.
+    LaunchedEffect(saveState is SaveUiState.Saved) {
+        if (saveState is SaveUiState.Saved) {
             highlighted = emptySet()
             scrollToId = null
         }
     }
-    // Tools of Home that are a dialog rather than a pane open it as soon as the document is ready;
-    // a merge without editing asks where to save straight away.
+    // A merge without editing asks where to save straight away.
     LaunchedEffect(ready != null) {
         if (ready == null) return@LaunchedEffect
-        if (!startToolHandled) {
-            startToolHandled = true
-            when (startTool) {
-                PdfTool.ADD_PAGES -> showAddSource = true
-                PdfTool.INSERT_IMAGES -> showImageSource = true
-                else -> Unit
-            }
-        }
         if (viewModel.autoSave && !autoSaveHandled) {
             autoSaveHandled = true
             copyLauncher.launch(viewModel.suggestedCopyName(copySuffix))
@@ -392,15 +390,20 @@ fun EditScreen(
 
     // No "Merge" in the hub: on an open document it is "Add pages → from another PDF" (author's decision).
     // Opened from the viewer, new pages default to "after the page being read" (plan U1).
-    val insertionDefault = viewerPageNumber(ready?.session?.pages, startPage)
-        ?.let { InsertionPoint(InsertionPoint.Kind.AFTER_PAGE, it) } ?: InsertionPoint.END_OF_DOCUMENT
+    // In "Organize pages" with pages selected, after the last of them (plan U4).
+    val insertionDefault = run {
+        val lastSelected = ready?.session?.pages?.indexOfLast { it.id in selection } ?: -1
+        if (pane == EditPane.ORGANIZE && lastSelected >= 0) {
+            InsertionPoint(InsertionPoint.Kind.AFTER_PAGE, lastSelected + 1)
+        } else {
+            viewerPageNumber(ready?.session?.pages, startPage)
+                ?.let { InsertionPoint(InsertionPoint.Kind.AFTER_PAGE, it) } ?: InsertionPoint.END_OF_DOCUMENT
+        }
+    }
     val hubTools = remember { PdfTool.available.filter { it.requiresDocument && it != PdfTool.MERGE } }
     val onHubTool: (PdfTool) -> Unit = { tool ->
         when (tool) {
-            PdfTool.REMOVE_PAGES -> pane = EditPane.REMOVE
-            PdfTool.REORDER_PAGES -> pane = EditPane.REORDER
-            PdfTool.ADD_PAGES -> showAddSource = true
-            PdfTool.INSERT_IMAGES -> showImageSource = true
+            PdfTool.ORGANIZE_PAGES -> pane = EditPane.ORGANIZE
             PdfTool.FILL_AND_SIGN -> pane = EditPane.FILL
             PdfTool.HIGHLIGHT -> {
                 annotateState.tool = AnnotateTool.HIGHLIGHT
@@ -452,21 +455,43 @@ fun EditScreen(
         }
     }
 
+    // Phase 4b / plan U8: with no saved signature "Signature" goes straight to the creation, with one it
+    // arms it, with several it opens the picker; a long press always opens the picker.
+    val savedSignatures by signaturesViewModel.signatures.collectAsStateWithLifecycle()
+    val onSignature: () -> Unit = {
+        val list = savedSignatures
+        when {
+            list == null || list.size > 1 -> showSignatureSheet = true
+            list.isEmpty() -> signatureCreation.start()
+            else -> placeSignature(list.first())
+        }
+    }
+    val undoRedo = UndoRedo(ready?.session?.canUndo == true, ready?.session?.canRedo == true, viewModel::undo, viewModel::redo)
+    // The tools of the pane: a bar under the content, or a rail at its side in landscape (plan U18); undo and
+    // redo are in it, where the thumb is (plan U21).
+    val controls: @Composable (Boolean) -> Unit = { sideMode ->
+        if (ready != null && !picking) {
+            val stripModifier = if (sideMode) Modifier.fillMaxHeight() else Modifier.fillMaxWidth()
+            when (pane) {
+                EditPane.HUB -> HubToolBar(hubTools, onHubTool, if (ready.session.canUndo || ready.session.canRedo) undoRedo else null, sideMode, stripModifier)
+                EditPane.ORGANIZE -> OrganizeToolBar(undoRedo, sideMode, stripModifier) {
+                    addPoint = insertionDefault
+                    showAddSource = true
+                }
+                EditPane.FILL -> FillToolBar(fillState, ready.session.fill.overlays, fillActions, undoRedo, sideMode, onSignature) { showSignatureSheet = true }
+                EditPane.ANNOTATE -> AnnotateToolBar(annotateState, annotateSelection, undoRedo, sideMode) { kind ->
+                    applySelection(kind, annotateState, annotateSelection, ready.session.pages, (annotateLoad as? AnnotateLoad.Ready)?.documents, annotateActions)
+                }
+            }
+        }
+    }
+    val railed = side && ready != null && !picking
+
     Scaffold(
         // The viewer's Edit button grows into this screen (spec §9, container transform).
         modifier = Modifier.editContainerBounds(),
         // In the bottomBar slot, so snackbars are placed above the tools instead of covering them.
-        bottomBar = {
-            if (ready != null && !picking && pane == EditPane.HUB) HubToolBar(hubTools, onHubTool)
-            if (ready != null && !picking && pane == EditPane.FILL) {
-                FillToolBar(fillState, ready.session.fill.overlays, fillActions) { showSignatureSheet = true }
-            }
-            if (ready != null && !picking && pane == EditPane.ANNOTATE) {
-                AnnotateToolBar(annotateState, annotateSelection) { kind ->
-                    applySelection(kind, annotateState, annotateSelection, ready.session.pages, (annotateLoad as? AnnotateLoad.Ready)?.documents, annotateActions)
-                }
-            }
-        },
+        bottomBar = { if (!railed) controls(false) },
         topBar = {
             Column {
                 when {
@@ -504,7 +529,7 @@ fun EditScreen(
                             }
                         },
                     )
-                    pane == EditPane.REMOVE && selection.isNotEmpty() -> TopAppBar(
+                    pane == EditPane.ORGANIZE && selection.isNotEmpty() -> TopAppBar(
                         title = { Text(pluralStringResource(R.plurals.edit_selected_count, selection.size, selection.size)) },
                         navigationIcon = {
                             IconButton(onClick = { selection = emptySet(); rangeAnchor = null }) {
@@ -547,14 +572,6 @@ fun EditScreen(
                         },
                         navigationIcon = { BackButton(handleBack) },
                         actions = {
-                            if (ready.session.canUndo || ready.session.canRedo) {
-                                IconButton(onClick = viewModel::undo, enabled = ready.session.canUndo) {
-                                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.edit_undo))
-                                }
-                                IconButton(onClick = viewModel::redo, enabled = ready.session.canRedo) {
-                                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.edit_redo))
-                                }
-                            }
                             if (ready.hasUnsavedChanges) SaveAction(enabled = !saving) { showSaveDialog = true }
                         },
                     )
@@ -563,10 +580,14 @@ fun EditScreen(
                             Text(
                                 stringResource(
                                     when (pane) {
-                                        EditPane.REMOVE -> R.string.tool_remove_pages
                                         EditPane.FILL -> R.string.tool_fill_and_sign
-                                        EditPane.ANNOTATE -> R.string.tool_annotate
-                                        else -> R.string.tool_reorder_pages
+                                        // Named after what is armed, so it matches the two entries that open it (plan U15).
+                                        EditPane.ANNOTATE -> when {
+                                            annotateState.tool.freehand != null -> R.string.tool_draw
+                                            annotateState.tool.kind != null -> R.string.tool_highlight
+                                            else -> R.string.tool_annotate
+                                        }
+                                        else -> R.string.tool_organize_pages
                                     },
                                 ),
                                 maxLines = 1,
@@ -575,18 +596,12 @@ fun EditScreen(
                         },
                         navigationIcon = { BackButton(handleBack) },
                         actions = {
-                            if (pane == EditPane.REMOVE) {
+                            if (pane == EditPane.ORGANIZE) {
                                 IconButton(onClick = { selection = ready.session.pages.map { it.id }.toSet() }) {
                                     Icon(Icons.Filled.SelectAll, contentDescription = stringResource(R.string.edit_select_all))
                                 }
                             }
-                            IconButton(onClick = viewModel::undo, enabled = ready.session.canUndo) {
-                                Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.edit_undo))
-                            }
-                            IconButton(onClick = viewModel::redo, enabled = ready.session.canRedo) {
-                                Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.edit_redo))
-                            }
-                            SaveAction(enabled = ready.hasUnsavedChanges && !saving) { showSaveDialog = true }
+                            if (ready.hasUnsavedChanges) SaveAction(enabled = !saving) { showSaveDialog = true }
                         },
                     )
                 }
@@ -618,7 +633,20 @@ fun EditScreen(
                 SnackbarHost(snackbarHostState)
             }
         },
-    ) { padding ->
+    ) { scaffoldPadding ->
+        val layoutDirection = LocalLayoutDirection.current
+        // With a rail, the content leaves the end side (and the system bar there) to it.
+        val padding = if (railed) {
+            PaddingValues(
+                start = scaffoldPadding.calculateStartPadding(layoutDirection),
+                top = scaffoldPadding.calculateTopPadding(),
+                bottom = scaffoldPadding.calculateBottomPadding(),
+            )
+        } else {
+            scaffoldPadding
+        }
+        Row(Modifier.fillMaxSize()) {
+            Box(Modifier.weight(1f).fillMaxHeight()) {
         when (val state = uiState) {
             EditUiState.Loading -> Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
@@ -662,6 +690,7 @@ fun EditScreen(
                     actions = fillActions,
                     initialPageId = panePageId,
                     onPageChanged = { panePageId = it },
+                    onChangeSignature = { showSignatureSheet = true },
                     modifier = Modifier.padding(padding),
                 )
                 EditPane.ANNOTATE -> AnnotatePane(
@@ -675,12 +704,11 @@ fun EditScreen(
                     onPageChanged = { panePageId = it },
                     modifier = Modifier.padding(padding),
                 )
-                EditPane.REMOVE, EditPane.REORDER -> PagesPane(
+                EditPane.ORGANIZE -> PagesPane(
                     state = state,
                     imageThumbnail = { uri -> viewModel.imageThumbnail(uri, THUMBNAIL_PX) },
                     highlighted = highlighted,
                     scrollToId = scrollToId,
-                    mode = if (pane == EditPane.REMOVE) PagesMode.REMOVE else PagesMode.REORDER,
                     selection = selection,
                     onTap = { page ->
                         val anchor = rangeAnchor
@@ -710,6 +738,17 @@ fun EditScreen(
                 )
             }
         }
+            }
+            if (railed) {
+                Box(
+                    Modifier.padding(
+                        top = scaffoldPadding.calculateTopPadding(),
+                        end = scaffoldPadding.calculateEndPadding(layoutDirection),
+                        bottom = scaffoldPadding.calculateBottomPadding(),
+                    ),
+                ) { controls(true) }
+            }
+        }
     }
 
     if (showSaveDialog) {
@@ -730,18 +769,6 @@ fun EditScreen(
             onFlattenInkChange = viewModel::setFlattenInkChoice,
         )
     }
-    if (showOverwriteConfirm) {
-        OverwriteConfirmDialog(
-            onConfirm = {
-                showOverwriteConfirm = false
-                viewModel.save(viewModel.sourceUri.toUri(), overwrite = true)
-            },
-            onDismiss = {
-                showOverwriteConfirm = false
-                leaveAfterSave = false
-            },
-        )
-    }
     if (showUnsaved) {
         UnsavedChangesDialog(
             onSave = {
@@ -757,14 +784,25 @@ fun EditScreen(
         )
     }
     if (showAddSource) {
-        AddPagesSourceDialog(
+        AddSourceDialog(
             onFromPdf = {
                 showAddSource = false
+                // The page picker reuses the selection for the pages of the other PDF.
+                selection = emptySet()
+                rangeAnchor = null
                 pdfPicker.launch(arrayOf(PDF_MIME))
             },
             onBlank = {
                 showAddSource = false
                 showBlankDialog = true
+            },
+            onPhotos = {
+                showAddSource = false
+                photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onFiles = {
+                showAddSource = false
+                imageFilePicker.launch(arrayOf(IMAGE_MIME))
             },
             onDismiss = { showAddSource = false },
         )
@@ -774,25 +812,12 @@ fun EditScreen(
             pageCount = ready.session.pageCount,
             referenceSize = viewModel::referenceSize,
             mixedSizes = viewModel.hasMixedSizes(),
-            initialPoint = insertionDefault,
+            initialPoint = addPoint,
             onConfirm = { count, point ->
                 showBlankDialog = false
                 showAdded(viewModel.insertBlankPages(count, point))
             },
             onDismiss = { showBlankDialog = false },
-        )
-    }
-    if (showImageSource) {
-        ImageSourceDialog(
-            onPhotos = {
-                showImageSource = false
-                photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            },
-            onFiles = {
-                showImageSource = false
-                imageFilePicker.launch(arrayOf(IMAGE_MIME))
-            },
-            onDismiss = { showImageSource = false },
         )
     }
     if (pendingImages.isNotEmpty() && ready != null) {
@@ -802,7 +827,7 @@ fun EditScreen(
             pageCount = ready.session.pageCount,
             referenceSize = viewModel::referenceSize,
             mixedSizes = viewModel.hasMixedSizes(),
-            initialPoint = insertionDefault,
+            initialPoint = addPoint,
             onConfirm = { mode, point ->
                 showAdded(viewModel.insertPendingImages(mode, point))
             },
@@ -813,7 +838,7 @@ fun EditScreen(
         PickedPagesDialog(
             pickedCount = selection.size,
             pageCount = ready.session.pageCount,
-            initialPoint = insertionDefault,
+            initialPoint = addPoint,
             onConfirm = { point ->
                 showPickedPagesDialog = false
                 val indices = selection.mapNotNull { it.removePrefix(PICK_ID_PREFIX).toIntOrNull() }.sorted()
@@ -836,10 +861,11 @@ private fun BackButton(onClick: () -> Unit) {
     }
 }
 
+/** "Save" as a word, shown whenever there is something to save, the same in every pane (plan U16). */
 @Composable
 private fun SaveAction(enabled: Boolean, onClick: () -> Unit) {
-    IconButton(onClick = onClick, enabled = enabled) {
-        Icon(Icons.Filled.Save, contentDescription = stringResource(R.string.edit_save))
+    TextButton(onClick = onClick, enabled = enabled) {
+        Text(stringResource(R.string.edit_save))
     }
 }
 
@@ -883,19 +909,25 @@ private fun EditHub(
     }
 }
 
-/** The document tools as a row of compact buttons, scrollable on narrow screens. */
+/** The document tools as a row of compact buttons (a rail in landscape), scrollable on narrow screens. */
 @Composable
-private fun HubToolBar(tools: List<PdfTool>, onToolClick: (PdfTool) -> Unit, modifier: Modifier = Modifier) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier.fillMaxWidth()) {
-        Row(
-            Modifier
-                .navigationBarsPadding()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            tools.forEach { tool -> HubToolButton(tool, onClick = { onToolClick(tool) }) }
-        }
+private fun HubToolBar(
+    tools: List<PdfTool>,
+    onToolClick: (PdfTool) -> Unit,
+    undoRedo: UndoRedo?,
+    side: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    ToolStrip(side, undoRedo, modifier) {
+        tools.forEach { tool -> HubToolButton(tool, onClick = { onToolClick(tool) }) }
+    }
+}
+
+/** The tools of "Organize pages": adding pages from anywhere is one button (plan U4). */
+@Composable
+private fun OrganizeToolBar(undoRedo: UndoRedo, side: Boolean, modifier: Modifier = Modifier, onAdd: () -> Unit) {
+    ToolStrip(side, undoRedo, modifier) {
+        ToolButtonFrame(R.string.organize_add, false, onClick = onAdd) { Icon(Icons.Filled.Add, contentDescription = null) }
     }
 }
 
@@ -941,7 +973,6 @@ private fun PagesPane(
     imageThumbnail: (uri: String) -> android.graphics.Bitmap?,
     highlighted: Set<String>,
     scrollToId: String?,
-    mode: PagesMode,
     selection: Set<String>,
     onTap: (PageItem) -> Unit,
     onLongPress: (PageItem) -> Unit,
@@ -949,33 +980,26 @@ private fun PagesPane(
     actions: PageActions,
     padding: PaddingValues,
 ) {
-    Column(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
-        Text(
-            stringResource(
-                when {
-                    highlighted.isNotEmpty() && mode == PagesMode.REORDER -> R.string.add_review_hint
-                    mode == PagesMode.REMOVE -> R.string.edit_remove_hint
-                    else -> R.string.edit_reorder_hint
-                },
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        )
+    Box(Modifier.padding(top = padding.calculateTopPadding()).fillMaxSize()) {
         PagesGrid(
             pages = state.session.pages,
             sources = state.sources,
             imageThumbnail = imageThumbnail,
-            mode = mode,
+            mode = PagesMode.ORGANIZE,
             selection = selection,
             onTap = onTap,
             onLongPress = onLongPress,
             onCommitMove = onCommitMove,
             actions = actions,
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = padding.calculateBottomPadding() + 24.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + 24.dp),
             modifier = Modifier.fillMaxSize(),
             highlighted = highlighted,
             scrollToId = scrollToId,
+        )
+        // For a few seconds, over the grid instead of a permanent row (plan U7).
+        TransientHint(
+            stringResource(if (highlighted.isNotEmpty()) R.string.add_review_hint else R.string.organize_hint),
+            key = highlighted.isNotEmpty(),
         )
     }
 }

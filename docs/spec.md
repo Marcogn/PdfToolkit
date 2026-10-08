@@ -139,6 +139,8 @@ Tap su uno strumento senza documento aperto: si apre il selettore PDF e, scelto 
 
 ### 4.2 Viewer
 
+> **Nota (2026-10-08):** il viewer avrà una barra strumenti per evidenziare, disegnare e compilare direttamente sulla pagina; vedi `docs/plan-viewer-editing.md`.
+
 - Top bar: nome file (ellissi al centro se lungo), indicatore "pagina X di N", icona **Cerca** (§5.1), menu con: modalità di scorrimento, vai a pagina, condividi, informazioni documento.
 - **Modalità continua** (default): scorrimento verticale di tutte le pagine.
 - **Modalità pagina singola**: una pagina per schermata, swipe orizzontale, snap alla pagina.
@@ -150,6 +152,8 @@ Tap su uno strumento senza documento aperto: si apre il selettore PDF e, scelto 
 - **FAB "Modifica"**: in basso a destra, si nasconde scorrendo in giù e riappare scorrendo in su o fermandosi. Apre l'Hub modifiche sul documento corrente.
 
 ### 4.3 Hub modifiche
+
+> **Nota (2026-10-08):** l'hub sarà rimosso e gli strumenti di pagina (evidenzia, disegna, compila e firma) passeranno nel viewer (§4.2); vedi `docs/plan-viewer-editing.md`.
 
 Stessi strumenti della Home, legati al documento aperto. Presentazione: schermata a griglia con transizione dal FAB (container transform o equivalente). In alto, nome del documento e numero di pagine.
 
@@ -222,6 +226,8 @@ sealed interface PageItem {
 
 ### 6.2 Aggiungere pagine
 
+> **Nota (U-b, 2026-10-08):** in app questa funzione è parte dello strumento unico «Organizza pagine» (`docs/plan-usability.md`, U4).
+
 Punto di inserimento scelto dall'utente: prima di / dopo la pagina selezionata, in testa, in coda.
 
 **Da un altro PDF**
@@ -243,11 +249,15 @@ Punto di inserimento scelto dall'utente: prima di / dopo la pagina selezionata, 
 
 ### 6.3 Rimuovere pagine
 
+> **Nota (U-b, 2026-10-08):** in app questa funzione è parte dello strumento unico «Organizza pagine» (`docs/plan-usability.md`, U4).
+
 - Griglia di miniature, selezione multipla con tap, "seleziona tutto", selezione per intervallo (long press su una pagina, poi tap su un'altra).
 - Non si può rimuovere l'ultima pagina rimasta.
 - Animazione di uscita delle miniature rimosse; annullabile da snackbar e da undo.
 
 ### 6.4 Riordinare pagine
+
+> **Nota (U-b, 2026-10-08):** in app questa funzione è parte dello strumento unico «Organizza pagine» (`docs/plan-usability.md`, U4).
 
 - Griglia di miniature con drag & drop (long press per prendere la pagina, auto-scroll ai bordi).
 - Per Compose valutare la libreria **Reorderable** (Calvin Liang); verificare la licenza e la compatibilità con la versione di Compose in uso prima di adottarla. In alternativa, implementazione propria.

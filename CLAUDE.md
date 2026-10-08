@@ -45,6 +45,12 @@ sub-phase. When the author says "go on" / "next phase" (or similar):
    environment, so the author tests on a phone before merging.
 7. Don't start the next sub-phase in the same session unless the author asks.
 
+## Session and branch names
+The author asked for one session and one branch per sub-phase, named after it, so they don't have
+to repeat the names. Session title: `<sub-phase> <Name>` (e.g. `U-b Usability screens`); branch: the
+same in kebab-case (e.g. `u-b-usability-screens`). Set both at the start of a sub-phase.
+Current: session **U-b Usability screens**, branch `u-b-usability-screens`. Next: **V-a Viewer editing core** (session `V-a Viewer editing core`, branch `v-a-viewer-editing-core`).
+
 ## Sub-phases: model, scope, device checks
 Sonnet by default; Opus only for the cores where a wrong design is expensive to fix later.
 Haiku is not recommended for code in this project.
@@ -66,6 +72,9 @@ Haiku is not recommended for code in this project.
 | 8b Freehand complete | Sonnet | `docs/plan-v2.md` 8b: pen, highlighter, eraser, colours, undo/redo | Plan 8b | Finger and stylus; erase; undo/redo; rotation while drawing |
 | U-a Usability flows | Sonnet | `docs/plan-usability.md` U-a: U1, U2, U3, U5, U13 (edit panes start on the viewer's page and can jump; back to hub; leave after exit-dialog save; Highlight from the viewer selection; page indicator → go to page) | Plan U-a | Edit from page 37 opens on 37; page jump; Home tool → back → hub; exit-dialog save leaves; viewer selection → Copy or Highlight |
 | U-b Usability screens | Sonnet | `docs/plan-usability.md` U-b: U4 (Organize pages, incl. U9), U6, U7, U8, U10, U11, U12, U15, U16, U18–U21 (landscape side rail, 48 dp touch targets, tap for full-screen viewer, Undo/Redo at the bottom, floating selection bar) | Plan U-b | Organize pages (select, rotate, delete, drag, add); overwrite in one dialog; compact draw bar; signature 0/1/many + reminder; one-hand resize; Annotate/Fill in landscape; full-screen tap; Undo/Redo at the bottom |
+| V-a Viewer editing core | **Opus** | `docs/plan-viewer-editing.md` V-a: viewer-scoped edit session (pages fixed), pending edits drawn in `PdfViewport`, markup and freehand on any page of the viewport, eraser, save from the viewer, ADR 0005 | Plan V-a; handoff written | Highlight/draw on several pages at different zooms, save copy/overwrite, other reader; undo/redo; back with changes; rotation |
+| V-b Viewer tools UI | Sonnet | `docs/plan-viewer-editing.md` V-b: tool bar/rail in the viewer, Save, "Pages" with save-first, Edit FAB and hub removed, Home Highlight/Draw open the viewer armed | Plan V-b | Every tool from the bar; Home tools; Pages with/without pending changes; landscape; full-screen tap |
+| V-c Fill and sign in the viewer | **Opus** | `docs/plan-viewer-editing.md` V-c: overlays and form controls in the continuous viewport, gestures vs scroll, Fill pane removed | Plan V-c | Multi-page form while scrolling; signature place/move/resize/turn; save, other reader |
 | 9 Scan | Sonnet | `docs/plan-v2.md` 9: ML Kit Document Scanner, availability, open/add pages | Plan 9; packaged manifest still without `INTERNET` | Scan, save, add to open PDF; airplane mode |
 | 10a OCR core | **Opus** | `docs/plan-v2.md` 10a: Text Recognition v2, invisible text layer in user space | Unit tests on line geometry and search after OCR; handoff written | OCR'd scan searchable in app and other reader |
 | 10b OCR complete | Sonnet | `docs/plan-v2.md` 10b: UI, progress, cancellation, background | Plan 10b | 20-page scan; cancel halfway |
@@ -170,7 +179,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   that owns the callback (double tap during a transition). Home from the drawer:
   `popUpTo<Home>{inclusive}`. Exception: navigation from an activity result (the SAF picker),
   which arrives before the entry is RESUMED again; the tap that launches the picker is guarded.
-- Edit hub, "Remove pages" and "Reorder pages" are panes of one `EditScreen` (`Destination.Edit(uri,
+- Edit hub, "Organize pages", "Fill and sign" and "Annotate" are panes of one `EditScreen` (`Destination.Edit(uri,
   tool)`), sharing one `EditViewModel`; don't turn them into a nested nav graph (ADR 0003).
 - Single-page mode is a `HorizontalPager` of one-page layouts: each page has its own
   `PdfViewportState` and `PdfViewport(pageIndexOffset = page, requestSource = page)`, so keys carry
@@ -200,7 +209,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 ## References
 - Specification: `docs/spec.md`. Plan, alignment with the references, upgrade steps:
   `docs/plan.md`. Product phase 2 plan: `docs/plan-v2.md`. Usability review and plan:
-  `docs/plan-usability.md`.
+  `docs/plan-usability.md`. Editing in the viewer: `docs/plan-viewer-editing.md`.
 - ADRs: `docs/adr/0001-viewer.md`, `docs/adr/0002-pdfbox-android.md`,
   `docs/adr/0003-background-save-and-edit-session.md`, `docs/adr/0004-annotations.md`.
 
@@ -256,7 +265,44 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   (findings U1–U17). Author's answers recorded there; sub-phases U-a and U-b (Sonnet) go after 8b
   (done) and before 9. Order now: 8b → U-a → U-b → 9 → 10a → 10b → 11 → 12.
 - **U-a Usability flows done (2026-10-07)**, PR #20; lint, 379 unit tests and `assembleDebug` green;
-  device checks passed (author, 2026-10-08). **Next: U-b (Sonnet), `docs/plan-usability.md`.**
+  device checks passed (author, 2026-10-08).
+- **U-b Usability screens done (2026-10-08)**, branch `u-b-usability-screens`; lint (0 errors), unit tests and
+  `assembleDebug` green; device checks passed (author, 2026-10-08), PR #21. **Next: V-a (Opus), `docs/plan-viewer-editing.md`.**
+- **Viewer editing planned (2026-10-08)**, author's request while testing U-b (option "C"): page tools in the
+  viewer, document tools in the edit screen. `docs/plan-viewer-editing.md`, sub-phases V-a (Opus), V-b
+  (Sonnet), V-c (Opus). Order: U-b → V-a → V-b → V-c → 9 → 10a → 10b → 11 → 12 (place before 9 to confirm at V-a).
+
+### Notes from U-b (usability screens)
+- `PdfTool.ORGANIZE_PAGES` replaces Add/Insert/Remove/Reorder. `EditPane` is `HUB, ORGANIZE, FILL, ANNOTATE`; the hub
+  stays a read-only grid (decision: not the organizer, so its tool bar keeps one job); `PagesMode` is `ORGANIZE, PICK, VIEW`.
+  Drag uses Reorderable's `draggableHandle` on a handle per cell (`DragHandle`); the ⋮ menu stays for moves without dragging.
+  "Add" (`AddSourceDialog`) captures the insertion point (`addPoint`: after the last selected page, else after the page
+  read in the viewer, else the end) before the pickers; the selection is cleared when the PDF picker opens (it is reused for the picked pages).
+- `ui/common/EditBars.kt`: `ToolStrip(side, undoRedo, trailing, tools)` lays the same tools out as a bottom bar or, in
+  landscape (`isLandscape()`), as a rail at the end of the content; `EditScreen` puts the strip in `bottomBar` or beside the
+  content (`railed`). `TransientHint` is the over-the-page message that replaces the hint rows (4.5 s).
+- Annotate style (colour + brush size) is the `StyleButton` menu (`trailing` of the strip). `ToolButtonFrame` is 56 dp min and
+  takes `onLongClick`; swatches and width cells have a 48 dp touch box.
+- Signature tap: `savedSignatures` null/many → picker, none → creation, one → armed; long press → picker (`EditScreen.onSignature`).
+- Overwrite: `SaveDialog` is the only confirmation (`OverwriteConfirmDialog` is gone).
+- Corner handle (U11): `UserTransform.about` (scale and turn about the centre), gesture first in `detectOverlayGestures`.
+- Viewer: `PdfViewport(onTap, selectionBar)`; `SelectionBarPlacement` puts the floating Copy/Highlight bar above the
+  selection (below if no room, hidden if off screen). A tap clears a selection, else toggles `immersive` (system bars via
+  `WindowInsetsControllerCompat`, restored on dispose). The top bar (and the search bar) is an overlay in the
+  page area, which is always the whole screen (`contentWindowInsets` 0): showing/hiding bars never resizes the
+  viewport (it flickered when it did, author's device test). FAB and snackbar pad for the navigation bar themselves.
+- Known limits: the Annotate tool row scrolls on a narrow phone (Style and Undo/Redo stay fixed); no per-element
+  semantics for the corner handle; hub and Organize have no "move selection to start/end" (use the page menu); immersive
+  bar covers the top of the first page when the document opens (scroll a little; a top inset in `DocumentLayout` would
+  fix it but touches the shared geometry); Compose `ConfigurationScreenWidthHeight` lint warning on `isLandscape()`.
+
+### Device checks U-b (author, passed 2026-10-08)
+Organize pages (select, range by long press, rotate, delete, drag the handle, Add from PDF / blank / photos / files,
+default position after the selected page); overwrite in one dialog; Annotate with the pen: Style button, hint fades, more
+page on screen; signature with 0 / 1 / several saved and the reminder on "My signatures"; resize and turn from the corner
+handle with one hand; Date placed directly; Annotate and Fill in landscape (rail); colours and sizes easy to hit; tap for
+full-screen reading and back; Undo/Redo at the bottom in every pane and the hub; floating Copy/Highlight by the selection
+in continuous and single-page mode; pane titles; Settings "Dynamic colors".
 
 ### Notes from U-a (usability flows)
 - `Destination.Edit` has `page` (index in the main document, -1 from Home), `selectionStart/End` (glyph
@@ -462,6 +508,16 @@ tap "Page X of N" in the viewer; rotate the phone in each case.
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-08 · Editing in the viewer (author's answers, `docs/plan-viewer-editing.md`): highlight, draw, eraser
+  **and fill and sign** happen in the viewer; "Pages" (organize, add, merge) stays in `EditScreen`, which loses
+  the hub and opens on Organize; with unsaved viewer changes "Pages" asks to **save first** (no shared unsaved
+  session). The viewer never changes the page list, so it keeps rendering the saved file and draws pending
+  edits on top. Replaces the 7b "one save path" UI decision and U5's route through `EditScreen`; the save
+  engine stays one. ADR 0005 to be written in V-a.
+- 2026-10-08 · U-b: the hub stays a read-only grid and "Organize pages" is its own pane (the plan left it open); hints are
+  transient messages over the page, not rows; style (colour/size) is one menu button; in landscape the tool strip is a rail;
+  the viewer's tap toggles full screen only when no selection is active (a tap then clears it); date placement and the
+  single-signature shortcut skip their dialogs, undo covers them. Pane title follows the armed tool (U15 first option).
 - 2026-10-07 · U-a: the Highlight button of the viewer selection lives in the top bar next to Copy for
   now (U-b's floating bar will move both). After a save started from the exit dialog the edit closes
   with a Toast, not the Open/Share snackbar: showing it on the screen below would need plumbing through

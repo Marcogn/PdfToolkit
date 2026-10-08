@@ -104,6 +104,17 @@ fun SignaturesScreen(onMenuClick: () -> Unit, viewModel: SignaturesViewModel = h
                         onDelete = { deleting = signature.id },
                     )
                 }
+                // With exactly one signature "Signature" in Fill and sign arms it without asking (plan U8): say so.
+                if (list.size == 1) {
+                    item {
+                        Text(
+                            stringResource(R.string.signatures_single_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+                        )
+                    }
+                }
             }
         }
     }

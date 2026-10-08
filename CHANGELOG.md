@@ -6,6 +6,27 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **One "Organize pages" tool.** Remove, Reorder, Add pages and Insert images are now a single tool on Home
+  and in the edit hub. Tap pages to select them (rotate and delete are in the bar that appears, long press
+  then tap another for a range); every page has a handle to drag it at once; "Add" offers another PDF,
+  blank pages, or images from photos or files, after the selected page. Home no longer asks twice for a file.
+- **Overwrite asks once.** Choosing "Overwrite" in the save dialog shows the warning under the option and the
+  button reads "Overwrite"; the second confirmation dialog is gone.
+- **Roomier Annotate and Fill and sign.** The hint banner is now a short message over the page, colours and
+  brush sizes are behind one "Style" button, and in landscape the tools move to a rail at the side so the page
+  keeps its height. Colour and size choices are at least 48 dp to touch.
+- **Undo, Redo and Save where the thumb is.** Undo and Redo are at the end of the tool bar (rail) in every
+  edit pane and in the hub; Save is a "Save" word in the top bar, shown whenever there is something to save.
+- **Signature in one tap.** With no saved signature "Signature" opens the creation; with one it is placed
+  straight away (long press, or "Change" in the hint, to pick another). "My signatures" says so.
+- **Date is placed directly** (today's date, selected, ready to edit). **Resize and turn with one finger** from
+  the round handle on the corner of a selected item. The hint about moving items was wrong and is fixed.
+- **Full-screen reading.** A single tap on the page hides the bars; tap again to bring them back. The bars float
+  over the page, so the document no longer jumps or flickers when they come and go.
+- **Copy and Highlight float by the selected text** in the viewer instead of replacing the top bar.
+- **Names.** The annotate pane is titled "Highlight" or "Draw" after the armed tool; "Wallpaper colors" in
+  Settings is now "Dynamic colors".
+
 - **Edit starts where you are reading.** Fill and sign and Annotate open on the page you were on when you
   tapped Edit, not on page 1. The "Page X of N" chip in both is now a button: tap it, type a number and go.
   New pages (blank, images, from another PDF) default to "after the page you were reading".

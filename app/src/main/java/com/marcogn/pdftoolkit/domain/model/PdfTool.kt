@@ -11,10 +11,7 @@ enum class PdfTool(
     val requiresDocument: Boolean = true,
 ) {
     MERGE,
-    ADD_PAGES,
-    INSERT_IMAGES,
-    REMOVE_PAGES,
-    REORDER_PAGES,
+    ORGANIZE_PAGES,
     FILL_AND_SIGN,
     MY_SIGNATURES(requiresDocument = false),
     SCAN(comingSoon = true, requiresDocument = false),

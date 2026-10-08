@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -71,13 +72,13 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 
 /**
- * What the page grid is for: pick pages to remove, drag them into a new order (spec §6.3, §6.4),
- * pick pages of another PDF to add (spec §6.2), or just show the document (the edit hub).
- * [REMOVE] and [PICK] behave the same: a tap selects. [VIEW] takes no touches.
+ * What the page grid is for: organize the document's pages, i.e. select to rotate or remove and drag
+ * the handle to reorder (spec §6.3, §6.4, plan U4); pick pages of another PDF to add (spec §6.2); or
+ * just show the document (the edit hub). In [ORGANIZE] and [PICK] a tap selects. [VIEW] takes no touches.
  */
-enum class PagesMode { REMOVE, REORDER, PICK, VIEW }
+enum class PagesMode { ORGANIZE, PICK, VIEW }
 
-/** What the cell menu of a page in reorder mode can do. */
+/** What the cell menu of a page in organize mode can do. */
 class PageActions(
     val onMoveToStart: (String) -> Unit,
     val onMoveToEnd: (String) -> Unit,
@@ -89,9 +90,9 @@ class PageActions(
 private val CellMinWidth = 104.dp
 
 /**
- * Thumbnails of the session's pages in a grid. In [PagesMode.REMOVE] a tap selects, in
- * [PagesMode.REORDER] a long press picks the page up (Reorderable library, Apache 2.0) and the
- * menu of each page offers the same moves without dragging (spec §9, accessibility).
+ * Thumbnails of the session's pages in a grid. In [PagesMode.ORGANIZE] a tap selects (a long press
+ * starts a range) and the handle of each cell picks the page up at once (Reorderable library, Apache
+ * 2.0); the menu of each page offers the same moves without dragging (spec §9, accessibility).
  *
  * While dragging, the grid shows its own copy of the list and commits one move to the session on
  * release, so a whole drag is a single undo step.
@@ -148,9 +149,9 @@ fun PagesGrid(
         modifier = modifier,
     ) {
         itemsIndexed(shown, key = { _, page -> page.id }) { index, page ->
-            ReorderableItem(reorderState, key = page.id, enabled = mode == PagesMode.REORDER) { isDragging ->
-                val dragModifier = if (mode == PagesMode.REORDER) {
-                    Modifier.longPressDraggableHandle(
+            ReorderableItem(reorderState, key = page.id, enabled = mode == PagesMode.ORGANIZE) { isDragging ->
+                val handleModifier = if (mode == PagesMode.ORGANIZE) {
+                    Modifier.draggableHandle(
                         onDragStarted = {
                             draggingId = page.id
                             haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
@@ -184,7 +185,8 @@ fun PagesGrid(
                     actions = actions,
                     onTap = { onTap(page) },
                     onLongPress = { onLongPress(page) },
-                    modifier = dragModifier.cascadeIn(index, opening),
+                    handleModifier = handleModifier,
+                    modifier = Modifier.cascadeIn(index, opening),
                 )
             }
         }
@@ -228,6 +230,7 @@ private fun PageCell(
     actions: PageActions,
     onTap: () -> Unit,
     onLongPress: () -> Unit,
+    handleModifier: Modifier,
     modifier: Modifier = Modifier,
 ) {
     val description = stringResource(R.string.cd_edit_page, number, page.rotation)
@@ -239,7 +242,7 @@ private fun PageCell(
     val semanticsModifier = Modifier.semantics {
         contentDescription = description
         this.selected = selected
-        if (mode == PagesMode.REORDER) {
+        if (mode == PagesMode.ORGANIZE) {
             customActions = buildList {
                 if (!isFirst) {
                     add(CustomAccessibilityAction(moveToStart) { actions.onMoveToStart(page.id); true })
@@ -253,7 +256,7 @@ private fun PageCell(
             }
         }
     }
-    val clickModifier = if (mode == PagesMode.REMOVE || mode == PagesMode.PICK) {
+    val clickModifier = if (mode == PagesMode.ORGANIZE || mode == PagesMode.PICK) {
         Modifier.combinedClickable(onClick = onTap, onLongClick = onLongPress)
     } else {
         Modifier
@@ -321,9 +324,26 @@ private fun PageCell(
                     .padding(3.dp),
             )
         }
-        if (mode == PagesMode.REORDER) {
+        if (mode == PagesMode.ORGANIZE) {
             PageMenu(number, isFirst, isLast, page.id, actions, Modifier.align(Alignment.TopEnd))
+            DragHandle(number, handleModifier.align(Alignment.BottomEnd))
         }
+    }
+}
+
+/** The grip that picks a page up at once (no long press); a 48 dp touch area around a smaller drawing. */
+@Composable
+private fun DragHandle(number: Int, modifier: Modifier) {
+    Box(modifier.size(48.dp), contentAlignment = Alignment.Center) {
+        Icon(
+            Icons.Filled.DragHandle,
+            contentDescription = stringResource(R.string.cd_edit_page_drag, number),
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                .padding(3.dp),
+        )
     }
 }
 

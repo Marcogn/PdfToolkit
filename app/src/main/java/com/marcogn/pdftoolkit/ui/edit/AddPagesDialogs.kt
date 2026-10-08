@@ -68,7 +68,7 @@ import com.marcogn.pdftoolkit.domain.edit.PageSizing
 import com.marcogn.pdftoolkit.domain.edit.SizePt
 import kotlin.math.roundToInt
 
-private val InsertionPointSaver = listSaver<InsertionPoint, Int>(
+internal val InsertionPointSaver = listSaver<InsertionPoint, Int>(
     save = { listOf(it.kind.ordinal, it.pageNumber) },
     restore = { InsertionPoint(InsertionPoint.Kind.entries[it[0]], it[1]) },
 )
@@ -141,16 +141,18 @@ private fun SourceRow(icon: ImageVector, title: String, hint: String, onClick: (
     }
 }
 
-/** First step of "Add pages": where the new pages come from. */
+/** The one place to add pages in "Organize pages": another PDF, blank pages, or images (plan U4). */
 @Composable
-fun AddPagesSourceDialog(onFromPdf: () -> Unit, onBlank: () -> Unit, onDismiss: () -> Unit) {
+fun AddSourceDialog(onFromPdf: () -> Unit, onBlank: () -> Unit, onPhotos: () -> Unit, onFiles: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.tool_add_pages)) },
+        title = { Text(stringResource(R.string.organize_add_title)) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 SourceRow(Icons.Outlined.PictureAsPdf, stringResource(R.string.add_from_pdf), stringResource(R.string.add_from_pdf_hint), onFromPdf)
                 SourceRow(Icons.Outlined.NoteAdd, stringResource(R.string.add_blank), stringResource(R.string.add_blank_hint), onBlank)
+                SourceRow(Icons.Outlined.PhotoLibrary, stringResource(R.string.images_from_photos), stringResource(R.string.images_from_photos_hint), onPhotos)
+                SourceRow(Icons.Outlined.Folder, stringResource(R.string.images_from_files), stringResource(R.string.images_from_files_hint), onFiles)
             }
         },
         confirmButton = {},
@@ -196,23 +198,6 @@ fun BlankPagesDialog(
             }
         },
         confirmButton = { TextButton(onClick = { onConfirm(count, point) }) { Text(stringResource(R.string.add_confirm)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.save_cancel)) } },
-    )
-}
-
-/** Where the images to add come from: the system photo picker or a file. */
-@Composable
-fun ImageSourceDialog(onPhotos: () -> Unit, onFiles: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.tool_insert_images)) },
-        text = {
-            Column {
-                SourceRow(Icons.Outlined.PhotoLibrary, stringResource(R.string.images_from_photos), stringResource(R.string.images_from_photos_hint), onPhotos)
-                SourceRow(Icons.Outlined.Folder, stringResource(R.string.images_from_files), stringResource(R.string.images_from_files_hint), onFiles)
-            }
-        },
-        confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.save_cancel)) } },
     )
 }

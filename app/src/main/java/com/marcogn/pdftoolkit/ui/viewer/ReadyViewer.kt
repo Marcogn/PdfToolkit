@@ -1,6 +1,8 @@
 package com.marcogn.pdftoolkit.ui.viewer
 
+import android.app.Activity
 import android.content.ClipData
+import android.content.ContextWrapper
 import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
@@ -18,6 +20,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -46,9 +51,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -65,6 +73,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -73,6 +82,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.ui.navigation.editContainerBounds
@@ -214,31 +226,40 @@ fun ReadyViewer(
         }
     }
 
-    Scaffold(
-        topBar = {
-            if (selection.isActive && !searchOpen) {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.viewer_selection_title)) },
-                    navigationIcon = {
-                        IconButton(onClick = selection::clear) {
-                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.viewer_selection_clear))
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = copySelection) {
-                            Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.viewer_selection_copy))
-                        }
-                        // Annotating goes through the edit screen, one save path (plan U5): the selection travels along.
-                        val range = selection.range
-                        val page = selection.key?.toIntOrNull()
-                        if (range != null && page != null) {
-                            IconButton(onClick = { onHighlight(page, range.start, range.end) }) {
-                                Icon(Icons.Outlined.BorderColor, contentDescription = stringResource(R.string.viewer_selection_highlight))
-                            }
-                        }
-                    },
-                )
-            } else if (searchOpen) {
+    // A single tap on the page hides the top bar, the Edit button and the system bars, and shows them again (plan U20).
+    var immersive by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(searchOpen) {
+        if (searchOpen) immersive = false
+    }
+    ImmersiveMode(immersive)
+    val onTap: () -> Unit = {
+        if (selection.isActive) selection.clear() else if (!searchOpen) immersive = !immersive
+    }
+    // Copy and Highlight float by the selected text, within reach, instead of replacing the top bar (plan U21).
+    val selectionBar: @Composable () -> Unit = {
+        val range = selection.range
+        val page = selection.key?.toIntOrNull()
+        Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 6.dp) {
+            Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = copySelection) {
+                    Icon(Icons.Outlined.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(stringResource(R.string.viewer_selection_copy), modifier = Modifier.padding(start = 8.dp))
+                }
+                // Annotating goes through the edit screen, one save path (plan U5): the selection travels along.
+                if (range != null && page != null) {
+                    TextButton(onClick = { onHighlight(page, range.start, range.end) }) {
+                        Icon(Icons.Outlined.BorderColor, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(stringResource(R.string.viewer_selection_highlight), modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
+        }
+    }
+
+    // The bars float over the pages, which always fill the screen: showing or hiding them (plan U20) never
+    // resizes the page area, so the document doesn't move or re-render under the reader's finger.
+    val topBar: @Composable () -> Unit = {
+            if (searchOpen) {
                 SearchTopBar(
                     query = searchText,
                     onQueryChange = {
@@ -289,10 +310,14 @@ fun ReadyViewer(
                     },
                 )
             }
-        },
+    }
+
+    Scaffold(
+        // No insets: the page area is the whole screen; each floating element pads itself.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             AnimatedVisibility(
-                visible = !fabHidden && !showThumbnails && !searchOpen && !selection.isActive,
+                visible = !fabHidden && !showThumbnails && !searchOpen && !selection.isActive && !immersive,
                 enter = scaleIn(tween(PANEL_MS)) + fadeIn(tween(PANEL_MS)),
                 exit = scaleOut(tween(PANEL_MS)) + fadeOut(tween(PANEL_MS)),
             ) {
@@ -302,11 +327,11 @@ fun ReadyViewer(
                     text = { Text(stringResource(R.string.edit_fab)) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.editContainerBounds(),
+                    modifier = Modifier.navigationBarsPadding().editContainerBounds(),
                 )
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { SnackbarHost(snackbarHostState, Modifier.navigationBarsPadding()) },
     ) { padding ->
         val pageDescription = stringResource(R.string.cd_viewer_page, currentPage + 1, pageCount)
         val nextPageLabel = stringResource(R.string.cd_viewer_next_page)
@@ -335,13 +360,18 @@ fun ReadyViewer(
                 modifier = Modifier.fillMaxSize(),
             ) { mode ->
                 when (mode) {
-                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, selection, onLongPress, reportPage, onScroll)
-                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, selection, onLongPress, reportPage)
+                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, selection, onLongPress, onTap, selectionBar, reportPage, onScroll)
+                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, selection, onLongPress, onTap, selectionBar, reportPage)
                 }
             }
 
-            if (searchOpen) {
-                Column(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().align(Alignment.TopCenter)) {
+                AnimatedVisibility(
+                    visible = searchOpen || !immersive,
+                    enter = slideInVertically(tween(PANEL_MS)) { -it } + fadeIn(tween(PANEL_MS)),
+                    exit = slideOutVertically(tween(PANEL_MS)) { -it } + fadeOut(tween(PANEL_MS)),
+                ) { topBar() }
+                if (searchOpen) {
                     if (searchState.isIndexing) {
                         val indexingDescription = stringResource(R.string.cd_search_indexing)
                         LinearProgressIndicator(
@@ -394,6 +424,21 @@ fun ReadyViewer(
             sizeBytes = state.sizeBytes,
             onDismiss = { showInfo = false },
         )
+    }
+}
+
+/** Hides the status and navigation bars while [immersive]; they come back on a swipe from the edge, and on leaving. */
+@Composable
+private fun ImmersiveMode(immersive: Boolean) {
+    val view = LocalView.current
+    DisposableEffect(immersive) {
+        var context = view.context
+        while (context is ContextWrapper && context !is Activity) context = context.baseContext
+        val window = (context as? Activity)?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (immersive) controller?.hide(WindowInsetsCompat.Type.systemBars()) else controller?.show(WindowInsetsCompat.Type.systemBars())
+        onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
     }
 }
 
@@ -486,6 +531,8 @@ private fun ContinuousPages(
     annotations: AnnotationLayer,
     selection: TextSelectionState,
     onLongPress: (Int, Offset) -> Unit,
+    onTap: () -> Unit,
+    selectionBar: @Composable () -> Unit,
     onPageChanged: (Int) -> Unit,
     onScroll: (Float) -> Unit,
 ) {
@@ -518,6 +565,8 @@ private fun ContinuousPages(
         annotations = annotations,
         selection = selection,
         onLongPress = onLongPress,
+        onTap = onTap,
+        selectionBar = selectionBar,
         modifier = Modifier.fillMaxSize(),
     )
 }
@@ -538,6 +587,8 @@ private fun SinglePages(
     annotations: AnnotationLayer,
     selection: TextSelectionState,
     onLongPress: (Int, Offset) -> Unit,
+    onTap: () -> Unit,
+    selectionBar: @Composable () -> Unit,
     onPageChanged: (Int) -> Unit,
 ) {
     // A search result waits here until its page is composed and has a layout, then it is centred.
@@ -581,6 +632,8 @@ private fun SinglePages(
             annotations = annotations,
             selection = selection,
             onLongPress = onLongPress,
+            onTap = onTap,
+            selectionBar = selectionBar,
             modifier = Modifier.fillMaxSize(),
         )
     }

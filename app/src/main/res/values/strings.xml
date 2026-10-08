@@ -23,11 +23,10 @@
     <string name="home_coming_soon_message">%1$s arriverà in una prossima versione.</string>
 
     <!-- Tools -->
+    <string name="tool_organize_pages">Organizza pagine</string>
+    <string name="organize_add">Aggiungi</string>
+    <string name="organize_add_title">Aggiungi pagine</string>
     <string name="tool_merge">Unisci PDF</string>
-    <string name="tool_add_pages">Aggiungi pagine</string>
-    <string name="tool_insert_images">Inserisci immagini</string>
-    <string name="tool_remove_pages">Rimuovi pagine</string>
-    <string name="tool_reorder_pages">Riordina pagine</string>
     <string name="tool_fill_and_sign">Compila e firma</string>
     <string name="tool_my_signatures">Le mie firme</string>
     <string name="tool_scan">Scansiona</string>
@@ -52,7 +51,7 @@
     <string name="theme_system">Sistema</string>
     <string name="theme_light">Chiaro</string>
     <string name="theme_dark">Scuro</string>
-    <string name="settings_dynamic_color">Colori dello sfondo</string>
+    <string name="settings_dynamic_color">Colori dinamici</string>
     <string name="settings_dynamic_color_summary">Usa i colori del sistema al posto di quelli dell\'app.</string>
     <string name="settings_dynamic_color_unsupported">Richiede Android 12 o successivo.</string>
     <string name="settings_language_label">Lingua</string>
@@ -148,8 +147,7 @@
         <item quantity="one">%1$d selezionata</item>
         <item quantity="other">%1$d selezionate</item>
     </plurals>
-    <string name="edit_remove_hint">Tocca le pagine da rimuovere. Tieni premuto su una pagina e tocca un\'altra per selezionare un intervallo.</string>
-    <string name="edit_reorder_hint">Tieni premuta una pagina e trascinala. Il menu su ogni pagina offre alternative.</string>
+    <string name="organize_hint">Tocca le pagine per selezionarle (ruota, elimina). Trascina la maniglia per spostarle; tieni premuto e tocca un\'altra per un intervallo.</string>
     <string name="edit_remove">Rimuovi</string>
     <string name="edit_rotate">Ruota di 90°</string>
     <string name="edit_clear_selection">Deseleziona</string>
@@ -163,6 +161,7 @@
     <string name="edit_move_earlier">Sposta indietro di una</string>
     <string name="edit_move_later">Sposta avanti di una</string>
     <string name="cd_edit_page_menu">Azioni sulla pagina %1$d</string>
+    <string name="cd_edit_page_drag">Trascina la pagina %1$d per spostarla</string>
     <string name="cd_edit_page">Pagina %1$d, ruotata di %2$d gradi</string>
     <string name="edit_unsaved_title">Modifiche non salvate</string>
     <string name="edit_unsaved_message">Vuoi salvare le modifiche prima di uscire?</string>
@@ -177,8 +176,7 @@
     <string name="save_overwrite_unavailable">Non disponibile: il file non permette la scrittura.</string>
     <string name="save_confirm">Salva</string>
     <string name="save_cancel">Annulla</string>
-    <string name="save_overwrite_confirm_title">Sovrascrivere l\'originale?</string>
-    <string name="save_overwrite_confirm_message">Il file originale sarà sostituito e non si potrà recuperare.</string>
+    <string name="save_overwrite_warning">Il file originale sarà sostituito e non si potrà recuperare.</string>
     <string name="save_done">PDF salvato</string>
     <string name="save_open">Apri</string>
     <string name="save_share">Condividi</string>
@@ -254,10 +252,7 @@
     <string name="images_from_files_hint">Scegli dai file del telefono</string>
     <string name="add_new_badge">Nuova</string>
     <string name="add_review_hint">Le pagine nuove sono evidenziate: se non sono dove volevi, trascinale nella posizione giusta.</string>
-    <string name="add_review_hint_hub">Le pagine nuove sono evidenziate. Per spostarle usa \"Riordina pagine\".</string>
-    <string name="home_pick_pdf_first_images">Prima scegli il PDF in cui inserire le immagini, poi le immagini da aggiungere.</string>
-    <string name="home_pick_pdf_first_pages">Prima scegli il PDF a cui aggiungere pagine, poi da dove prenderle (un altro PDF o pagine vuote).</string>
-    <string name="home_pick_pdf_first_confirm">Scegli il PDF</string>
+    <string name="add_review_hint_hub">Le pagine nuove sono evidenziate. Per spostarle usa \"Organizza pagine\".</string>
 
     <!-- Fill and sign (phase 4a) -->
     <string name="fill_tool_text">Testo</string>
@@ -284,6 +279,7 @@
     <string name="save_flatten_ink_hint">I tratti diventano parte della pagina e non si potranno più cancellare.</string>
     <string name="signatures_empty">Non hai ancora nessuna firma. Disegnane una o caricala da un\'immagine: potrai riusarla su ogni documento.</string>
     <string name="signature_new">Nuova firma</string>
+    <string name="signatures_single_hint">Con una sola firma salvata, \"Firma\" in Compila e firma la usa subito. Tieni premuto \"Firma\" per sceglierne o crearne un\'altra.</string>
     <string name="signature_draw">Disegna col dito</string>
     <string name="signature_from_image">Da immagine</string>
     <string name="signature_default_name">Firma</string>
@@ -310,7 +306,8 @@
     <string name="signature_remove_background">Rimuovi lo sfondo</string>
     <string name="signature_preview">Anteprima della firma</string>
     <string name="signature_nothing_found">Nessuna firma trovata: abbassa la soglia o ritaglia meglio.</string>
-    <string name="fill_hint_move">Tieni premuto e trascina per spostare; con due dita ridimensiona e ruota.</string>
+    <string name="fill_hint_move">Trascina per spostare; con due dita o dall\'angolo ridimensioni e ruoti.</string>
+    <string name="fill_change_signature">Cambia</string>
     <string name="search_hint">Cerca nel documento</string>
     <string name="search_counter">%1$d di %2$d</string>
     <string name="search_no_results">Nessun risultato</string>
@@ -325,7 +322,6 @@
     <!-- Text selection in the viewer and the Annotate pane (7b) -->
     <string name="viewer_selection_title">Testo selezionato</string>
     <string name="viewer_selection_copy">Copia</string>
-    <string name="viewer_selection_clear">Annulla selezione</string>
     <string name="viewer_selection_highlight">Evidenzia</string>
     <string name="viewer_text_copied">Testo copiato</string>
     <string name="annotate_tool_highlight">Evidenzia</string>
@@ -340,8 +336,9 @@
     <string name="annotate_apply_strikeout">Barra il testo</string>
     <string name="annotate_cancel">Annulla</string>
     <string name="annotate_hint_select">Tieni premuto su una parola, poi trascina le maniglie</string>
+    <string name="annotate_style">Stile</string>
     <string name="annotate_hint_erase">Tocca un\'annotazione per rimuoverla</string>
-    <string name="annotate_hint_draw">Disegna con un dito o con la penna; con due dita sposti e ingrandisci</string>
+    <string name="annotate_hint_draw">Disegna con un dito o con la penna; con due dita sposti e ingrandisci. Colore e spessore: pulsante Stile</string>
     <string name="annotate_page_no_text">Questa pagina non ha testo selezionabile (è una scansione?)</string>
     <string name="annotate_load_failed">Impossibile leggere le annotazioni del documento</string>
     <string name="color_yellow">Giallo</string>

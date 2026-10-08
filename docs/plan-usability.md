@@ -1,7 +1,7 @@
 # Usability review and plan
 
 Review of the app as of 8b (branch of PR "8b Freehand complete", 2026-10-07), asked by the author:
-superfluous taps, unclear dialogs and flows. U-a (U1, U2, U3, U5, U13) is implemented and its device checks passed (2026-10-08); U-b is still a plan.
+superfluous taps, unclear dialogs and flows. U-a (U1, U2, U3, U5, U13) is implemented and its device checks passed (2026-10-08); U-b is implemented and its device checks passed (2026-10-08). Follow-up: page tools move into the viewer, `docs/plan-viewer-editing.md`.
 Items marked **[SPEC]** change something `docs/spec.md` asks for, or a recorded decision in
 `CLAUDE.md`; the author approved them on 2026-10-07 (answers at the end).
 

@@ -36,7 +36,7 @@ Planned for the first version:
 - reading with zoom, continuous or single-page scrolling, scrubber and thumbnails (done)
 - text search (done)
 - merging several PDFs (done)
-- removing, reordering and rotating pages (done); adding pages from another PDF, blank, or from
+- organizing pages in one tool: select, rotate, remove, drag to reorder, add (done); adding pages from another PDF, blank, or from
   images (done)
 - form filling and signing (done: forms, text, date, ticks, signatures drawn or imported), with an
   archive of signatures saved on the phone
