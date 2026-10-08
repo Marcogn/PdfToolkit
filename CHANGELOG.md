@@ -21,7 +21,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
   straight away (long press, or "Change" in the hint, to pick another). "My signatures" says so.
 - **Date is placed directly** (today's date, selected, ready to edit). **Resize and turn with one finger** from
   the round handle on the corner of a selected item. The hint about moving items was wrong and is fixed.
-- **Full-screen reading.** A single tap on the page hides the bars; tap again to bring them back.
+- **Full-screen reading.** A single tap on the page hides the bars; tap again to bring them back. The bars float
+  over the page, so the document no longer jumps or flickers when they come and go.
 - **Copy and Highlight float by the selected text** in the viewer instead of replacing the top bar.
 - **Names.** The annotate pane is titled "Highlight" or "Draw" after the armed tool; "Wallpaper colors" in
   Settings is now "Dynamic colors".

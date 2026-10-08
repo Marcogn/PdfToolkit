@@ -282,10 +282,13 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - Corner handle (U11): `UserTransform.about` (scale and turn about the centre), gesture first in `detectOverlayGestures`.
 - Viewer: `PdfViewport(onTap, selectionBar)`; `SelectionBarPlacement` puts the floating Copy/Highlight bar above the
   selection (below if no room, hidden if off screen). A tap clears a selection, else toggles `immersive` (system bars via
-  `WindowInsetsControllerCompat`, restored on dispose); the page area resizes when the top bar goes.
+  `WindowInsetsControllerCompat`, restored on dispose). The top bar (and the search bar) is an overlay in the
+  page area, which is always the whole screen (`contentWindowInsets` 0): showing/hiding bars never resizes the
+  viewport (it flickered when it did, author's device test). FAB and snackbar pad for the navigation bar themselves.
 - Known limits: the Annotate tool row scrolls on a narrow phone (Style and Undo/Redo stay fixed); no per-element
   semantics for the corner handle; hub and Organize have no "move selection to start/end" (use the page menu); immersive
-  mode relayouts the viewport (a small jump is possible); Compose `ConfigurationScreenWidthHeight` lint warning on `isLandscape()`.
+  bar covers the top of the first page when the document opens (scroll a little; a top inset in `DocumentLayout` would
+  fix it but touches the shared geometry); Compose `ConfigurationScreenWidthHeight` lint warning on `isLandscape()`.
 
 ### Device checks U-b (author)
 Organize pages (select, range by long press, rotate, delete, drag the handle, Add from PDF / blank / photos / files,

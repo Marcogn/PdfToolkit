@@ -21,6 +21,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -255,8 +256,9 @@ fun ReadyViewer(
         }
     }
 
-    Scaffold(
-        topBar = {
+    // The bars float over the pages, which always fill the screen: showing or hiding them (plan U20) never
+    // resizes the page area, so the document doesn't move or re-render under the reader's finger.
+    val topBar: @Composable () -> Unit = {
             if (searchOpen) {
                 SearchTopBar(
                     query = searchText,
@@ -269,7 +271,7 @@ fun ReadyViewer(
                     onNext = search::next,
                     onClose = closeSearch,
                 )
-            } else if (!immersive) {
+            } else {
                 TopAppBar(
                     title = {
                         Column {
@@ -308,7 +310,11 @@ fun ReadyViewer(
                     },
                 )
             }
-        },
+    }
+
+    Scaffold(
+        // No insets: the page area is the whole screen; each floating element pads itself.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             AnimatedVisibility(
                 visible = !fabHidden && !showThumbnails && !searchOpen && !selection.isActive && !immersive,
@@ -321,11 +327,11 @@ fun ReadyViewer(
                     text = { Text(stringResource(R.string.edit_fab)) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.editContainerBounds(),
+                    modifier = Modifier.navigationBarsPadding().editContainerBounds(),
                 )
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { SnackbarHost(snackbarHostState, Modifier.navigationBarsPadding()) },
     ) { padding ->
         val pageDescription = stringResource(R.string.cd_viewer_page, currentPage + 1, pageCount)
         val nextPageLabel = stringResource(R.string.cd_viewer_next_page)
@@ -359,8 +365,13 @@ fun ReadyViewer(
                 }
             }
 
-            if (searchOpen) {
-                Column(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().align(Alignment.TopCenter)) {
+                AnimatedVisibility(
+                    visible = searchOpen || !immersive,
+                    enter = slideInVertically(tween(PANEL_MS)) { -it } + fadeIn(tween(PANEL_MS)),
+                    exit = slideOutVertically(tween(PANEL_MS)) { -it } + fadeOut(tween(PANEL_MS)),
+                ) { topBar() }
+                if (searchOpen) {
                     if (searchState.isIndexing) {
                         val indexingDescription = stringResource(R.string.cd_search_indexing)
                         LinearProgressIndicator(
