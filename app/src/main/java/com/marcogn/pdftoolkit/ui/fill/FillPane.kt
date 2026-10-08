@@ -1,7 +1,16 @@
 package com.marcogn.pdftoolkit.ui.fill
 
 import android.graphics.Typeface
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import com.marcogn.pdftoolkit.ui.common.ToolStrip
+import com.marcogn.pdftoolkit.ui.common.TransientHint
+import com.marcogn.pdftoolkit.ui.common.UndoRedo
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,14 +27,12 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
@@ -153,6 +160,7 @@ fun FillPane(
     actions: FillActions,
     initialPageId: String? = null,
     onPageChanged: (pageId: String) -> Unit = {},
+    onChangeSignature: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -162,7 +170,7 @@ fun FillPane(
         FillLoad.Failed -> Box(modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
             Text(stringResource(R.string.fill_load_failed), textAlign = TextAlign.Center)
         }
-        is FillLoad.Ready -> FillPages(pages, overlays, values, load.documents, state, actions, painter, initialPageId, onPageChanged, modifier)
+        is FillLoad.Ready -> FillPages(pages, overlays, values, load.documents, state, actions, painter, initialPageId, onPageChanged, onChangeSignature, modifier)
     }
 
     state.textTarget?.let { target ->
@@ -181,7 +189,7 @@ fun FillPane(
                 if (existing != null) {
                     actions.updateOverlay(existing.copy(text = text, fontSize = fontSize, box = OverlayGeometry.resizedFromTopLeft(existing.box, width, height)))
                 } else {
-                    placeText(target, text, fontSize, width, height, pages, load, actions)
+                    placeText(target, text, fontSize, width, height, pages, (load as? FillLoad.Ready)?.documents, actions)
                 }
             },
             onDismiss = { state.textTarget = null },
@@ -189,16 +197,21 @@ fun FillPane(
     }
 }
 
-/** The new text's first line is centred vertically on the tap, its left edge just left of it. */
-private fun placeText(target: TextTarget, text: String, fontSize: Float, width: Float, height: Float, pages: List<PageItem>, load: FillLoad?, actions: FillActions) {
-    val documents = (load as? FillLoad.Ready)?.documents ?: return
-    val page = pages.firstOrNull { it.id == target.pageId } ?: return
-    val space = documents.space(page) ?: return
+/**
+ * The new text's first line is centred vertically on the tap, its left edge just left of it.
+ * Returns the id of the overlay added, or null if the page can't be found.
+ */
+private fun placeText(target: TextTarget, text: String, fontSize: Float, width: Float, height: Float, pages: List<PageItem>, documents: FillDocuments?, actions: FillActions): String? {
+    if (documents == null) return null
+    val page = pages.firstOrNull { it.id == target.pageId } ?: return null
+    val space = documents.space(page) ?: return null
     val (x, baseline) = TextBlock.lineOrigin(0, fontSize)
     val firstLineMiddle = baseline - (TextBlock.ASCENT - TextBlock.DESCENT) / 2f * fontSize
     val topLeft = Offset(target.displayX - x, target.displayY - firstLineMiddle)
     val box = OverlayGeometry.uprightAt(space, topLeft + Offset(width / 2f, height / 2f), width, height)
-    actions.addOverlay(TextOverlay(actions.newOverlayId(), page.id, box, text, fontSize))
+    val overlay = TextOverlay(actions.newOverlayId(), page.id, box, text, fontSize)
+    actions.addOverlay(overlay)
+    return overlay.id
 }
 
 @Composable
@@ -212,10 +225,20 @@ private fun FillPages(
     painter: OverlayPainter,
     initialPageId: String?,
     onPageChanged: (pageId: String) -> Unit,
+    onChangeSignature: () -> Unit,
     modifier: Modifier,
 ) {
     val pagerState = rememberPagerState(initialPage = pages.indexOfFirst { it.id == initialPageId }.coerceAtLeast(0)) { pages.size }
     ReportCurrentPage(pagerState, pages, onPageChanged)
+    val context = LocalContext.current
+    // "Date" puts today's date where the page is tapped and selects it: no dialog (plan U12); "Edit" is one tap away.
+    val placeDate: (PageItem, Offset) -> Unit = { page, display ->
+        val text = actions.sanitize(todayText(context))
+        val fontSize = TextBlock.DEFAULT_FONT_SIZE
+        val (width, height) = painter.textBoxSize(text, fontSize)
+        placeText(TextTarget(page.id, display.x, display.y, overlayId = null, isDate = true), text, fontSize, width, height, pages, documents, actions)
+            ?.let { state.selected = it }
+    }
     Column(modifier.fillMaxSize()) {
         if (documents.form?.xfa == XfaKind.DYNAMIC) {
             Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
@@ -245,12 +268,24 @@ private fun FillPages(
                     backgroundColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                     selectionColor = MaterialTheme.colorScheme.primary,
                     toolArmed = state.tool != null,
-                    onTap = { user, display -> onPageTap(page, space, user, display, overlays, state, actions) },
+                    onTap = { user, display -> onPageTap(page, space, user, display, overlays, state, actions, placeDate) },
                     onOverlaySelect = { state.selected = it },
                     onOverlayChange = actions::updateOverlay,
                     onFieldChange = actions::setField,
                 )
             }
+            // Shown for a few seconds when the tool or the selection changes, over the page instead of taking room from it (plan U7).
+            val hint = when {
+                state.selected != null -> stringResource(R.string.fill_hint_move)
+                state.tool != null -> stringResource(R.string.fill_hint_place)
+                else -> null
+            }
+            val signatureArmed = state.tool == FillTool.SIGNATURE && state.selected == null
+            TransientHint(
+                hint,
+                key = Triple(state.tool, state.selected != null, state.image?.uri),
+                action = if (signatureArmed) stringResource(R.string.fill_change_signature) to onChangeSignature else null,
+            )
             PageIndicatorChip(pagerState, pages.size, Modifier.align(Alignment.BottomCenter).padding(8.dp))
         }
     }
@@ -264,6 +299,7 @@ private fun onPageTap(
     overlays: List<Overlay>,
     state: FillPaneState,
     actions: FillActions,
+    placeDate: (PageItem, Offset) -> Unit,
 ) {
     when (val tool = state.tool) {
         null -> {
@@ -275,9 +311,13 @@ private fun onPageTap(
             val box = OverlayGeometry.uprightAt(space, display, MarkShape.DEFAULT_SIZE, MarkShape.DEFAULT_SIZE)
             actions.addOverlay(MarkOverlay(actions.newOverlayId(), page.id, box, if (tool == FillTool.CHECK) MarkKind.CHECK else MarkKind.CROSS))
         }
-        FillTool.TEXT, FillTool.DATE -> {
+        FillTool.DATE -> {
             state.tool = null
-            state.textTarget = TextTarget(page.id, display.x, display.y, overlayId = null, isDate = tool == FillTool.DATE)
+            placeDate(page, display)
+        }
+        FillTool.TEXT -> {
+            state.tool = null
+            state.textTarget = TextTarget(page.id, display.x, display.y, overlayId = null, isDate = false)
         }
         FillTool.SIGNATURE -> {
             val image = state.image ?: return
@@ -293,46 +333,45 @@ private fun onPageTap(
 }
 
 /**
- * The tool bar of the pane, in the screen's bottom bar: the tools, or what can be done with the
- * selected overlay. [onPickSignature] picks the image for the signature tool.
+ * The tools of the pane, as a bar at the bottom of the screen or (with [side]) a rail at its end: the
+ * tools, or what can be done with the selected overlay. [onSignature] is a tap on "Signature" (arm the
+ * only saved signature, or open the picker, or create the first: the screen decides), [onPickSignature]
+ * its long press, which always opens the picker (plan U8).
  */
 @Composable
-fun FillToolBar(state: FillPaneState, overlays: List<Overlay>, actions: FillActions, onPickSignature: () -> Unit) {
+fun FillToolBar(
+    state: FillPaneState,
+    overlays: List<Overlay>,
+    actions: FillActions,
+    undoRedo: UndoRedo,
+    side: Boolean,
+    onSignature: () -> Unit,
+    onPickSignature: () -> Unit,
+) {
     val selected = state.selected?.let { id -> overlays.firstOrNull { it.id == id } }
-    Column {
-        if (state.tool != null || selected != null) {
-            Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    stringResource(if (selected != null) R.string.fill_hint_move else R.string.fill_hint_place),
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(8.dp),
-                )
-            }
-        }
-        BottomAppBar {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                if (selected != null) {
-                    if (selected is TextOverlay) {
-                        ToolButton(Icons.Filled.Edit, R.string.fill_edit, active = false) {
-                            state.textTarget = TextTarget(selected.pageId, 0f, 0f, selected.id, isDate = false)
-                        }
-                    }
-                    ToolButton(Icons.Filled.Delete, R.string.fill_delete, active = false) {
-                        actions.removeOverlay(selected.id)
-                        state.selected = null
-                    }
-                    ToolButton(Icons.Filled.Check, R.string.fill_done, active = false) { state.selected = null }
-                } else {
-                    ToolButton(Icons.Filled.TextFields, R.string.fill_tool_text, state.tool == FillTool.TEXT) { state.toggle(FillTool.TEXT) }
-                    ToolButton(Icons.Filled.CalendarToday, R.string.fill_tool_date, state.tool == FillTool.DATE) { state.toggle(FillTool.DATE) }
-                    MarkToolButton(MarkKind.CHECK, R.string.fill_tool_check, state.tool == FillTool.CHECK) { state.toggle(FillTool.CHECK) }
-                    MarkToolButton(MarkKind.CROSS, R.string.fill_tool_cross, state.tool == FillTool.CROSS) { state.toggle(FillTool.CROSS) }
-                    ToolButton(Icons.Filled.Draw, R.string.fill_tool_signature, state.tool == FillTool.SIGNATURE) {
-                        if (state.tool == FillTool.SIGNATURE) state.toggle(FillTool.SIGNATURE) else onPickSignature()
-                    }
+    ToolStrip(side, undoRedo, Modifier.then(if (side) Modifier.fillMaxHeight() else Modifier.fillMaxWidth())) {
+        if (selected != null) {
+            if (selected is TextOverlay) {
+                ToolButton(Icons.Filled.Edit, R.string.fill_edit, active = false) {
+                    state.textTarget = TextTarget(selected.pageId, 0f, 0f, selected.id, isDate = false)
                 }
             }
+            ToolButton(Icons.Filled.Delete, R.string.fill_delete, active = false) {
+                actions.removeOverlay(selected.id)
+                state.selected = null
+            }
+            ToolButton(Icons.Filled.Check, R.string.fill_done, active = false) { state.selected = null }
+        } else {
+            ToolButton(Icons.Filled.TextFields, R.string.fill_tool_text, state.tool == FillTool.TEXT) { state.toggle(FillTool.TEXT) }
+            ToolButton(Icons.Filled.CalendarToday, R.string.fill_tool_date, state.tool == FillTool.DATE) { state.toggle(FillTool.DATE) }
+            MarkToolButton(MarkKind.CHECK, R.string.fill_tool_check, state.tool == FillTool.CHECK) { state.toggle(FillTool.CHECK) }
+            MarkToolButton(MarkKind.CROSS, R.string.fill_tool_cross, state.tool == FillTool.CROSS) { state.toggle(FillTool.CROSS) }
+            ToolButtonFrame(
+                R.string.fill_tool_signature,
+                state.tool == FillTool.SIGNATURE,
+                onClick = { if (state.tool == FillTool.SIGNATURE) state.toggle(FillTool.SIGNATURE) else onSignature() },
+                onLongClick = onPickSignature,
+            ) { Icon(Icons.Filled.Draw, contentDescription = null) }
         }
     }
 }
@@ -352,17 +391,34 @@ private fun MarkToolButton(kind: MarkKind, label: Int, active: Boolean, onClick:
     ToolButtonFrame(label, active, onClick) { Mark(kind, Modifier.size(18.dp), LocalContentColor.current) }
 }
 
-/** Icon over its label; the armed tool is in the primary colour. */
+/**
+ * Icon over its label; the armed tool is in the primary colour. At least 48 dp across (plan U19), and
+ * with [onLongClick] a long press does something else.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun ToolButtonFrame(label: Int, active: Boolean, onClick: () -> Unit, icon: @Composable () -> Unit) {
+internal fun ToolButtonFrame(
+    label: Int,
+    active: Boolean,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    icon: @Composable () -> Unit,
+) {
     val color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-    TextButton(onClick = onClick, modifier = Modifier.semantics { selected = active }) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CompositionLocalProvider(LocalContentColor provides color) {
-                Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { icon() }
-            }
-            Text(stringResource(label), color = color, style = MaterialTheme.typography.labelSmall)
+    Column(
+        Modifier
+            .clip(MaterialTheme.shapes.large)
+            .combinedClickable(role = Role.Button, onClick = onClick, onLongClick = onLongClick)
+            .sizeIn(minWidth = 56.dp, minHeight = 56.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .semantics { selected = active },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        CompositionLocalProvider(LocalContentColor provides color) {
+            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { icon() }
         }
+        Text(stringResource(label), color = color, style = MaterialTheme.typography.labelSmall, maxLines = 1)
     }
 }
 

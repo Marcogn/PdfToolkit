@@ -23,6 +23,7 @@ internal class OverlayGrab {
  *   it with one finger and resizes and turns it with two;
  * - **press and hold** on any other overlay selects it and then drags it, so a placed item can be
  *   nudged without selecting first.
+ * - the **corner handle** of the selected overlay ([handleHit]) scales and turns it with one finger.
  * A touch anywhere else is left to the page (zoom, pan, taps). Changes are shown live through
  * [onLive] and committed once when the fingers lift ([onCommit]), so one gesture is one undo step.
  *
@@ -33,6 +34,7 @@ internal suspend fun PointerInputScope.detectOverlayGestures(
     grab: OverlayGrab,
     hit: (screen: Offset, anyOverlay: Boolean) -> Overlay?,
     toUser: (Offset) -> Offset?,
+    handleHit: (screen: Offset) -> Overlay?,
     onGrabbed: (Overlay) -> Unit,
     apply: (Overlay, UserTransform) -> Overlay,
     onLive: (Overlay) -> Unit,
@@ -40,6 +42,32 @@ internal suspend fun PointerInputScope.detectOverlayGestures(
 ) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
+        // The corner handle of the selected overlay: one finger scales and turns it about its centre (plan U11).
+        val handled = handleHit(down.position)
+        if (handled != null) {
+            grab.active = true
+            try {
+                var current: Overlay = handled
+                var moved = false
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull { it.id == down.id }
+                    if (change == null || !change.pressed) break
+                    val to = toUser(change.position)
+                    val from = toUser(change.previousPosition)
+                    if (to == null || from == null || !change.positionChanged()) continue
+                    val center = Offset(current.box.centerX, current.box.centerY)
+                    current = apply(current, UserTransform.about(center, from, to))
+                    moved = true
+                    onLive(current)
+                    change.consume()
+                }
+                if (moved) onCommit(current)
+            } finally {
+                grab.active = false
+            }
+            return@awaitEachGesture
+        }
         var target = hit(down.position, false)
         var engaged = false
         if (target == null) {

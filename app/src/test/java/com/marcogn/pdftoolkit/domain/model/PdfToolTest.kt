@@ -8,14 +8,11 @@ class PdfToolTest {
 
     @Test
     fun `Home shows the available tools in spec order`() {
-        // Spec §4.1, tool grid; Highlight joined them in 7b.
+        // Spec §4.1, tool grid; Highlight joined them in 7b; U-b folded Add, Insert, Remove and Reorder into one.
         assertEquals(
             listOf(
                 PdfTool.MERGE,
-                PdfTool.ADD_PAGES,
-                PdfTool.INSERT_IMAGES,
-                PdfTool.REMOVE_PAGES,
-                PdfTool.REORDER_PAGES,
+                PdfTool.ORGANIZE_PAGES,
                 PdfTool.FILL_AND_SIGN,
                 PdfTool.MY_SIGNATURES,
                 PdfTool.HIGHLIGHT,

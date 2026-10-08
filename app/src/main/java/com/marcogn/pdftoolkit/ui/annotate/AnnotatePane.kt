@@ -5,29 +5,27 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FormatStrikethrough
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.outlined.BorderColor
 import androidx.compose.material.icons.outlined.AutoFixNormal
 import androidx.compose.material.icons.outlined.Brush
 import androidx.compose.material.icons.outlined.Draw
-import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -40,6 +38,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -49,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -69,6 +69,9 @@ import com.marcogn.pdftoolkit.pdf.render.PdfPageSpace
 import com.marcogn.pdftoolkit.pdf.text.TextSelection
 import com.marcogn.pdftoolkit.ui.common.PageIndicatorChip
 import com.marcogn.pdftoolkit.ui.common.ReportCurrentPage
+import com.marcogn.pdftoolkit.ui.common.ToolStrip
+import com.marcogn.pdftoolkit.ui.common.TransientHint
+import com.marcogn.pdftoolkit.ui.common.UndoRedo
 import com.marcogn.pdftoolkit.ui.edit.AnnotateDocuments
 import com.marcogn.pdftoolkit.ui.edit.AnnotateLoad
 import com.marcogn.pdftoolkit.ui.fill.FillPageContent
@@ -236,6 +239,8 @@ private fun AnnotatePages(
                 selectionColor = MaterialTheme.colorScheme.primary,
             )
         }
+        // A few seconds when the tool changes, over the page rather than a permanent row (plan U7).
+        TransientHint(state.tool.hint(), key = state.tool)
         PageIndicatorChip(pagerState, pages.size, Modifier.align(Alignment.BottomCenter).padding(8.dp))
     }
 }
@@ -262,66 +267,95 @@ fun applySelection(
 }
 
 /**
- * The tool bar of the pane, in the screen's bottom bar: what to do with the selection, the
- * colours of the armed tool, and the tools. [onApply] puts the selection into the document.
+ * The controls of the pane, as a bar at the bottom of the screen or (with [side]) a rail at its end
+ * (plan U18): what to do with the selection, the tools, and one "Style" button that opens the colours
+ * (and the sizes of a brush) of the armed tool, so they take no room until asked for (plan U7).
+ * [onApply] puts the selection into the document.
  */
 @Composable
-fun AnnotateToolBar(state: AnnotatePaneState, selection: TextSelectionState, onApply: (MarkupKind) -> Unit) {
+fun AnnotateToolBar(
+    state: AnnotatePaneState,
+    selection: TextSelectionState,
+    undoRedo: UndoRedo,
+    side: Boolean,
+    onApply: (MarkupKind) -> Unit,
+) {
+    // The markup kind to apply, when text is selected for it.
+    val applyKind = state.tool.kind?.takeIf { selection.isActive }
+    val strip: @Composable () -> Unit = {
+        ToolStrip(side, undoRedo, if (side) Modifier.fillMaxHeight() else Modifier.fillMaxWidth(), trailing = { StyleButton(state) }) {
+            if (applyKind != null && side) {
+                ToolButtonFrame(R.string.annotate_cancel, false, onClick = selection::clear) { Icon(Icons.Filled.Close, contentDescription = null) }
+                ToolButtonFrame(applyKind.applyLabel(), true, onClick = { onApply(applyKind) }) { Icon(Icons.Filled.Check, contentDescription = null) }
+            }
+            for (tool in AnnotateTool.entries) {
+                ToolButtonFrame(tool.labelRes(), state.tool == tool, onClick = {
+                    if (state.tool != tool) selection.clear()
+                    state.tool = tool
+                }) { Icon(tool.icon(), contentDescription = null) }
+            }
+        }
+    }
+    if (side) {
+        strip()
+    } else {
+        Column {
+            if (applyKind != null) {
+                Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(onClick = selection::clear) { Text(stringResource(R.string.annotate_cancel)) }
+                        Button(onClick = { onApply(applyKind) }) {
+                            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text(stringResource(applyKind.applyLabel()), modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                }
+            }
+            strip()
+        }
+    }
+}
+
+/** What the pane tells the reader when [tool] is armed; shown over the page for a few seconds (plan U7). */
+@Composable
+fun AnnotateTool.hint(): String = stringResource(
+    when {
+        kind != null -> R.string.annotate_hint_select
+        freehand != null -> R.string.annotate_hint_draw
+        else -> R.string.annotate_hint_erase
+    },
+)
+
+/**
+ * The button that shows the colour (and the size of a brush) the armed tool has and opens a small menu
+ * to change them. Nothing for the eraser, which has no style.
+ */
+@Composable
+private fun StyleButton(state: AnnotatePaneState) {
     val kind = state.tool.kind
-    Column {
-        if (kind != null && selection.isActive) {
-            Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(onClick = selection::clear) { Text(stringResource(R.string.annotate_cancel)) }
-                    Button(onClick = { onApply(kind) }) {
-                        Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text(stringResource(kind.applyLabel()), modifier = Modifier.padding(start = 8.dp))
-                    }
-                }
-            }
-        } else {
-            Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    stringResource(
-                        when {
-                            kind != null -> R.string.annotate_hint_select
-                            state.tool.freehand != null -> R.string.annotate_hint_draw
-                            else -> R.string.annotate_hint_erase
-                        },
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(8.dp),
-                )
-            }
+    val brush = state.tool.freehand
+    if (kind == null && brush == null) return
+    var open by remember { mutableStateOf(false) }
+    val palette = if (kind != null) AnnotationPalette.of(kind) else FreehandOptions.colors(brush!!)
+    val chosen = if (kind != null) state.colorFor(kind) else state.colorFor(brush!!)
+    Box {
+        ToolButtonFrame(R.string.annotate_style, open, onClick = { open = true }) {
+            Box(
+                Modifier
+                    .size(SWATCH_SIZE - 8.dp)
+                    .clip(CircleShape)
+                    .background(Color(chosen.red, chosen.green, chosen.blue))
+                    .border(BorderStroke(THIN_RIM, MaterialTheme.colorScheme.outline), CircleShape),
+            )
         }
-        if (kind != null) {
-            ColorRow(AnnotationPalette.of(kind), state.colorFor(kind)) { state.setColor(kind, it) }
-        }
-        val brush = state.tool.freehand
-        if (brush != null) {
-            ColorRow(FreehandOptions.colors(brush), state.colorFor(brush)) { state.setColor(brush, it) }
-            WidthRow(brush, state)
-        }
-        BottomAppBar {
-            // Spread out when the tools fit, scrolling when they don't (six tools on a narrow phone).
-            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                Row(
-                    Modifier.horizontalScroll(rememberScrollState()).widthIn(min = maxWidth),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    for (tool in AnnotateTool.entries) {
-                        ToolButtonFrame(tool.labelRes(), state.tool == tool, onClick = {
-                            if (state.tool != tool) selection.clear()
-                            state.tool = tool
-                        }) { Icon(tool.icon(), contentDescription = null) }
-                    }
-                }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            Column(Modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                ColorRow(palette, chosen) { if (kind != null) state.setColor(kind, it) else state.setColor(brush!!, it) }
+                if (brush != null) WidthRow(brush, state)
             }
         }
     }
@@ -329,15 +363,22 @@ fun AnnotateToolBar(state: AnnotatePaneState, selection: TextSelectionState, onA
 
 @Composable
 private fun ColorRow(palette: List<AnnotationColor>, chosen: AnnotationColor, onPick: (Int) -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            palette.forEachIndexed { index, color ->
-                val selected = color == chosen
-                val name = stringResource(color.nameRes())
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        palette.forEachIndexed { index, color ->
+            val selected = color == chosen
+            val name = stringResource(color.nameRes())
+            // 48 dp to touch, a smaller swatch drawn inside (plan U19).
+            Box(
+                Modifier
+                    .size(TOUCH_TARGET)
+                    .clip(CircleShape)
+                    .clickable(role = Role.RadioButton) { onPick(index) }
+                    .semantics {
+                        this.selected = selected
+                        contentDescription = name
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
                 Box(
                     Modifier
                         .size(SWATCH_SIZE)
@@ -346,12 +387,7 @@ private fun ColorRow(palette: List<AnnotationColor>, chosen: AnnotationColor, on
                         .border(
                             BorderStroke(if (selected) SELECTED_RIM else THIN_RIM, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
                             CircleShape,
-                        )
-                        .clickable { onPick(index) }
-                        .semantics {
-                            this.selected = selected
-                            contentDescription = name
-                        },
+                        ),
                 )
             }
         }
@@ -363,37 +399,33 @@ private fun ColorRow(palette: List<AnnotationColor>, chosen: AnnotationColor, on
 private fun WidthRow(kind: FreehandKind, state: AnnotatePaneState) {
     val widths = FreehandOptions.widths(kind)
     val chosen = state.widthFor(kind)
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            widths.forEachIndexed { index, width ->
-                val selected = width == chosen
-                val name = stringResource(R.string.annotate_width, width.toInt())
-                Box(
-                    Modifier
-                        .size(WIDTH_CELL)
-                        .clip(CircleShape)
-                        .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                        .clickable { state.setWidth(kind, index) }
-                        .semantics {
-                            this.selected = selected
-                            contentDescription = name
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val dot = (width * WIDTH_DOT_PER_POINT).coerceIn(MIN_DOT, MAX_DOT)
-                    Box(Modifier.size(dot.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface))
-                }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        widths.forEachIndexed { index, width ->
+            val selected = width == chosen
+            val name = stringResource(R.string.annotate_width, width.toInt())
+            Box(
+                Modifier
+                    .size(TOUCH_TARGET)
+                    .clip(CircleShape)
+                    .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                    .clickable(role = Role.RadioButton) { state.setWidth(kind, index) }
+                    .semantics {
+                        this.selected = selected
+                        contentDescription = name
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                val dot = (width * WIDTH_DOT_PER_POINT).coerceIn(MIN_DOT, MAX_DOT)
+                Box(Modifier.size(dot.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface))
             }
         }
     }
 }
 
 private val SWATCH_SIZE = 32.dp
-private val WIDTH_CELL = 40.dp
+
+/** Every touch target is at least this big, whatever is drawn inside (plan U19). */
+private val TOUCH_TARGET = 48.dp
 private const val WIDTH_DOT_PER_POINT = 1.2f
 private const val MIN_DOT = 3f
 private const val MAX_DOT = 30f

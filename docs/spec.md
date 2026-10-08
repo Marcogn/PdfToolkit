@@ -222,6 +222,8 @@ sealed interface PageItem {
 
 ### 6.2 Aggiungere pagine
 
+> **Nota (U-b, 2026-10-08):** in app questa funzione è parte dello strumento unico «Organizza pagine» (`docs/plan-usability.md`, U4).
+
 Punto di inserimento scelto dall'utente: prima di / dopo la pagina selezionata, in testa, in coda.
 
 **Da un altro PDF**
@@ -243,11 +245,15 @@ Punto di inserimento scelto dall'utente: prima di / dopo la pagina selezionata, 
 
 ### 6.3 Rimuovere pagine
 
+> **Nota (U-b, 2026-10-08):** in app questa funzione è parte dello strumento unico «Organizza pagine» (`docs/plan-usability.md`, U4).
+
 - Griglia di miniature, selezione multipla con tap, "seleziona tutto", selezione per intervallo (long press su una pagina, poi tap su un'altra).
 - Non si può rimuovere l'ultima pagina rimasta.
 - Animazione di uscita delle miniature rimosse; annullabile da snackbar e da undo.
 
 ### 6.4 Riordinare pagine
+
+> **Nota (U-b, 2026-10-08):** in app questa funzione è parte dello strumento unico «Organizza pagine» (`docs/plan-usability.md`, U4).
 
 - Griglia di miniature con drag & drop (long press per prendere la pagina, auto-scroll ai bordi).
 - Per Compose valutare la libreria **Reorderable** (Calvin Liang); verificare la licenza e la compatibilità con la versione di Compose in uso prima di adottarla. In alternativa, implementazione propria.

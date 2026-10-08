@@ -45,6 +45,12 @@ sub-phase. When the author says "go on" / "next phase" (or similar):
    environment, so the author tests on a phone before merging.
 7. Don't start the next sub-phase in the same session unless the author asks.
 
+## Session and branch names
+The author asked for one session and one branch per sub-phase, named after it, so they don't have
+to repeat the names. Session title: `<sub-phase> <Name>` (e.g. `U-b Usability screens`); branch: the
+same in kebab-case (e.g. `u-b-usability-screens`). Set both at the start of a sub-phase.
+Current: session **U-b Usability screens**, branch `u-b-usability-screens`. Next: **9 Scan** (session `9 Scan`, branch `9-scan`).
+
 ## Sub-phases: model, scope, device checks
 Sonnet by default; Opus only for the cores where a wrong design is expensive to fix later.
 Haiku is not recommended for code in this project.
@@ -170,7 +176,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   that owns the callback (double tap during a transition). Home from the drawer:
   `popUpTo<Home>{inclusive}`. Exception: navigation from an activity result (the SAF picker),
   which arrives before the entry is RESUMED again; the tap that launches the picker is guarded.
-- Edit hub, "Remove pages" and "Reorder pages" are panes of one `EditScreen` (`Destination.Edit(uri,
+- Edit hub, "Organize pages", "Fill and sign" and "Annotate" are panes of one `EditScreen` (`Destination.Edit(uri,
   tool)`), sharing one `EditViewModel`; don't turn them into a nested nav graph (ADR 0003).
 - Single-page mode is a `HorizontalPager` of one-page layouts: each page has its own
   `PdfViewportState` and `PdfViewport(pageIndexOffset = page, requestSource = page)`, so keys carry
@@ -256,7 +262,38 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   (findings U1–U17). Author's answers recorded there; sub-phases U-a and U-b (Sonnet) go after 8b
   (done) and before 9. Order now: 8b → U-a → U-b → 9 → 10a → 10b → 11 → 12.
 - **U-a Usability flows done (2026-10-07)**, PR #20; lint, 379 unit tests and `assembleDebug` green;
-  device checks passed (author, 2026-10-08). **Next: U-b (Sonnet), `docs/plan-usability.md`.**
+  device checks passed (author, 2026-10-08).
+- **U-b Usability screens done (2026-10-08)**, branch `u-b-usability-screens`; lint (0 errors), unit tests and
+  `assembleDebug` green; **device checks pending** (below). **Next: 9 Scan (Sonnet), `docs/plan-v2.md`.**
+
+### Notes from U-b (usability screens)
+- `PdfTool.ORGANIZE_PAGES` replaces Add/Insert/Remove/Reorder. `EditPane` is `HUB, ORGANIZE, FILL, ANNOTATE`; the hub
+  stays a read-only grid (decision: not the organizer, so its tool bar keeps one job); `PagesMode` is `ORGANIZE, PICK, VIEW`.
+  Drag uses Reorderable's `draggableHandle` on a handle per cell (`DragHandle`); the ⋮ menu stays for moves without dragging.
+  "Add" (`AddSourceDialog`) captures the insertion point (`addPoint`: after the last selected page, else after the page
+  read in the viewer, else the end) before the pickers; the selection is cleared when the PDF picker opens (it is reused for the picked pages).
+- `ui/common/EditBars.kt`: `ToolStrip(side, undoRedo, trailing, tools)` lays the same tools out as a bottom bar or, in
+  landscape (`isLandscape()`), as a rail at the end of the content; `EditScreen` puts the strip in `bottomBar` or beside the
+  content (`railed`). `TransientHint` is the over-the-page message that replaces the hint rows (4.5 s).
+- Annotate style (colour + brush size) is the `StyleButton` menu (`trailing` of the strip). `ToolButtonFrame` is 56 dp min and
+  takes `onLongClick`; swatches and width cells have a 48 dp touch box.
+- Signature tap: `savedSignatures` null/many → picker, none → creation, one → armed; long press → picker (`EditScreen.onSignature`).
+- Overwrite: `SaveDialog` is the only confirmation (`OverwriteConfirmDialog` is gone).
+- Corner handle (U11): `UserTransform.about` (scale and turn about the centre), gesture first in `detectOverlayGestures`.
+- Viewer: `PdfViewport(onTap, selectionBar)`; `SelectionBarPlacement` puts the floating Copy/Highlight bar above the
+  selection (below if no room, hidden if off screen). A tap clears a selection, else toggles `immersive` (system bars via
+  `WindowInsetsControllerCompat`, restored on dispose); the page area resizes when the top bar goes.
+- Known limits: the Annotate tool row scrolls on a narrow phone (Style and Undo/Redo stay fixed); no per-element
+  semantics for the corner handle; hub and Organize have no "move selection to start/end" (use the page menu); immersive
+  mode relayouts the viewport (a small jump is possible); Compose `ConfigurationScreenWidthHeight` lint warning on `isLandscape()`.
+
+### Device checks U-b (author)
+Organize pages (select, range by long press, rotate, delete, drag the handle, Add from PDF / blank / photos / files,
+default position after the selected page); overwrite in one dialog; Annotate with the pen: Style button, hint fades, more
+page on screen; signature with 0 / 1 / several saved and the reminder on "My signatures"; resize and turn from the corner
+handle with one hand; Date placed directly; Annotate and Fill in landscape (rail); colours and sizes easy to hit; tap for
+full-screen reading and back; Undo/Redo at the bottom in every pane and the hub; floating Copy/Highlight by the selection
+in continuous and single-page mode; pane titles; Settings "Dynamic colors".
 
 ### Notes from U-a (usability flows)
 - `Destination.Edit` has `page` (index in the main document, -1 from Home), `selectionStart/End` (glyph
@@ -462,6 +499,10 @@ tap "Page X of N" in the viewer; rotate the phone in each case.
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-08 · U-b: the hub stays a read-only grid and "Organize pages" is its own pane (the plan left it open); hints are
+  transient messages over the page, not rows; style (colour/size) is one menu button; in landscape the tool strip is a rail;
+  the viewer's tap toggles full screen only when no selection is active (a tap then clears it); date placement and the
+  single-signature shortcut skip their dialogs, undo covers them. Pane title follows the armed tool (U15 first option).
 - 2026-10-07 · U-a: the Highlight button of the viewer selection lives in the top bar next to Copy for
   now (U-b's floating bar will move both). After a save started from the exit dialog the edit closes
   with a Toast, not the Open/Share snackbar: showing it on the screen below would need plumbing through

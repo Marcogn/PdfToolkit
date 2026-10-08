@@ -17,6 +17,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -58,13 +59,22 @@ fun SaveDialog(
                     selected = overwrite,
                     enabled = canOverwrite,
                     onSelect = { onOverwriteChange(true) },
+                    // The irreversible warning sits under the option: this dialog is the explicit confirmation (plan U6).
+                    warning = if (overwrite) R.string.save_overwrite_warning else null,
                 )
                 if (flatten != null || flattenInk != null) HorizontalDivider(Modifier.padding(vertical = 8.dp))
                 if (flatten != null) FinalOption(R.string.save_flatten, R.string.save_flatten_hint, flatten, onFlattenChange)
                 if (flattenInk != null) FinalOption(R.string.save_flatten_ink, R.string.save_flatten_ink_hint, flattenInk, onFlattenInkChange)
             }
         },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.save_confirm)) } },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(
+                    stringResource(if (overwrite) R.string.save_overwrite else R.string.save_confirm),
+                    color = if (overwrite) MaterialTheme.colorScheme.error else Color.Unspecified,
+                )
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.save_cancel)) } },
     )
 }
@@ -91,7 +101,7 @@ private fun FinalOption(title: Int, hint: Int, checked: Boolean, onChange: (Bool
 }
 
 @Composable
-private fun SaveOption(title: Int, hint: Int, selected: Boolean, enabled: Boolean, onSelect: () -> Unit) {
+private fun SaveOption(title: Int, hint: Int, selected: Boolean, enabled: Boolean, onSelect: () -> Unit, warning: Int? = null) {
     Row(
         modifier = Modifier
             .heightIn(min = 48.dp)
@@ -107,19 +117,9 @@ private fun SaveOption(title: Int, hint: Int, selected: Boolean, enabled: Boolea
                 color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(stringResource(hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (warning != null) Text(stringResource(warning), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
     }
-}
-
-@Composable
-fun OverwriteConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.save_overwrite_confirm_title)) },
-        text = { Text(stringResource(R.string.save_overwrite_confirm_message)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.save_overwrite)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.save_cancel)) } },
-    )
 }
 
 /** Save / Discard / Cancel when leaving with changes (spec §6.1). */

@@ -1,12 +1,15 @@
 package com.marcogn.pdftoolkit.ui.annotate
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationColor
 import com.marcogn.pdftoolkit.domain.annotate.FreehandKind
 import com.marcogn.pdftoolkit.domain.annotate.FreehandOptions
@@ -14,6 +17,8 @@ import com.marcogn.pdftoolkit.domain.annotate.MarkupKind
 import com.marcogn.pdftoolkit.pdf.text.GlyphRange
 import com.marcogn.pdftoolkit.pdf.text.PageText
 import com.marcogn.pdftoolkit.pdf.text.TextSelection
+import com.marcogn.pdftoolkit.ui.common.TransientHint
+import com.marcogn.pdftoolkit.ui.common.UndoRedo
 import com.marcogn.pdftoolkit.ui.theme.PdfToolkitTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -32,18 +37,40 @@ class AnnotateToolBarTest {
     val composeRule = createComposeRule()
 
     private val applied = mutableListOf<MarkupKind>()
+    private var undone = 0
+    private var redone = 0
 
-    private fun setBar(state: AnnotatePaneState, selection: TextSelectionState = TextSelectionState()) {
-        composeRule.setContent { PdfToolkitTheme { AnnotateToolBar(state, selection) { applied += it } } }
+    private fun setBar(state: AnnotatePaneState, selection: TextSelectionState = TextSelectionState(), side: Boolean = false) {
+        composeRule.setContent {
+            PdfToolkitTheme {
+                val undoRedo = UndoRedo(canUndo = true, canRedo = false, onUndo = { undone++ }, onRedo = { redone++ })
+                AnnotateToolBar(state, selection, undoRedo, side) { applied += it }
+            }
+        }
+    }
+
+    private fun openStyle() {
+        composeRule.onNodeWithText("Stile").performClick()
+        composeRule.waitForIdle()
     }
 
     @Test
-    fun `the pane opens on the highlighter with its hint and colours`() {
+    fun `the pane opens on the highlighter and its hint comes from the tool`() {
+        val state = AnnotatePaneState()
+        assertEquals(AnnotateTool.HIGHLIGHT, state.tool)
+        composeRule.setContent {
+            PdfToolkitTheme { Box { TransientHint(state.tool.hint(), key = state.tool) } }
+        }
+        composeRule.onNodeWithText("Tieni premuto su una parola, poi trascina le maniglie").assertIsDisplayed()
+    }
+
+    @Test
+    fun `colours stay out of the way until the style button is tapped`() {
         val state = AnnotatePaneState()
         setBar(state)
-        composeRule.onNodeWithText("Tieni premuto su una parola, poi trascina le maniglie").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Giallo").assertDoesNotExist()
+        openStyle()
         composeRule.onNodeWithContentDescription("Giallo").assertIsSelected()
-        assertEquals(AnnotateTool.HIGHLIGHT, state.tool)
     }
 
     @Test
@@ -53,6 +80,7 @@ class AnnotateToolBarTest {
         composeRule.onNodeWithText("Sottolinea").performClick()
         composeRule.waitForIdle()
         assertEquals(AnnotateTool.UNDERLINE, state.tool)
+        openStyle()
         composeRule.onNodeWithContentDescription("Rosso").assertIsSelected()
         composeRule.onNodeWithContentDescription("Nero").performClick()
         composeRule.waitForIdle()
@@ -62,11 +90,36 @@ class AnnotateToolBarTest {
     }
 
     @Test
-    fun `the eraser has no colours and says how it works`() {
+    fun `the eraser has no style and says how it works`() {
         val state = AnnotatePaneState(tool = AnnotateTool.ERASER)
         setBar(state)
-        composeRule.onNodeWithText("Tocca un'annotazione per rimuoverla").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Giallo").assertDoesNotExist()
+        composeRule.onNodeWithText("Stile").assertDoesNotExist()
+        assertEquals(R.string.annotate_hint_erase, hintRes(state.tool))
+    }
+
+    private fun hintRes(tool: AnnotateTool): Int = when {
+        tool.kind != null -> R.string.annotate_hint_select
+        tool.freehand != null -> R.string.annotate_hint_draw
+        else -> R.string.annotate_hint_erase
+    }
+
+    @Test
+    fun `undo and redo are in the bar and redo waits for something to redo`() {
+        setBar(AnnotatePaneState())
+        composeRule.onNodeWithContentDescription("Annulla").performClick()
+        composeRule.onNodeWithContentDescription("Ripeti").assertIsNotEnabled()
+        assertEquals(1, undone)
+        assertEquals(0, redone)
+    }
+
+    @Test
+    fun `the side rail offers the same tools`() {
+        val state = AnnotatePaneState()
+        setBar(state, side = true)
+        composeRule.onNodeWithText("Penna").performClick()
+        composeRule.waitForIdle()
+        assertEquals(AnnotateTool.PEN, state.tool)
+        composeRule.onNodeWithContentDescription("Annulla").assertIsDisplayed()
     }
 
     @Test
@@ -93,6 +146,7 @@ class AnnotateToolBarTest {
     fun `the pen offers its colours and widths and remembers the choice`() {
         val state = AnnotatePaneState(tool = AnnotateTool.PEN)
         setBar(state)
+        openStyle()
         composeRule.onNodeWithContentDescription("Nero").assertIsSelected()
         composeRule.onNodeWithContentDescription("Spessore 2 pt").assertIsSelected()
         composeRule.onNodeWithContentDescription("Rosso").performClick()

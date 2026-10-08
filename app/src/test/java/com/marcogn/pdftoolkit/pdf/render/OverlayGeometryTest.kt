@@ -234,4 +234,39 @@ class OverlayGeometryTest {
         assertEquals(MarkKind.CHECK, shrunk.kind)
         assertEquals(OverlayGeometry.MIN_SIDE, shrunk.box.width, 1e-3f)
     }
+
+    @Test
+    fun cornerHandleScalesAndTurnsAboutTheCentreAndKeepsItInPlace() {
+        // Plan U11: a finger on the corner of a 40 x 20 box centred at (100, 100) moves from the corner to
+        // twice as far from the centre and a quarter turn further round: size doubles, angle +90, centre fixed.
+        val box = OverlayBox(100f, 100f, 40f, 20f, 0f)
+        val center = Offset(100f, 100f)
+        val from = center + Offset(10f, 0f)
+        val to = center + Offset(0f, 20f)
+        val transform = UserTransform.about(center, from, to)
+        assertEquals(2f, transform.scale, 1e-4f)
+        assertEquals(90f, transform.rotation, 1e-3f)
+        val moved = OverlayGeometry.transformed(box, transform, minSide = 1f, maxSide = 1000f)
+        assertEquals(100f, moved.centerX, 1e-3f)
+        assertEquals(100f, moved.centerY, 1e-3f)
+        assertEquals(80f, moved.width, 1e-3f)
+        assertEquals(40f, moved.height, 1e-3f)
+        assertEquals(90f, moved.angle, 1e-3f)
+    }
+
+    @Test
+    fun cornerHandleOnTheCentreDoesNothing() {
+        val center = Offset(5f, 5f)
+        val transform = UserTransform.about(center, center, center + Offset(3f, 4f))
+        assertEquals(1f, transform.scale, 0f)
+        assertEquals(0f, transform.rotation, 0f)
+    }
+
+    @Test
+    fun cornerHandleDraggedStraightOutOnlyScales() {
+        val center = Offset(0f, 0f)
+        val transform = UserTransform.about(center, Offset(10f, 10f), Offset(20f, 20f))
+        assertEquals(2f, transform.scale, 1e-4f)
+        assertEquals(0f, transform.rotation, 1e-3f)
+    }
 }

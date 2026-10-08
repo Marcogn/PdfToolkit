@@ -123,6 +123,25 @@ data class UserTransform(val scale: Float, val rotation: Float, val pivotFrom: O
         /** One finger: the overlay follows it. */
         fun drag(from: Offset, to: Offset) = UserTransform(1f, 0f, from, to)
 
+        /**
+         * One finger on a corner handle (plan U11): the finger goes from [from] to [to] and the overlay is
+         * scaled and turned about [center], which stays where it is. Scale is the ratio of the distances
+         * to the centre, rotation the angle between the two directions. A finger at the centre itself
+         * ([from] equal to [center]) changes nothing.
+         */
+        fun about(center: Offset, from: Offset, to: Offset): UserTransform {
+            val before = from - center
+            val after = to - center
+            val beforeLength = before.getDistance()
+            val afterLength = after.getDistance()
+            if (beforeLength < MIN_HANDLE_RADIUS || afterLength < MIN_HANDLE_RADIUS) return UserTransform(1f, 0f, center, center)
+            val turn = Math.toDegrees((kotlin.math.atan2(after.y, after.x) - kotlin.math.atan2(before.y, before.x)).toDouble()).toFloat()
+            return UserTransform(afterLength / beforeLength, OverlayGeometry.normalizeAngle(turn), center, center)
+        }
+
+        /** Closer than this to the centre (points) the direction of a finger is noise. */
+        private const val MIN_HANDLE_RADIUS = 1e-3f
+
         /** Two fingers: scale from their distance, rotation from the angle of the line between them, pivot at their midpoint. */
         fun pinch(fromA: Offset, fromB: Offset, toA: Offset, toB: Offset): UserTransform {
             val before = fromB - fromA

@@ -43,6 +43,15 @@ import com.marcogn.pdftoolkit.ui.viewer.detectZoomPanFling
 /** How far outside an overlay a finger still grabs it, so a tick of 14 pt is not a precision job. */
 private val OVERLAY_HIT_MARGIN = 20.dp
 
+/** The handle's drawn radius and the radius around it that a finger grabs (48 dp across). */
+private val HANDLE_RADIUS = 11.dp
+private val HANDLE_TOUCH_RADIUS = 24.dp
+private const val HANDLE_RIM_PX = 2f
+
+/** Screen position of the handle: the bottom-right corner of the overlay's box as it is drawn. */
+private fun handlePosition(overlayToScreen: com.marcogn.pdftoolkit.pdf.render.Affine, overlay: Overlay): Offset =
+    overlayToScreen.map(Offset(overlay.box.width, overlay.box.height))
+
 /** An overlay can grow to this many times the longer side of its page. */
 private const val MAX_OVERLAY_PAGES = 1.5f
 
@@ -104,6 +113,8 @@ internal fun FillPage(
     val grab = remember(item.id) { OverlayGrab() }
     val haptic = LocalHapticFeedback.current
     val hitMarginPx = with(LocalDensity.current) { OVERLAY_HIT_MARGIN.toPx() }
+    val handleTouchPx = with(LocalDensity.current) { HANDLE_TOUCH_RADIUS.toPx() }
+    val handleRadiusPx = with(LocalDensity.current) { HANDLE_RADIUS.toPx() }
     val maxSide = space.displaySize.let { maxOf(it.width, it.height) } * MAX_OVERLAY_PAGES
 
     val backdrop = rememberPageBackdrop(item, sourceSpace, viewport, content)
@@ -145,6 +156,16 @@ internal fun FillPage(
                         }
                     },
                     toUser = { screen -> viewport.mapper?.screenToUser(0, space, screen) },
+                    handleHit = { screen ->
+                        val mapper = viewport.mapper
+                        val selected = currentOverlays.firstOrNull { it.id == currentSelected }
+                        if (mapper == null || currentToolArmed || selected == null) {
+                            null
+                        } else {
+                            val corner = handlePosition(mapper.overlayToScreen(0, space, selected.box), selected)
+                            selected.takeIf { (corner - screen).getDistance() <= handleTouchPx }
+                        }
+                    },
                     onGrabbed = { overlay ->
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         currentOnSelect(overlay.id)
@@ -175,6 +196,14 @@ internal fun FillPage(
                     painter.draw(native, overlay, mapper.overlayToScreen(0, space, overlay.box), mapper.screenPxPerPoint, image, selection)
                 }
                 native.restore()
+            }
+            // The handle that scales and turns the selected overlay with one finger.
+            if (!toolArmed) {
+                shownOverlays.firstOrNull { it.id == selectedOverlay }?.let { selected ->
+                    val corner = handlePosition(mapper.overlayToScreen(0, space, selected.box), selected)
+                    drawCircle(Color.White, handleRadiusPx + HANDLE_RIM_PX, corner)
+                    drawCircle(selectionColor, handleRadiusPx, corner)
+                }
             }
         }
         val mapper = viewport.mapper
