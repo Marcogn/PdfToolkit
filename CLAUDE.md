@@ -22,6 +22,7 @@ into `docs/decisions.md`.
   V-items in `docs/plan-viewer-editing.md`.
 
 ## Session protocol
+The `/next-phase` and `/close-phase` skills (`.claude/skills/`) run these steps; this list is the source.
 When the author says "go on" / "next phase":
 0. **Model check first.** Find the next sub-phase (Current status) and its model (table). Check the
    model you run on (system prompt; in a claude.ai cloud session the `get_session` tool). If it
@@ -53,16 +54,15 @@ V-a, V-b, V-c. Haiku is not recommended for code here.
 ```bash
 ./gradlew assembleDebug        # debug APK
 ./gradlew testDebugUnitTest    # JVM tests, Robolectric for UI (sdk=34, robolectric.properties)
+./gradlew testDebugUnitTest createDebugUnitTestCoverageReport -Pcoverage  # + JaCoCo report
 ./gradlew lintDebug            # Android Lint
 ./gradlew assembleRelease      # R8 build (CI builds it too)
 ./gradlew buildEnvironment     # resolved Kotlin/KSP plugin versions
 ```
-Cloud environment: run Gradle with `LC_ALL=C.UTF-8` and `--max-workers=2`. The Android SDK may be
-missing in a fresh container: install the command-line tools into `/opt/android-sdk/cmdline-tools/latest`
-(from `dl.google.com/android/repository/`), accept the licences, then
-`sdkmanager "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"`, and write
-`sdk.dir=/opt/android-sdk` to `local.properties` (gitignored). Maven Central often answers 429 or fails
-to resolve plugins: retry. If Robolectric's `android-all-instrumented` download fails, fetch it with
+Cloud environment: the SessionStart hook (`.claude/hooks/android-sdk.sh`) installs the Android SDK,
+writes `local.properties`, caps Gradle at 2 workers and sets `LC_ALL=C.UTF-8`; if the SDK is missing
+anyway, run that script. The `verify` skill runs the checks. Maven Central often answers 429 or fails
+to resolve plugins and artifacts, more so on a cold Gradle cache: retry. If Robolectric's `android-all-instrumented` download fails, fetch it with
 `curl` into `~/.m2/repository/org/robolectric/...` and rerun.
 
 ## Where things are
@@ -94,7 +94,11 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   `pdf/edit`: `PdfEditor`/`PdfBoxEditor`, `FillWriter`, `AnnotationWriter`, fonts. `pdf/forms`:
   `FormReader`. `pdf/text`: extraction, normalisation, index, search, selection. `pdf/annotations`:
   reader, geometry, eraser, markup factory, freehand geometry, `DocumentStrokes`.
-- `.github/workflows/`: generic, shared with the author's other projects (`docs/ci.md`).
+- `.github/workflows/`: generic, shared with the author's other projects (`docs/ci.md`); `claude.yml`
+  and `claude-review.yml` run Claude on GitHub, `dependabot.yml` updates dependencies.
+- `.claude/`: skills (`verify`, `next-phase`, `close-phase`, `steward`), the `architecture-reviewer`
+  agent, the SDK hook, permissions. Generic, copied between the author's Android projects; per project
+  only this file and `REVIEW.md` (`docs/claude.md`).
 
 ## Rules that aren't obvious
 - **Renderer**: one page open at a time per `PdfRenderer`, a mutex per document, rendering on
@@ -155,6 +159,10 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - Done since: 7a–8b (annotations, freehand), U-a/U-b (usability), V-a…V-c (editing in the viewer).
 - **V-c Fill and sign in the viewer done (2026-10-08)**, PR #24; lint (0 errors), 440 unit tests,
   `assembleDebug` and CI green; device checks passed (author, 2026-10-08). **Next: 9 Scan (Sonnet).**
+- **Claude Code setup (2026-10-08)**, outside the sub-phases: skills, reviewer agent, SDK hook,
+  `REVIEW.md`, `@claude`/review workflows, Dependabot, PR and issue templates, opt-in JaCoCo coverage
+  (line coverage 16%; `pdf/edit` 0% in JVM tests) (`docs/claude.md`). Waiting
+  on the author: the `CLAUDE_CODE_OAUTH_TOKEN` secret and the environment's setup script.
 - Open questions for later sub-phases (`docs/plan-v2.md`): OCR bundled or not (10a), ODG or ODT (11),
   release numbering.
 

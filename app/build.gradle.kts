@@ -40,6 +40,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // JaCoCo coverage of the JVM unit tests, only when asked (`-Pcoverage`), since it slows
+            // the tests: `./gradlew testDebugUnitTest createDebugUnitTestCoverageReport -Pcoverage`.
+            enableUnitTestCoverage = providers.gradleProperty("coverage").isPresent
+        }
         release {
             // R8 and resource shrinking (phase 6, spec §3.2, §13). PdfBox-Android, Room, Hilt and
             // WorkManager ship consumer rules; the project-specific ones are in proguard-rules.pro.
