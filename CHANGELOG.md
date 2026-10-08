@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-08
+
 - **Edit right on the page.** The viewer has a tools bar (a rail at the side in landscape): Highlight, Draw,
   Eraser, Fill and Pages. Tools work on any page on screen, in continuous and single-page mode, at any zoom.
   Undo and Redo sit at the end of the bar, "Save" appears in the top bar (copy or overwrite), and leaving with
