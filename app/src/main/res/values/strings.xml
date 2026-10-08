@@ -326,6 +326,7 @@
     <string name="viewer_selection_title">Testo selezionato</string>
     <string name="viewer_selection_copy">Copia</string>
     <string name="viewer_selection_clear">Annulla selezione</string>
+    <string name="viewer_selection_highlight">Evidenzia</string>
     <string name="viewer_text_copied">Testo copiato</string>
     <string name="annotate_tool_highlight">Evidenzia</string>
     <string name="annotate_tool_underline">Sottolinea</string>

@@ -44,6 +44,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.model.PdfTool
+import com.marcogn.pdftoolkit.pdf.text.GlyphRange
 import com.marcogn.pdftoolkit.ui.about.AboutScreen
 import com.marcogn.pdftoolkit.ui.common.PlaceholderScreen
 import com.marcogn.pdftoolkit.ui.edit.EditScreen
@@ -263,8 +264,21 @@ fun PdfToolkitNavGraph(
                         CompositionLocalProvider(LocalDestinationScope provides this) {
                             ViewerScreen(
                                 onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
-                                onEdit = {
-                                    if (entry.lifecycleIsResumed()) navController.navigate(Destination.Edit(entry.toRoute<Destination.Viewer>().uri))
+                                onEdit = { page ->
+                                    if (entry.lifecycleIsResumed()) navController.navigate(Destination.Edit(entry.toRoute<Destination.Viewer>().uri, page = page))
+                                },
+                                onHighlight = { page, start, end ->
+                                    if (entry.lifecycleIsResumed()) {
+                                        navController.navigate(
+                                            Destination.Edit(
+                                                entry.toRoute<Destination.Viewer>().uri,
+                                                tool = PdfTool.HIGHLIGHT.name,
+                                                page = page,
+                                                selectionStart = start,
+                                                selectionEnd = end,
+                                            ),
+                                        )
+                                    }
                                 },
                             )
                         }
@@ -276,8 +290,15 @@ fun PdfToolkitNavGraph(
                             navController.navigate(Destination.Viewer(uri)) { popUpTo<Destination.Home>() }
                         }
                         CompositionLocalProvider(LocalDestinationScope provides this) {
+                            val route = entry.toRoute<Destination.Edit>()
                             EditScreen(
-                                startTool = entry.toRoute<Destination.Edit>().tool?.let { PdfTool.valueOf(it) },
+                                startTool = route.tool?.let { PdfTool.valueOf(it) },
+                                startPage = route.page,
+                                startSelection = if (route.page >= 0 && route.selectionStart >= 0 && route.selectionEnd > route.selectionStart) {
+                                    GlyphRange(route.selectionStart, route.selectionEnd)
+                                } else {
+                                    null
+                                },
                                 onBack = { if (entry.lifecycleIsResumed()) navController.popBackStack() },
                                 onResultReady = showResult,
                                 onOpenCopy = { uri -> if (entry.lifecycleIsResumed()) showResult(uri) },

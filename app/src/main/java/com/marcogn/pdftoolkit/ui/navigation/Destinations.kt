@@ -18,6 +18,11 @@ sealed interface Destination {
      *
      * A merge (spec §6.6) is an edit whose [mergeWith] lists the other PDFs, in order, after the
      * main one at [uri]; with [autoSave] it asks where to save the result straight away.
+     *
+     * Opened from the viewer, [page] is the page being read (index in the main document, -1 from Home):
+     * the panes start on it and the insertion dialogs default to "after" it. [selectionStart] and
+     * [selectionEnd] are the glyph range the reader had selected on that page (-1 when none), which the
+     * Annotate pane restores.
      */
     @Serializable
     data class Edit(
@@ -25,6 +30,9 @@ sealed interface Destination {
         val tool: String? = null,
         val mergeWith: List<String> = emptyList(),
         val autoSave: Boolean = false,
+        val page: Int = -1,
+        val selectionStart: Int = -1,
+        val selectionEnd: Int = -1,
     ) : Destination
 
     /** Merge list (spec §6.6): the PDFs at [uris] in the order picked, to reorder, add to and combine. */

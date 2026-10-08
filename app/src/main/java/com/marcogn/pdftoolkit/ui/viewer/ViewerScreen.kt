@@ -37,7 +37,12 @@ import com.marcogn.pdftoolkit.domain.model.OpenFailure
  * reading experience itself is in [ReadyViewer].
  */
 @Composable
-fun ViewerScreen(onBack: () -> Unit, onEdit: () -> Unit, viewModel: ViewerViewModel = hiltViewModel()) {
+fun ViewerScreen(
+    onBack: () -> Unit,
+    onEdit: (page: Int) -> Unit,
+    onHighlight: (page: Int, selectionStart: Int, selectionEnd: Int) -> Unit,
+    viewModel: ViewerViewModel = hiltViewModel(),
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val readingMode by viewModel.readingMode.collectAsStateWithLifecycle()
 
@@ -49,6 +54,7 @@ fun ViewerScreen(onBack: () -> Unit, onEdit: () -> Unit, viewModel: ViewerViewMo
             onReadingModeChange = viewModel::setReadingMode,
             onPageChanged = viewModel::onPageChanged,
             onEdit = onEdit,
+            onHighlight = onHighlight,
             onBack = onBack,
         )
         ViewerUiState.Loading -> StatusScaffold(onBack) { CircularProgressIndicator() }

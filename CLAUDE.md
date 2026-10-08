@@ -255,6 +255,31 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - **Usability review (2026-10-07)**, author's request while testing 8b: `docs/plan-usability.md`
   (findings U1–U17). Author's answers recorded there; sub-phases U-a and U-b (Sonnet) go after 8b
   (done) and before 9. Order now: 8b → U-a → U-b → 9 → 10a → 10b → 11 → 12.
+- **U-a Usability flows done (2026-10-07)**, PR #20; lint, 379 unit tests and `assembleDebug` green;
+  device checks passed (author, 2026-10-08). **Next: U-b (Sonnet), `docs/plan-usability.md`.**
+
+### Notes from U-a (usability flows)
+- `Destination.Edit` has `page` (index in the main document, -1 from Home), `selectionStart/End` (glyph
+  range, -1 none). The viewer passes its current page with Edit and Highlight; `EditScreen` takes
+  `startPage`/`startSelection`. Panes start on `"p<page>"` (the main document's original page id) and
+  report the page they show (`panePageId`, saved), so a second visit resumes there; the insertion dialogs
+  take `initialPoint` (`viewerPageNumber`: position of that page in the session, null if removed).
+- `ui/common/PageIndicatorChip` (chip + `GoToPageDialog` from the viewer) and `ReportCurrentPage` serve
+  both panes. Viewer: the selection's top bar has Copy and Highlight (U-b's U21 moves them to a floating
+  bar); Highlight sends the key (page) and glyph range, `rememberTextSelectionState(initialKey, initialRange)`
+  restores it and `ResolveTextSelection` reads the page text again.
+- Back: opened on a tool from Home, a pane goes to the hub once `hasUnsavedChanges`. Exit dialog "Save"
+  sets `leaveAfterSave` (reset on cancel/failure); on `Saved` the screen toasts "PDF saved" and leaves
+  (no Open/Share snackbar, it would die with the screen); an overwrite already navigates.
+- Known limits: highlight from the viewer works on the main document only and needs the PDF to be
+  editable (protected PDFs can't be, as before); the GoTo dialog in the panes has no thumbnails.
+
+### Device checks U-a (author, passed 2026-10-08)
+Edit from page 37 opens Fill and Annotate on 37; page chip jump; insertion dialogs default to "after
+page 37" from the viewer and to the end from Home; Home tool → change → back lands on the hub, and with
+no change leaves; exit dialog Save → picker → closes with "PDF saved"; Cancel in the picker stays;
+viewer selection → Copy still works, Highlight opens Annotate on that page with the words selected;
+tap "Page X of N" in the viewer; rotate the phone in each case.
 
 ### Notes from 8b (freehand complete)
 - `FreehandOptions` (domain): colours and widths per `FreehandKind`; `AnnotatePaneState` holds the chosen
@@ -437,6 +462,11 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-07 · U-a: the Highlight button of the viewer selection lives in the top bar next to Copy for
+  now (U-b's floating bar will move both). After a save started from the exit dialog the edit closes
+  with a Toast, not the Open/Share snackbar: showing it on the screen below would need plumbing through
+  the nav graph for little gain (plan U3 allowed either). Pane page: remembered per edit screen, so
+  Fill → hub → Annotate stays on the same page.
 - 2026-10-07 · 8b: pen colours are black, red, blue, green, orange (not the light highlight palette:
   a pen doesn't multiply); marker colours are the highlight palette. Sizes 1/2/4/6 pt (pen) and
   8/12/18/26 pt (marker), the 8a defaults being among them. "Draw" shares the Annotate pane rather than

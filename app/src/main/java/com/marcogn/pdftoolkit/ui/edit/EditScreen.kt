@@ -2,6 +2,7 @@ package com.marcogn.pdftoolkit.ui.edit
 
 import android.content.ClipData
 import android.content.Intent
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -78,7 +79,10 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.ui.navigation.editContainerBounds
+import com.marcogn.pdftoolkit.domain.edit.DocRef
+import com.marcogn.pdftoolkit.domain.edit.InsertionPoint
 import com.marcogn.pdftoolkit.domain.edit.PageItem
+import com.marcogn.pdftoolkit.pdf.text.GlyphRange
 import com.marcogn.pdftoolkit.domain.fill.FieldValue
 import com.marcogn.pdftoolkit.domain.fill.FormField
 import com.marcogn.pdftoolkit.domain.fill.Overlay
@@ -123,6 +127,16 @@ private fun PdfTool?.initialPane(): EditPane = when (this) {
     else -> EditPane.HUB
 }
 
+/** Id of the first-generation page [n] of the main document (`EditSession.of`). */
+private const val PAGE_ID_PREFIX = "p"
+
+/** 1-based position in [pages] of page [mainPageIndex] of the main document, or null if unknown or removed. */
+internal fun viewerPageNumber(pages: List<PageItem>?, mainPageIndex: Int): Int? {
+    if (mainPageIndex < 0 || pages == null) return null
+    return pages.indexOfFirst { it is PageItem.FromPdf && it.docRef == DocRef.MAIN && it.pageIndex == mainPageIndex }
+        .takeIf { it >= 0 }?.plus(1)
+}
+
 private const val PDF_MIME = "application/pdf"
 private const val IMAGE_MIME = "image/*"
 private const val THUMBNAIL_PX = 320
@@ -138,6 +152,9 @@ private val SelectionSaver = listSaver<Set<String>, String>(save = { it.toList()
  * system back goes pane → hub → leave (asking about unsaved changes).
  *
  * @param startTool the tool tapped on Home, which opens straight on its pane or dialog (spec §4.1); null from the viewer.
+ * @param startPage the page the reader was on in the main document, or -1 (from Home): the Fill and Annotate
+ * panes start on it and the insertion dialogs default to "after" it (plan U1).
+ * @param startSelection the glyph range the reader had selected on [startPage], restored in the Annotate pane (plan U5).
  * @param onBack leaves the edit.
  * @param onResultReady an overwrite finished: the original has new content, so the caller must
  * drop any screen still showing the old one and open [uri].
@@ -147,6 +164,8 @@ private val SelectionSaver = listSaver<Set<String>, String>(save = { it.toList()
 @Composable
 fun EditScreen(
     startTool: PdfTool?,
+    startPage: Int,
+    startSelection: GlyphRange?,
     onBack: () -> Unit,
     onResultReady: (uri: String) -> Unit,
     onOpenCopy: (uri: String) -> Unit,
@@ -165,7 +184,10 @@ fun EditScreen(
     val fillState = rememberFillPaneState()
     val annotateLoad by viewModel.annotateLoad.collectAsStateWithLifecycle()
     val annotateState = rememberAnnotatePaneState(if (startTool == PdfTool.DRAW) AnnotateTool.PEN else AnnotateTool.HIGHLIGHT)
-    val annotateSelection = rememberTextSelectionState()
+    val annotateSelection = rememberTextSelectionState(
+        initialKey = startSelection?.let { PAGE_ID_PREFIX + startPage },
+        initialRange = startSelection,
+    )
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -187,9 +209,13 @@ fun EditScreen(
     var highlighted by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf(emptySet<String>()) }
     var scrollToId by rememberSaveable { mutableStateOf<String?>(null) }
     var autoSaveHandled by rememberSaveable { mutableStateOf(false) }
+    // The page the panes show, so Fill and Annotate open on the same page and a second visit resumes there.
+    var panePageId by rememberSaveable { mutableStateOf(if (startPage >= 0) PAGE_ID_PREFIX + startPage else null) }
+    // Saving from the exit dialog leaves once the copy is written (plan U3).
+    var leaveAfterSave by rememberSaveable { mutableStateOf(false) }
 
     val copyLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
-        if (uri != null) viewModel.save(uri, overwrite = false)
+        if (uri != null) viewModel.save(uri, overwrite = false) else leaveAfterSave = false
     }
     val copySuffix = resources.getString(if (viewModel.isMerge) R.string.save_merge_suffix else R.string.save_copy_suffix)
     val startSave = {
@@ -241,8 +267,18 @@ fun EditScreen(
         )
     }
 
+    val savedMessage = stringResource(R.string.save_done)
     LaunchedEffect(saveState) {
         (saveState as? SaveUiState.Overwritten)?.let { onResultReady(it.uri) }
+        if (saveState is SaveUiState.Saved && leaveAfterSave) {
+            // The edit is over: say it was saved (the snackbar with Open / Share would go with this screen).
+            leaveAfterSave = false
+            viewModel.dismissSaveResult()
+            Toast.makeText(context, savedMessage, Toast.LENGTH_SHORT).show()
+            onBack()
+        } else if (saveState is SaveUiState.Failed) {
+            leaveAfterSave = false
+        }
         // "N pages added · Undo" no longer applies once the document is saved, and it would stack
         // on top of the "saved" snackbar.
         if (saveState is SaveUiState.Saved) snackbarHostState.currentSnackbarData?.dismiss()
@@ -315,7 +351,9 @@ fun EditScreen(
                 selection = emptySet()
                 rangeAnchor = null
             }
-            pane != EditPane.HUB && !openedOnTool -> pane = EditPane.HUB
+            // Opened on a tool from Home, back leaves; once something changed it goes to the hub instead,
+            // where the result shows and other tools can follow (plan U2).
+            pane != EditPane.HUB && (!openedOnTool || ready?.hasUnsavedChanges == true) -> pane = EditPane.HUB
             else -> requestExit()
         }
     }
@@ -353,6 +391,9 @@ fun EditScreen(
     }
 
     // No "Merge" in the hub: on an open document it is "Add pages → from another PDF" (author's decision).
+    // Opened from the viewer, new pages default to "after the page being read" (plan U1).
+    val insertionDefault = viewerPageNumber(ready?.session?.pages, startPage)
+        ?.let { InsertionPoint(InsertionPoint.Kind.AFTER_PAGE, it) } ?: InsertionPoint.END_OF_DOCUMENT
     val hubTools = remember { PdfTool.available.filter { it.requiresDocument && it != PdfTool.MERGE } }
     val onHubTool: (PdfTool) -> Unit = { tool ->
         when (tool) {
@@ -619,6 +660,8 @@ fun EditScreen(
                     load = fillLoad,
                     state = fillState,
                     actions = fillActions,
+                    initialPageId = panePageId,
+                    onPageChanged = { panePageId = it },
                     modifier = Modifier.padding(padding),
                 )
                 EditPane.ANNOTATE -> AnnotatePane(
@@ -628,6 +671,8 @@ fun EditScreen(
                     state = annotateState,
                     selection = annotateSelection,
                     actions = annotateActions,
+                    initialPageId = panePageId,
+                    onPageChanged = { panePageId = it },
                     modifier = Modifier.padding(padding),
                 )
                 EditPane.REMOVE, EditPane.REORDER -> PagesPane(
@@ -675,7 +720,10 @@ fun EditScreen(
             canOverwrite = canOverwrite,
             onOverwriteChange = viewModel::setOverwriteChoice,
             onConfirm = startSave,
-            onDismiss = { showSaveDialog = false },
+            onDismiss = {
+                showSaveDialog = false
+                leaveAfterSave = false
+            },
             flatten = if (hasForm) flattenChoice ?: ready?.session?.fill?.hasSignature ?: false else null,
             onFlattenChange = viewModel::setFlattenChoice,
             flattenInk = if (ready?.session?.annotations?.hasInk == true) flattenInkChoice else null,
@@ -688,13 +736,17 @@ fun EditScreen(
                 showOverwriteConfirm = false
                 viewModel.save(viewModel.sourceUri.toUri(), overwrite = true)
             },
-            onDismiss = { showOverwriteConfirm = false },
+            onDismiss = {
+                showOverwriteConfirm = false
+                leaveAfterSave = false
+            },
         )
     }
     if (showUnsaved) {
         UnsavedChangesDialog(
             onSave = {
                 showUnsaved = false
+                leaveAfterSave = true
                 showSaveDialog = true
             },
             onDiscard = {
@@ -722,6 +774,7 @@ fun EditScreen(
             pageCount = ready.session.pageCount,
             referenceSize = viewModel::referenceSize,
             mixedSizes = viewModel.hasMixedSizes(),
+            initialPoint = insertionDefault,
             onConfirm = { count, point ->
                 showBlankDialog = false
                 showAdded(viewModel.insertBlankPages(count, point))
@@ -749,6 +802,7 @@ fun EditScreen(
             pageCount = ready.session.pageCount,
             referenceSize = viewModel::referenceSize,
             mixedSizes = viewModel.hasMixedSizes(),
+            initialPoint = insertionDefault,
             onConfirm = { mode, point ->
                 showAdded(viewModel.insertPendingImages(mode, point))
             },
@@ -759,6 +813,7 @@ fun EditScreen(
         PickedPagesDialog(
             pickedCount = selection.size,
             pageCount = ready.session.pageCount,
+            initialPoint = insertionDefault,
             onConfirm = { point ->
                 showPickedPagesDialog = false
                 val indices = selection.mapNotNull { it.removePrefix(PICK_ID_PREFIX).toIntOrNull() }.sorted()

@@ -98,7 +98,8 @@ class TextSelectionState(key: String? = null, range: GlyphRange? = null) {
 }
 
 @Composable
-fun rememberTextSelectionState(): TextSelectionState = rememberSaveable(saver = TextSelectionState.Saver) { TextSelectionState() }
+fun rememberTextSelectionState(initialKey: String? = null, initialRange: GlyphRange? = null): TextSelectionState =
+    rememberSaveable(saver = TextSelectionState.Saver) { TextSelectionState(initialKey, initialRange) }
 
 /**
  * Reads the page text for a selection that was restored without it (after a rotation), with
