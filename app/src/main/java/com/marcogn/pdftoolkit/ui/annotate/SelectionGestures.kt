@@ -25,13 +25,14 @@ internal class SelectionGrab {
  * [grab] is set, so the page's own detector stands down.
  *
  * [handleAt] gives the handle at a screen point, if any; [onDrag] receives the handle and the
- * screen point its anchor is now at.
+ * screen point its anchor is now at; [onRelease] is called when the finger that held the selection lifts.
  */
 internal suspend fun PointerInputScope.detectSelectionGestures(
     grab: SelectionGrab,
     handleAt: (screen: Offset) -> HandleGrab?,
     onLongPress: (screen: Offset) -> Unit,
     onDrag: (SelectionHandle, screen: Offset) -> Unit,
+    onRelease: () -> Unit = {},
 ) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
@@ -57,12 +58,14 @@ internal suspend fun PointerInputScope.detectSelectionGestures(
             handle = SelectionHandle.END
         }
         grab.active = true
+        var lifted = false
         try {
             while (true) {
                 val event = awaitPointerEvent()
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                 if (!change.pressed) {
                     change.consume()
+                    lifted = true
                     break
                 }
                 onDrag(handle, change.position + toAnchor)
@@ -71,5 +74,6 @@ internal suspend fun PointerInputScope.detectSelectionGestures(
         } finally {
             grab.active = false
         }
+        if (lifted) onRelease()
     }
 }

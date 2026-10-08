@@ -17,14 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Surface
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -74,30 +66,16 @@ import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
-import com.marcogn.pdftoolkit.ui.navigation.editContainerBounds
 import com.marcogn.pdftoolkit.domain.edit.DocRef
 import com.marcogn.pdftoolkit.domain.edit.InsertionPoint
 import com.marcogn.pdftoolkit.domain.edit.PageItem
-import com.marcogn.pdftoolkit.pdf.text.GlyphRange
 import com.marcogn.pdftoolkit.domain.fill.FieldValue
 import com.marcogn.pdftoolkit.domain.fill.FormField
 import com.marcogn.pdftoolkit.domain.fill.Overlay
 import com.marcogn.pdftoolkit.domain.model.OpenFailure
 import com.marcogn.pdftoolkit.domain.model.PdfTool
-import com.marcogn.pdftoolkit.ui.home.icon
-import com.marcogn.pdftoolkit.ui.home.isSignatureAction
-import com.marcogn.pdftoolkit.ui.home.labelRes
 import com.marcogn.pdftoolkit.ui.fill.FILL_IMAGE_SIDE_PX
 import com.marcogn.pdftoolkit.ui.fill.FillActions
-import com.marcogn.pdftoolkit.domain.annotate.AnnotationRef
-import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
-import com.marcogn.pdftoolkit.ui.annotate.AnnotateActions
-import com.marcogn.pdftoolkit.ui.annotate.AnnotateTool
-import com.marcogn.pdftoolkit.ui.annotate.AnnotatePane
-import com.marcogn.pdftoolkit.ui.annotate.AnnotateToolBar
-import com.marcogn.pdftoolkit.ui.annotate.applySelection
-import com.marcogn.pdftoolkit.ui.annotate.rememberAnnotatePaneState
-import com.marcogn.pdftoolkit.ui.annotate.rememberTextSelectionState
 import com.marcogn.pdftoolkit.ui.fill.FillPane
 import com.marcogn.pdftoolkit.ui.fill.FillTool
 import com.marcogn.pdftoolkit.ui.fill.FillToolBar
@@ -118,13 +96,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class EditPane { HUB, ORGANIZE, FILL, ANNOTATE }
+private enum class EditPane { ORGANIZE, FILL }
 
 private fun PdfTool?.initialPane(): EditPane = when (this) {
-    PdfTool.ORGANIZE_PAGES -> EditPane.ORGANIZE
     PdfTool.FILL_AND_SIGN -> EditPane.FILL
-    PdfTool.HIGHLIGHT, PdfTool.DRAW -> EditPane.ANNOTATE
-    else -> EditPane.HUB
+    else -> EditPane.ORGANIZE
 }
 
 /** Id of the first-generation page [n] of the main document (`EditSession.of`). */
@@ -147,15 +123,15 @@ private const val PICK_ID_PREFIX = "pick"
 private val SelectionSaver = listSaver<Set<String>, String>(save = { it.toList() }, restore = { it.toSet() })
 
 /**
- * Edit hub and page tools on one edit session (spec §4.3, §6). The hub, "Organize pages", "Fill and
- * sign" and "Annotate" are panes of this one screen so they share the session, the renderer and the
- * save state; the system back goes pane → hub → leave (asking about unsaved changes). In landscape
- * the tools of a pane sit in a rail at the side instead of a bar at the bottom (plan U18).
+ * The edit screen on one edit session (spec §6): "Organize pages" (reorder, rotate, remove and add pages,
+ * merge) and "Fill and sign" are panes of this one screen so they share the session, the renderer and the
+ * save state. Highlight, draw and the eraser happen in the viewer (plan V-b); the screen opens straight on
+ * its tool, and the system back leaves it (asking about unsaved changes). In landscape the tools of a pane
+ * sit in a rail at the side instead of a bar at the bottom (plan U18).
  *
- * @param startTool the tool tapped on Home, which opens straight on its pane or dialog (spec §4.1); null from the viewer.
- * @param startPage the page the reader was on in the main document, or -1 (from Home): the Fill and Annotate
- * panes start on it and the insertion dialogs default to "after" it (plan U1).
- * @param startSelection the glyph range the reader had selected on [startPage], restored in the Annotate pane (plan U5).
+ * @param startTool `FILL_AND_SIGN` opens "Fill and sign"; anything else (or null) "Organize pages".
+ * @param startPage the page the reader was on in the main document, or -1 (from Home): the Fill pane
+ * starts on it and the insertion dialogs default to "after" it (plan U1).
  * @param onBack leaves the edit.
  * @param onResultReady an overwrite finished: the original has new content, so the caller must
  * drop any screen still showing the old one and open [uri].
@@ -166,7 +142,6 @@ private val SelectionSaver = listSaver<Set<String>, String>(save = { it.toList()
 fun EditScreen(
     startTool: PdfTool?,
     startPage: Int,
-    startSelection: GlyphRange?,
     onBack: () -> Unit,
     onResultReady: (uri: String) -> Unit,
     onOpenCopy: (uri: String) -> Unit,
@@ -181,21 +156,13 @@ fun EditScreen(
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val fillLoad by viewModel.fillLoad.collectAsStateWithLifecycle()
     val flattenChoice by viewModel.flattenChoice.collectAsStateWithLifecycle()
-    val flattenInkChoice by viewModel.flattenInkChoice.collectAsStateWithLifecycle()
     val fillState = rememberFillPaneState()
-    val annotateLoad by viewModel.annotateLoad.collectAsStateWithLifecycle()
-    val annotateState = rememberAnnotatePaneState(if (startTool == PdfTool.DRAW) AnnotateTool.PEN else AnnotateTool.HIGHLIGHT)
-    val annotateSelection = rememberTextSelectionState(
-        initialKey = startSelection?.let { PAGE_ID_PREFIX + startPage },
-        initialRange = startSelection,
-    )
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val resources = LocalResources.current
 
-    val openedOnTool = startTool.initialPane() != EditPane.HUB
-    var pane by rememberSaveable { mutableStateOf(startTool.initialPane()) }
+    val pane = startTool.initialPane()
     var selection by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf(emptySet<String>()) }
     var rangeAnchor by rememberSaveable { mutableStateOf<String?>(null) }
     var showSaveDialog by rememberSaveable { mutableStateOf(false) }
@@ -210,7 +177,7 @@ fun EditScreen(
     var highlighted by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf(emptySet<String>()) }
     var scrollToId by rememberSaveable { mutableStateOf<String?>(null) }
     var autoSaveHandled by rememberSaveable { mutableStateOf(false) }
-    // The page the panes show, so Fill and Annotate open on the same page and a second visit resumes there.
+    // The page the Fill pane shows, so a second visit (after rotating the phone) resumes there.
     var panePageId by rememberSaveable { mutableStateOf(if (startPage >= 0) PAGE_ID_PREFIX + startPage else null) }
     // Saving from the exit dialog leaves once the copy is written (plan U3).
     var leaveAfterSave by rememberSaveable { mutableStateOf(false) }
@@ -334,7 +301,6 @@ fun EditScreen(
     val handleBack = {
         when {
             pane == EditPane.FILL && fillState.consumesBack -> fillState.back()
-            pane == EditPane.ANNOTATE && annotateSelection.isActive -> annotateSelection.clear()
             picking -> {
                 viewModel.dropPendingPdf()
                 selection = emptySet()
@@ -344,9 +310,6 @@ fun EditScreen(
                 selection = emptySet()
                 rangeAnchor = null
             }
-            // Opened on a tool from Home, back leaves; once something changed it goes to the hub instead,
-            // where the result shows and other tools can follow (plan U2).
-            pane != EditPane.HUB && (!openedOnTool || ready?.hasUnsavedChanges == true) -> pane = EditPane.HUB
             else -> requestExit()
         }
     }
@@ -383,7 +346,7 @@ fun EditScreen(
         }
     }
 
-    // No "Merge" in the hub: on an open document it is "Add pages → from another PDF" (author's decision).
+    // No "Merge" here: on an open document it is "Add pages → from another PDF" (author's decision).
     // Opened from the viewer, new pages default to "after the page being read" (plan U1).
     // In "Organize pages" with pages selected, after the last of them (plan U4).
     val insertionDefault = run {
@@ -395,47 +358,11 @@ fun EditScreen(
                 ?.let { InsertionPoint(InsertionPoint.Kind.AFTER_PAGE, it) } ?: InsertionPoint.END_OF_DOCUMENT
         }
     }
-    val hubTools = remember { PdfTool.available.filter { it.requiresDocument && it != PdfTool.MERGE } }
-    val onHubTool: (PdfTool) -> Unit = { tool ->
-        when (tool) {
-            PdfTool.ORGANIZE_PAGES -> pane = EditPane.ORGANIZE
-            PdfTool.FILL_AND_SIGN -> pane = EditPane.FILL
-            PdfTool.HIGHLIGHT -> {
-                annotateState.tool = AnnotateTool.HIGHLIGHT
-                pane = EditPane.ANNOTATE
-            }
-            PdfTool.DRAW -> {
-                annotateState.tool = AnnotateTool.PEN
-                pane = EditPane.ANNOTATE
-            }
-            else -> showMessage(resources.getString(R.string.edit_tool_unavailable, resources.getString(tool.labelRes())))
-        }
-    }
-
     // "Fill and sign" reads the documents' page boxes and form when it opens (and again for PDFs added since).
     LaunchedEffect(pane, ready?.sources?.size) {
         if (pane == EditPane.FILL && ready != null) viewModel.loadFill()
     }
-    // "Annotate" reads the annotations of the documents when it opens (and again for PDFs added since).
-    LaunchedEffect(pane, ready?.sources?.size) {
-        if (pane == EditPane.ANNOTATE && ready != null) viewModel.loadAnnotate()
-    }
-    LaunchedEffect(pane) {
-        if (pane != EditPane.ANNOTATE) annotateSelection.clear()
-    }
     val currentShowMessage by rememberUpdatedState(showMessage)
-    val annotateActions = remember(viewModel) {
-        object : AnnotateActions {
-            override suspend fun renderPage(item: PageItem.FromPdf, pxPerPoint: Float) = viewModel.renderPage(item, pxPerPoint, MAX_PAGE_PIXELS)
-            override suspend fun image(uri: String) = withContext(Dispatchers.IO) { viewModel.imageThumbnail(uri, FILL_IMAGE_SIDE_PX) }
-            override fun addAnnotation(annotation: NewAnnotation) { viewModel.addAnnotation(annotation) }
-            override fun removeAnnotation(id: String) { viewModel.removeAnnotation(id) }
-            override fun removeExistingAnnotation(ref: AnnotationRef) { viewModel.removeExistingAnnotation(ref) }
-            override fun newAnnotationId() = viewModel.newAnnotationId()
-            override suspend fun pageText(item: PageItem.FromPdf) = viewModel.pageText(item)
-            override fun message(text: String) = currentShowMessage(text)
-        }
-    }
     val fillActions = remember(viewModel) {
         object : FillActions {
             override suspend fun renderPage(item: PageItem.FromPdf, pxPerPoint: Float) = viewModel.renderPage(item, pxPerPoint, MAX_PAGE_PIXELS)
@@ -468,23 +395,17 @@ fun EditScreen(
         if (ready != null && !picking) {
             val stripModifier = if (sideMode) Modifier.fillMaxHeight() else Modifier.fillMaxWidth()
             when (pane) {
-                EditPane.HUB -> HubToolBar(hubTools, onHubTool, if (ready.session.canUndo || ready.session.canRedo) undoRedo else null, sideMode, stripModifier)
                 EditPane.ORGANIZE -> OrganizeToolBar(undoRedo, sideMode, stripModifier) {
                     addPoint = insertionDefault
                     showAddSource = true
                 }
                 EditPane.FILL -> FillToolBar(fillState, ready.session.fill.overlays, fillActions, undoRedo, sideMode, onSignature) { showSignatureSheet = true }
-                EditPane.ANNOTATE -> AnnotateToolBar(annotateState, annotateSelection, undoRedo, sideMode) { kind ->
-                    applySelection(kind, annotateState, annotateSelection, ready.session.pages, (annotateLoad as? AnnotateLoad.Ready)?.documents, annotateActions)
-                }
             }
         }
     }
     val railed = side && ready != null && !picking
 
     Scaffold(
-        // The viewer's Edit button grows into this screen (spec §9, container transform).
-        modifier = Modifier.editContainerBounds(),
         // In the bottomBar slot, so snackbars are placed above the tools instead of covering them.
         bottomBar = { if (!railed) controls(false) },
         topBar = {
@@ -554,35 +475,13 @@ fun EditScreen(
                             }
                         },
                     )
-                    pane == EditPane.HUB -> TopAppBar(
-                        title = {
-                            Column {
-                                Text(ready.displayName, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
-                                Text(
-                                    pluralStringResource(R.plurals.edit_hub_subtitle, ready.session.pageCount, ready.session.pageCount),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        },
-                        navigationIcon = { BackButton(handleBack) },
-                        actions = {
-                            if (ready.hasUnsavedChanges) SaveAction(enabled = !saving) { showSaveDialog = true }
-                        },
-                    )
                     else -> TopAppBar(
                         title = {
                             Text(
                                 stringResource(
                                     when (pane) {
                                         EditPane.FILL -> R.string.tool_fill_and_sign
-                                        // Named after what is armed, so it matches the two entries that open it (plan U15).
-                                        EditPane.ANNOTATE -> when {
-                                            annotateState.tool.freehand != null -> R.string.tool_draw
-                                            annotateState.tool.kind != null -> R.string.tool_highlight
-                                            else -> R.string.tool_annotate
-                                        }
-                                        else -> R.string.tool_organize_pages
+                                        EditPane.ORGANIZE -> R.string.tool_organize_pages
                                     },
                                 ),
                                 maxLines = 1,
@@ -669,13 +568,6 @@ fun EditScreen(
                     padding = padding,
                 )
             } else when (pane) {
-                EditPane.HUB -> EditHub(
-                    state = state,
-                    imageThumbnail = { uri -> viewModel.imageThumbnail(uri, THUMBNAIL_PX) },
-                    highlighted = highlighted,
-                    scrollToId = scrollToId,
-                    padding = padding,
-                )
                 EditPane.FILL -> FillPane(
                     pages = state.session.pages,
                     overlays = state.session.fill.overlays,
@@ -686,17 +578,6 @@ fun EditScreen(
                     initialPageId = panePageId,
                     onPageChanged = { panePageId = it },
                     onChangeSignature = { showSignatureSheet = true },
-                    modifier = Modifier.padding(padding),
-                )
-                EditPane.ANNOTATE -> AnnotatePane(
-                    pages = state.session.pages,
-                    edits = state.session.annotations,
-                    load = annotateLoad,
-                    state = annotateState,
-                    selection = annotateSelection,
-                    actions = annotateActions,
-                    initialPageId = panePageId,
-                    onPageChanged = { panePageId = it },
                     modifier = Modifier.padding(padding),
                 )
                 EditPane.ORGANIZE -> PagesPane(
@@ -760,8 +641,6 @@ fun EditScreen(
             },
             flatten = if (hasForm) flattenChoice ?: ready?.session?.fill?.hasSignature ?: false else null,
             onFlattenChange = viewModel::setFlattenChoice,
-            flattenInk = if (ready?.session?.annotations?.hasInk == true) flattenInkChoice else null,
-            onFlattenInkChange = viewModel::setFlattenInkChoice,
         )
     }
     if (showUnsaved) {
@@ -864,101 +743,11 @@ private fun SaveAction(enabled: Boolean, onClick: () -> Unit) {
     }
 }
 
-/**
- * The edit hub: the document as it is now (the session's pages, read-only) with the tools of Home
- * bound to it in a bar at the bottom (spec §4.3, changed at the author's request: a grid of tools
- * alone looked like Home and didn't show which document was being edited).
- */
-@Composable
-private fun EditHub(
-    state: EditUiState.Ready,
-    imageThumbnail: (uri: String) -> android.graphics.Bitmap?,
-    highlighted: Set<String>,
-    scrollToId: String?,
-    padding: PaddingValues,
-) {
-    Column(Modifier.padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()).fillMaxSize()) {
-        if (highlighted.isNotEmpty()) {
-            Text(
-                stringResource(R.string.add_review_hint_hub),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-        }
-        PagesGrid(
-            pages = state.session.pages,
-            sources = state.sources,
-            imageThumbnail = imageThumbnail,
-            mode = PagesMode.VIEW,
-            selection = emptySet(),
-            onTap = {},
-            onLongPress = {},
-            onCommitMove = { _, _ -> },
-            actions = PageActions({}, {}, {}, {}, {}),
-            contentPadding = PaddingValues(16.dp),
-            modifier = Modifier.weight(1f),
-            highlighted = highlighted,
-            scrollToId = scrollToId,
-        )
-    }
-}
-
-/** The document tools as a row of compact buttons (a rail in landscape), scrollable on narrow screens. */
-@Composable
-private fun HubToolBar(
-    tools: List<PdfTool>,
-    onToolClick: (PdfTool) -> Unit,
-    undoRedo: UndoRedo?,
-    side: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    ToolStrip(side, undoRedo, modifier) {
-        tools.forEach { tool -> HubToolButton(tool, onClick = { onToolClick(tool) }) }
-    }
-}
-
 /** The tools of "Organize pages": adding pages from anywhere is one button (plan U4). */
 @Composable
 private fun OrganizeToolBar(undoRedo: UndoRedo, side: Boolean, modifier: Modifier = Modifier, onAdd: () -> Unit) {
     ToolStrip(side, undoRedo, modifier) {
         ToolButtonFrame(R.string.organize_add, false, onClick = onAdd) { Icon(Icons.Filled.Add, contentDescription = null) }
-    }
-}
-
-@Composable
-private fun HubToolButton(tool: PdfTool, onClick: () -> Unit) {
-    val accent = tool.isSignatureAction
-    Column(
-        Modifier
-            .width(76.dp)
-            .clip(MaterialTheme.shapes.medium)
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(vertical = 6.dp, horizontal = 2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Surface(
-            shape = CircleShape,
-            color = if (accent) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.size(40.dp),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    tool.icon(),
-                    contentDescription = null,
-                    tint = if (accent) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-        }
-        Text(
-            stringResource(tool.labelRes()),
-            style = MaterialTheme.typography.labelSmall,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }
 

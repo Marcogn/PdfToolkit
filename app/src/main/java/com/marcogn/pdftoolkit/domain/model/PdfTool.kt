@@ -1,7 +1,7 @@
 package com.marcogn.pdftoolkit.domain.model
 
 /**
- * Tools of Home and of the edit hub (spec §4.1, §4.3), in the order they appear.
+ * Tools of Home (spec §4.1), in the order they appear.
  *
  * [comingSoon]: product phase 2 tool (spec §7), shown disabled with the "Soon" badge.
  * [requiresDocument]: with no open document, a tap opens the PDF picker first (spec §4.1).

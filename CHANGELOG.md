@@ -6,13 +6,25 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Tools bar in the viewer.** A bar at the bottom of the viewer (a rail at the side in landscape) has Highlight,
+  Draw, Eraser, Fill and Pages. Tap Highlight or Draw to arm it and again to put it down; the Style button
+  (colour, size, and the other tool of the family: underline or strikeout, marker) and Undo/Redo appear
+  at its end. The bar hides with the top bar when you tap the page. The pen button in the top bar and the
+  "Edit" button are gone. "Pages" (organize, add, merge) and "Fill" open the edit screen; if the viewer has unsaved
+  changes they first ask to save or discard.
+- **Markup applies on release.** With Highlight, Underline or Strikeout armed, lifting the finger after a long
+  press (or after dragging to extend the selection) marks the text at once; a message with "Undo" appears, and
+  Undo/Redo are in the bar. The floating Copy/Highlight bar stays for plain reading.
+- **Highlight and Draw from Home open the viewer** with the tool already armed.
+- **No more edit hub.** "Organize pages" and "Fill and sign" open straight on their screen, and back leaves it
+  (asking about unsaved changes). Highlighting and drawing now happen only in the viewer.
 - **Highlight and draw in the viewer.** The pen button in the viewer's top bar brings out the annotate tools
   (highlight, underline, strikeout, pen, marker, eraser) right on the pages being read, in continuous and
   single-page mode and at any zoom: draw on any page on screen, erase with a tap, select text and tap
   Highlight (or the armed markup tool) by the selection. Undo and Redo are in the tool bar, "Save" appears
   in the top bar (copy or overwrite, as in the edit screen), and leaving with changes asks to save. The
   Highlight button by the viewer selection now highlights in place instead of opening the edit screen.
-  A fuller tool bar comes next.
+  (The tools bar above completes this.)
 - **One "Organize pages" tool.** Remove, Reorder, Add pages and Insert images are now a single tool on Home
   and in the edit hub. Tap pages to select them (rotate and delete are in the bar that appears, long press
   then tap another for a range); every page has a handle to drag it at once; "Add" offers another PDF,

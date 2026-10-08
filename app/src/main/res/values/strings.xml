@@ -32,7 +32,6 @@
     <string name="tool_scan">Scansiona</string>
     <string name="tool_cloud_upload">Carica su cloud</string>
     <string name="tool_highlight">Evidenzia</string>
-    <string name="tool_annotate">Annota</string>
     <string name="tool_draw">Disegna</string>
     <string name="tool_export_odf">Esporta in ODF</string>
 
@@ -130,12 +129,10 @@
     <string name="settings_thumbnails_cleared">Cache svuotata</string>
 
     <!-- Edit (phase 2) -->
-    <string name="edit_fab">Modifica</string>
     <plurals name="edit_hub_subtitle">
         <item quantity="one">%1$d pagina</item>
         <item quantity="other">%1$d pagine</item>
     </plurals>
-    <string name="edit_tool_unavailable">%1$s sarà disponibile in una prossima versione.</string>
     <string name="edit_error_title">Impossibile modificare il file</string>
     <string name="edit_error_protected">I PDF protetti da password non si possono ancora modificare.</string>
     <string name="edit_error_back">Indietro</string>
@@ -252,7 +249,6 @@
     <string name="images_from_files_hint">Scegli dai file del telefono</string>
     <string name="add_new_badge">Nuova</string>
     <string name="add_review_hint">Le pagine nuove sono evidenziate: se non sono dove volevi, trascinale nella posizione giusta.</string>
-    <string name="add_review_hint_hub">Le pagine nuove sono evidenziate. Per spostarle usa \"Organizza pagine\".</string>
 
     <!-- Fill and sign (phase 4a) -->
     <string name="fill_tool_text">Testo</string>
@@ -335,12 +331,10 @@
     <string name="annotate_apply_highlight">Evidenzia</string>
     <string name="annotate_apply_underline">Sottolinea</string>
     <string name="annotate_apply_strikeout">Barra il testo</string>
-    <string name="annotate_cancel">Annulla</string>
-    <string name="annotate_hint_select">Tieni premuto su una parola, poi trascina le maniglie</string>
+    <string name="annotate_hint_select">Tieni premuto su una parola e, senza staccare il dito, trascina per estendere: al rilascio viene applicato</string>
     <string name="annotate_style">Stile</string>
     <string name="annotate_hint_erase">Tocca un\'annotazione per rimuoverla</string>
     <string name="annotate_hint_draw">Disegna con un dito o con la penna; con due dita sposti e ingrandisci. Colore e spessore: pulsante Stile</string>
-    <string name="annotate_page_no_text">Questa pagina non ha testo selezionabile (è una scansione?)</string>
     <string name="annotate_load_failed">Impossibile leggere le annotazioni del documento</string>
     <string name="color_yellow">Giallo</string>
     <string name="color_green">Verde</string>
@@ -352,4 +346,11 @@
     <string name="color_black">Nero</string>
     <string name="color_dark_green">Verde scuro</string>
     <string name="color_other">Altro colore</string>
+    <string name="viewer_tool_fill">Compila</string>
+    <string name="viewer_tool_pages">Pagine</string>
+    <string name="viewer_save_first_title">Salva prima di continuare</string>
+    <string name="viewer_save_first_message">Le modifiche fatte qui vanno salvate prima di lavorare sul file: vuoi salvarle?</string>
+    <string name="annotate_applied_highlight">Evidenziato</string>
+    <string name="annotate_applied_underline">Sottolineato</string>
+    <string name="annotate_applied_strikeout">Barrato</string>
 </resources>

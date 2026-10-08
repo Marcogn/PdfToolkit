@@ -31,6 +31,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.model.OpenFailure
+import com.marcogn.pdftoolkit.domain.model.PdfTool
 
 /**
  * Viewer (spec §4.2): shows the loading, password, error and ready states of the document. The
@@ -38,8 +39,9 @@ import com.marcogn.pdftoolkit.domain.model.OpenFailure
  */
 @Composable
 fun ViewerScreen(
+    startTool: PdfTool?,
     onBack: () -> Unit,
-    onEdit: (page: Int) -> Unit,
+    onOpenEdit: (uri: String, tool: PdfTool, page: Int, reopenViewer: Boolean) -> Unit,
     onReopen: (uri: String) -> Unit,
     onOpenCopy: (uri: String) -> Unit,
     viewModel: ViewerViewModel = hiltViewModel(),
@@ -58,7 +60,8 @@ fun ViewerScreen(
             readingMode = readingMode,
             onReadingModeChange = viewModel::setReadingMode,
             onPageChanged = viewModel::onPageChanged,
-            onEdit = onEdit,
+            startTool = startTool,
+            onOpenEdit = onOpenEdit,
             save = ViewerSaveUi(
                 state = saveState,
                 overwriteChoice = overwriteChoice,

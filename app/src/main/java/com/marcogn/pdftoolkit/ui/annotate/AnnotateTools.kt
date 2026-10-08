@@ -8,17 +8,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FormatStrikethrough
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.outlined.BorderColor
@@ -26,13 +19,8 @@ import androidx.compose.material.icons.outlined.AutoFixNormal
 import androidx.compose.material.icons.outlined.Brush
 import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -52,33 +40,17 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationColor
-import com.marcogn.pdftoolkit.domain.annotate.AnnotationEdits
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationPalette
-import com.marcogn.pdftoolkit.domain.annotate.AnnotationRef
 import com.marcogn.pdftoolkit.domain.annotate.FreehandKind
 import com.marcogn.pdftoolkit.domain.annotate.FreehandOptions
 import com.marcogn.pdftoolkit.domain.annotate.MarkupKind
-import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
-import com.marcogn.pdftoolkit.domain.edit.PageItem
-import com.marcogn.pdftoolkit.pdf.annotations.MarkupFactory
-import com.marcogn.pdftoolkit.pdf.render.PdfPageSpace
-import com.marcogn.pdftoolkit.pdf.text.TextSelection
-import com.marcogn.pdftoolkit.ui.common.PageIndicatorChip
-import com.marcogn.pdftoolkit.ui.common.ReportCurrentPage
-import com.marcogn.pdftoolkit.ui.common.ToolStrip
-import com.marcogn.pdftoolkit.ui.common.TransientHint
-import com.marcogn.pdftoolkit.ui.common.UndoRedo
-import com.marcogn.pdftoolkit.ui.edit.AnnotateDocuments
-import com.marcogn.pdftoolkit.ui.edit.AnnotateLoad
-import com.marcogn.pdftoolkit.ui.fill.FillPageContent
 import com.marcogn.pdftoolkit.ui.fill.ToolButtonFrame
 
 /**
- * What a gesture on a page does in the "Annotate" pane (spec §7.4): select text for a markup
+ * What a gesture on a page does with the annotation tools of the viewer (spec §7.4): select text for a markup
  * [kind], draw with a [freehand] brush, or erase (neither).
  */
 enum class AnnotateTool(val kind: MarkupKind?, val freehand: FreehandKind? = null) {
@@ -91,7 +63,7 @@ enum class AnnotateTool(val kind: MarkupKind?, val freehand: FreehandKind? = nul
 }
 
 /**
- * UI state of "Annotate" that the edit session doesn't hold: the armed tool, the colour chosen for
+ * UI state of the annotation tools that the edit session doesn't hold: the armed tool, the colour chosen for
  * highlights and for lines (underline and strikeout share one), and the colour and width of each
  * freehand brush, all as positions in [AnnotationPalette] and [FreehandOptions]. Survives rotation.
  */
@@ -112,6 +84,27 @@ class AnnotatePaneState(
     var penWidth by mutableIntStateOf(penWidth)
     var markerColor by mutableIntStateOf(markerColor)
     var markerWidth by mutableIntStateOf(markerWidth)
+
+    /** The text markup tool last used, which the "Highlight" button of the viewer arms again. */
+    var markupTool by mutableStateOf(AnnotateTool.HIGHLIGHT)
+        private set
+
+    /** The brush last used, which the "Draw" button of the viewer arms again. */
+    var brushTool by mutableStateOf(AnnotateTool.PEN)
+        private set
+
+    init {
+        choose(tool)
+    }
+
+    /** Arms [tool] and remembers it as the one of its group. */
+    fun choose(tool: AnnotateTool) {
+        this.tool = tool
+        when {
+            tool.kind != null -> markupTool = tool
+            tool.freehand != null -> brushTool = tool
+        }
+    }
 
     /** The colour new annotations of [kind] get. */
     fun colorFor(kind: MarkupKind): AnnotationColor {
@@ -145,9 +138,19 @@ class AnnotatePaneState(
 
     companion object {
         val Saver = listSaver<AnnotatePaneState, Any>(
-            save = { listOf(it.tool.name, it.highlightColor, it.lineColor, it.penColor, it.penWidth, it.markerColor, it.markerWidth) },
+            save = {
+                listOf(
+                    it.tool.name, it.highlightColor, it.lineColor, it.penColor, it.penWidth, it.markerColor, it.markerWidth,
+                    it.markupTool.name, it.brushTool.name,
+                )
+            },
             restore = {
                 AnnotatePaneState(AnnotateTool.valueOf(it[0] as String), it[1] as Int, it[2] as Int, it[3] as Int, it[4] as Int, it[5] as Int, it[6] as Int)
+                    .also { state ->
+                        state.choose(AnnotateTool.valueOf(it[7] as String))
+                        state.choose(AnnotateTool.valueOf(it[8] as String))
+                        state.tool = AnnotateTool.valueOf(it[0] as String)
+                    }
             },
         )
     }
@@ -155,174 +158,9 @@ class AnnotatePaneState(
 
 @Composable
 fun rememberAnnotatePaneState(initialTool: AnnotateTool = AnnotateTool.HIGHLIGHT): AnnotatePaneState =
-    rememberSaveable(saver = AnnotatePaneState.Saver) { AnnotatePaneState(initialTool) }
+    rememberSaveable(saver = AnnotatePaneState.Saver) { AnnotatePaneState().also { it.choose(initialTool) } }
 
-/** What the pane asks of the edit screen. */
-interface AnnotateActions : FillPageContent {
-    fun addAnnotation(annotation: NewAnnotation)
-    fun removeAnnotation(id: String)
-    fun removeExistingAnnotation(ref: AnnotationRef)
-    fun newAnnotationId(): String
-
-    /** The text of a page as its source shows it; null if it can't be read. */
-    suspend fun pageText(item: PageItem.FromPdf): TextSelection?
-    fun message(text: String)
-}
-
-/**
- * "Annotate" (spec §7.4): the session's pages one at a time, each zoomable, with the annotations
- * already in the files and the ones added in this session drawn on top. With a markup tool a press
- * and hold selects text; with a freehand tool a finger or a stylus draws (two fingers zoom and
- * pan); with the eraser a tap removes the annotation under the finger.
- */
-@Composable
-fun AnnotatePane(
-    pages: List<PageItem>,
-    edits: AnnotationEdits,
-    load: AnnotateLoad?,
-    state: AnnotatePaneState,
-    selection: TextSelectionState,
-    actions: AnnotateActions,
-    initialPageId: String? = null,
-    onPageChanged: (pageId: String) -> Unit = {},
-    modifier: Modifier = Modifier,
-) {
-    when (load) {
-        null, AnnotateLoad.Loading -> Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        AnnotateLoad.Failed -> Box(modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-            Text(stringResource(R.string.annotate_load_failed), textAlign = TextAlign.Center)
-        }
-        is AnnotateLoad.Ready -> AnnotatePages(pages, edits, load.documents, state, selection, actions, initialPageId, onPageChanged, modifier)
-    }
-}
-
-@Composable
-private fun AnnotatePages(
-    pages: List<PageItem>,
-    edits: AnnotationEdits,
-    documents: AnnotateDocuments,
-    state: AnnotatePaneState,
-    selection: TextSelectionState,
-    actions: AnnotateActions,
-    initialPageId: String?,
-    onPageChanged: (pageId: String) -> Unit,
-    modifier: Modifier,
-) {
-    val pagerState = rememberPagerState(initialPage = pages.indexOfFirst { it.id == initialPageId }.coerceAtLeast(0)) { pages.size }
-    ReportCurrentPage(pagerState, pages, onPageChanged)
-    ResolveTextSelection(selection) { key -> (pages.firstOrNull { it.id == key } as? PageItem.FromPdf)?.let { actions.pageText(it) } }
-    Box(modifier.fillMaxSize()) {
-        // Drawing takes every one-finger drag, so the pages don't turn under a freehand tool.
-        HorizontalPager(pagerState, key = { pages[it].id }, userScrollEnabled = state.tool.freehand == null, modifier = Modifier.fillMaxSize()) { index ->
-            val page = pages[index]
-            val space = documents.space(page)
-            val sourceSpace = documents.sourceSpace(page)
-            if (space == null || sourceSpace == null) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                return@HorizontalPager
-            }
-            AnnotatePage(
-                item = page,
-                space = space,
-                sourceSpace = sourceSpace,
-                existing = documents.existingOn(page),
-                edits = edits,
-                tool = state.tool,
-                brushColor = state.tool.freehand?.let(state::colorFor) ?: AnnotationColor.BLACK,
-                brushWidth = state.tool.freehand?.let(state::widthFor) ?: 0f,
-                // One ink layer at a time (the library's advice): only on the page that is shown.
-                isCurrent = pagerState.settledPage == index,
-                selection = selection,
-                actions = actions,
-                pageColor = Color.White,
-                backgroundColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                selectionColor = MaterialTheme.colorScheme.primary,
-            )
-        }
-        // A few seconds when the tool changes, over the page rather than a permanent row (plan U7).
-        TransientHint(state.tool.hint(), key = state.tool)
-        PageIndicatorChip(pagerState, pages.size, Modifier.align(Alignment.BottomCenter).padding(8.dp))
-    }
-}
-
-/**
- * Puts the selected text's annotation into the session: [kind] in the colour [state] has for it,
- * on the page the selection is on. The selection is cleared.
- */
-fun applySelection(
-    kind: MarkupKind,
-    state: AnnotatePaneState,
-    selection: TextSelectionState,
-    pages: List<PageItem>,
-    documents: AnnotateDocuments?,
-    actions: AnnotateActions,
-) {
-    val page = pages.firstOrNull { it.id == selection.key }
-    val sourceSpace: PdfPageSpace? = page?.let { documents?.sourceSpace(it) }
-    if (page != null && sourceSpace != null) {
-        MarkupFactory.build(actions.newAnnotationId(), page.id, kind, state.colorFor(kind), selection.runs, sourceSpace)
-            ?.let(actions::addAnnotation)
-    }
-    selection.clear()
-}
-
-/**
- * The controls of the pane, as a bar at the bottom of the screen or (with [side]) a rail at its end
- * (plan U18): what to do with the selection, the tools, and one "Style" button that opens the colours
- * (and the sizes of a brush) of the armed tool, so they take no room until asked for (plan U7).
- * [onApply] puts the selection into the document; without [showApply] the bar leaves that to a bar by
- * the selection (the viewer's, plan V-a).
- */
-@Composable
-fun AnnotateToolBar(
-    state: AnnotatePaneState,
-    selection: TextSelectionState,
-    undoRedo: UndoRedo,
-    side: Boolean,
-    showApply: Boolean = true,
-    onApply: (MarkupKind) -> Unit,
-) {
-    // The markup kind to apply, when text is selected for it.
-    val applyKind = state.tool.kind?.takeIf { selection.isActive && showApply }
-    val strip: @Composable () -> Unit = {
-        ToolStrip(side, undoRedo, if (side) Modifier.fillMaxHeight() else Modifier.fillMaxWidth(), trailing = { StyleButton(state) }) {
-            if (applyKind != null && side) {
-                ToolButtonFrame(R.string.annotate_cancel, false, onClick = selection::clear) { Icon(Icons.Filled.Close, contentDescription = null) }
-                ToolButtonFrame(applyKind.applyLabel(), true, onClick = { onApply(applyKind) }) { Icon(Icons.Filled.Check, contentDescription = null) }
-            }
-            for (tool in AnnotateTool.entries) {
-                ToolButtonFrame(tool.labelRes(), state.tool == tool, onClick = {
-                    if (state.tool != tool) selection.clear()
-                    state.tool = tool
-                }) { Icon(tool.icon(), contentDescription = null) }
-            }
-        }
-    }
-    if (side) {
-        strip()
-    } else {
-        Column {
-            if (applyKind != null) {
-                Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        TextButton(onClick = selection::clear) { Text(stringResource(R.string.annotate_cancel)) }
-                        Button(onClick = { onApply(applyKind) }) {
-                            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Text(stringResource(applyKind.applyLabel()), modifier = Modifier.padding(start = 8.dp))
-                        }
-                    }
-                }
-            }
-            strip()
-        }
-    }
-}
-
-/** What the pane tells the reader when [tool] is armed; shown over the page for a few seconds (plan U7). */
+/** What the viewer tells the reader when this tool is armed; shown over the page for a few seconds (plan U7). */
 @Composable
 fun AnnotateTool.hint(): String = stringResource(
     when {
@@ -334,10 +172,11 @@ fun AnnotateTool.hint(): String = stringResource(
 
 /**
  * The button that shows the colour (and the size of a brush) the armed tool has and opens a small menu
- * to change them. Nothing for the eraser, which has no style.
+ * to change them, and to pick the other tool of its group (underline for highlight, marker for pen).
+ * Nothing for the eraser, which has no style.
  */
 @Composable
-private fun StyleButton(state: AnnotatePaneState) {
+fun StyleButton(state: AnnotatePaneState) {
     val kind = state.tool.kind
     val brush = state.tool.freehand
     if (kind == null && brush == null) return
@@ -356,9 +195,34 @@ private fun StyleButton(state: AnnotatePaneState) {
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             Column(Modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                ToolChoiceRow(state)
                 ColorRow(palette, chosen) { if (kind != null) state.setColor(kind, it) else state.setColor(brush!!, it) }
                 if (brush != null) WidthRow(brush, state)
             }
+        }
+    }
+}
+
+/** The tools of the armed tool's group, one to pick: highlight / underline / strikeout, or pen / marker. */
+@Composable
+private fun ToolChoiceRow(state: AnnotatePaneState) {
+    val group = AnnotateTool.entries.filter { (it.kind != null) == (state.tool.kind != null) && it != AnnotateTool.ERASER }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        group.forEach { tool ->
+            val selected = tool == state.tool
+            val name = stringResource(tool.labelRes())
+            Box(
+                Modifier
+                    .size(TOUCH_TARGET)
+                    .clip(CircleShape)
+                    .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                    .clickable(role = Role.RadioButton) { state.choose(tool) }
+                    .semantics {
+                        this.selected = selected
+                        contentDescription = name
+                    },
+                contentAlignment = Alignment.Center,
+            ) { Icon(tool.icon(), contentDescription = null) }
         }
     }
 }
@@ -434,7 +298,7 @@ private const val MAX_DOT = 30f
 private val SELECTED_RIM = 3.dp
 private val THIN_RIM = 1.dp
 
-private fun AnnotateTool.labelRes(): Int = when (this) {
+internal fun AnnotateTool.labelRes(): Int = when (this) {
     AnnotateTool.HIGHLIGHT -> R.string.annotate_tool_highlight
     AnnotateTool.UNDERLINE -> R.string.annotate_tool_underline
     AnnotateTool.STRIKEOUT -> R.string.annotate_tool_strikeout
@@ -443,7 +307,7 @@ private fun AnnotateTool.labelRes(): Int = when (this) {
     AnnotateTool.ERASER -> R.string.annotate_tool_eraser
 }
 
-private fun AnnotateTool.icon(): ImageVector = when (this) {
+internal fun AnnotateTool.icon(): ImageVector = when (this) {
     AnnotateTool.HIGHLIGHT -> Icons.Outlined.BorderColor
     AnnotateTool.UNDERLINE -> Icons.Filled.FormatUnderlined
     AnnotateTool.STRIKEOUT -> Icons.Filled.FormatStrikethrough
@@ -458,6 +322,14 @@ internal fun MarkupKind.applyLabel(): Int = when (this) {
     MarkupKind.UNDERLINE -> R.string.annotate_apply_underline
     MarkupKind.STRIKEOUT -> R.string.annotate_apply_strikeout
     MarkupKind.SQUIGGLY -> R.string.annotate_apply_underline
+}
+
+/** What the snackbar says after the selected text was marked up as this kind. */
+internal fun MarkupKind.appliedLabel(): Int = when (this) {
+    MarkupKind.HIGHLIGHT -> R.string.annotate_applied_highlight
+    MarkupKind.UNDERLINE -> R.string.annotate_applied_underline
+    MarkupKind.STRIKEOUT -> R.string.annotate_applied_strikeout
+    MarkupKind.SQUIGGLY -> R.string.annotate_applied_underline
 }
 
 private fun AnnotationColor.nameRes(): Int = when (this) {
