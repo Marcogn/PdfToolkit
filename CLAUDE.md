@@ -267,7 +267,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - **U-a Usability flows done (2026-10-07)**, PR #20; lint, 379 unit tests and `assembleDebug` green;
   device checks passed (author, 2026-10-08).
 - **U-b Usability screens done (2026-10-08)**, branch `u-b-usability-screens`; lint (0 errors), unit tests and
-  `assembleDebug` green; **device checks pending** (below). **Next: V-a (Opus), `docs/plan-viewer-editing.md`.**
+  `assembleDebug` green; device checks passed (author, 2026-10-08), PR #21. **Next: V-a (Opus), `docs/plan-viewer-editing.md`.**
 - **Viewer editing planned (2026-10-08)**, author's request while testing U-b (option "C"): page tools in the
   viewer, document tools in the edit screen. `docs/plan-viewer-editing.md`, sub-phases V-a (Opus), V-b
   (Sonnet), V-c (Opus). Order: U-b → V-a → V-b → V-c → 9 → 10a → 10b → 11 → 12 (place before 9 to confirm at V-a).
@@ -296,7 +296,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   bar covers the top of the first page when the document opens (scroll a little; a top inset in `DocumentLayout` would
   fix it but touches the shared geometry); Compose `ConfigurationScreenWidthHeight` lint warning on `isLandscape()`.
 
-### Device checks U-b (author)
+### Device checks U-b (author, passed 2026-10-08)
 Organize pages (select, range by long press, rotate, delete, drag the handle, Add from PDF / blank / photos / files,
 default position after the selected page); overwrite in one dialog; Annotate with the pen: Style button, hint fades, more
 page on screen; signature with 0 / 1 / several saved and the reminder on "My signatures"; resize and turn from the corner
