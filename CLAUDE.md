@@ -283,8 +283,10 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   viewer, document tools in the edit screen. `docs/plan-viewer-editing.md`, sub-phases V-a (Opus), V-b
   (Sonnet), V-c (Opus). Order: U-b → V-a → V-b → V-c → 9 → 10a → 10b → 11 → 12 (the author started V-a
   right after U-b, which settles "before 9").
-- **V-a Viewer editing core done (2026-10-08)**, branch `v-a-viewer-editing-core`; lint (0 errors), 420 unit tests and
-  `assembleDebug` green. Needs the author's device checks (below). **Next: V-b (Sonnet).**
+- **V-a Viewer editing core done (2026-10-08)**, branch `v-a-viewer-editing-core`, PR #22; lint (0 errors), 420 unit
+  tests and `assembleDebug` green, CI green; device checks passed (author, 2026-10-08). Author noticed the edit hub
+  still offers Highlight/Draw: expected until V-b removes the hub and the Annotate pane (Fill goes in V-c).
+  **Next: V-b (Sonnet).**
 
 ### Handoff V-a → V-b (viewer editing)
 - Session: `ViewerUiState.Ready.editing` (`ViewerEditSession`: `edits` flow with `session` + `hasUnsavedChanges`,
@@ -306,7 +308,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   the viewer armed (`Destination.Viewer(uri, tool)`), removing the Annotate pane, the hub and the FAB; the route
   arguments `Destination.Edit.selectionStart/End` are no longer sent by the viewer and can go with the pane.
 
-### Device checks V-a (author)
+### Device checks V-a (author, passed 2026-10-08)
 Pen button → highlight/underline/strikeout via the selection bar, pen and marker strokes on several pages in
 continuous mode at different zooms (incl. across the gap: the stroke stays on the page it started on), and in
 single-page mode; eraser on new and on the file's annotations; undo/redo; Save → copy (Open/Share) and overwrite
