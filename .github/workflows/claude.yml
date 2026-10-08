@@ -58,7 +58,7 @@ jobs:
       # The same toolchain as Android CI, so Claude can run the checks it changes.
       - name: Set up JDK
         if: env.HAS_TOKEN == 'true'
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
