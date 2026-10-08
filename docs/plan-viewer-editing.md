@@ -48,7 +48,7 @@ only has to draw what is pending on top.
 | V-c Fill and sign in the viewer | **Opus** | Overlays and form controls in the continuous viewport (controls aligned to widget rectangles at any zoom, tiling, scrolling), overlay gestures vs scroll, corner handle, signature shortcut, date, flatten on save; Fill pane removed from `EditScreen`; Home "Fill and sign" opens the viewer armed | Unit tests on overlay/control placement across pages and zooms; handoff not needed (last) | Fill a multi-page form while scrolling; place, move, resize, turn a signature; save, other reader; landscape |
 
 Order: U-b (device checks, merge) → V-a → V-b → V-c → 9 Scan → … (the author started V-a right after
-U-b, which settles "before 9"). **V-a is implemented (2026-10-08)**; design in ADR 0005, handoff in
+U-b, which settles "before 9"). **V-a is done (2026-10-08, device checks passed)**; design in ADR 0005, handoff in
 `CLAUDE.md`.
 
 ## Open points settled in V-a (2026-10-08)
