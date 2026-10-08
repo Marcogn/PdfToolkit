@@ -71,9 +71,17 @@ new projects start.
    `dl.google.com` must be reachable).
 2. **Claude GitHub App** on the repository (github.com/apps/claude). Needed for the Action, for
    Code Review and for auto-fix of PRs from cloud sessions.
-3. **Secret** `CLAUDE_CODE_OAUTH_TOKEN`: run `claude setup-token` in a terminal (it uses the Claude
-   subscription, not API billing), then add it under Settings → Secrets and variables → Actions.
-   Until it exists, `claude.yml` and `claude-review.yml` skip themselves.
+3. Optional, **secret** `CLAUDE_CODE_OAUTH_TOKEN`, needed only by `claude.yml` (`@claude`) and
+   `claude-review.yml`; until it exists both skip themselves, and cloud sessions don't need it.
+   - Generate the token **once**, on a computer with the Claude Code CLI: `claude setup-token` opens
+     the browser login (if the browser can't return to the terminal, it shows a code to paste) and
+     prints a token valid for one year, tied to the Claude subscription. It isn't saved anywhere:
+     treat it as a password, and don't generate it inside a cloud session (it would stay in the
+     transcript).
+   - Add it to **each repository** (a personal account has no secrets shared across repositories;
+     only organisations do): Settings → Secrets and variables → Actions → New repository secret,
+     or `gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo Marcogn/<repo>`. Same token everywhere.
+   - After a year: generate a new one and replace the secrets.
 4. Optional, **Claude Code Review** (managed, multi-agent): Team/Enterprise plans only, billed per
    review (≈15–25 $ each per the docs). On other plans `claude-review.yml` does the job with the
    subscription.
