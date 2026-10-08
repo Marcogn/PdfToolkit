@@ -49,7 +49,7 @@ only has to draw what is pending on top.
 
 Order: U-b (device checks, merge) → V-a → V-b → V-c → 9 Scan → … (the author started V-a right after
 U-b, which settles "before 9"). **V-a is done (2026-10-08, device checks passed)**; design in ADR 0005, handoff in
-`CLAUDE.md`. **V-b is done (2026-10-08, device checks pending)**: the Fill pane stays in `EditScreen` until V-c, so the
+`CLAUDE.md`. **V-b is done (2026-10-08, device checks passed)**: the Fill pane stays in `EditScreen` until V-c, so the
 bar's "Fill" button opens it (with save-first) rather than a viewer-side pane.
 
 ## Open points settled in V-a (2026-10-08)

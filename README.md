@@ -28,7 +28,8 @@ their own colours and sizes, and drawings are saved as ink annotations or made f
 review (`docs/plan-usability.md`) is done (U-a, U-b). Editing moves into the viewer
 (`docs/plan-viewer-editing.md`): since V-a and V-b, highlighting, drawing and erasing work right on the
 pages being read, from a tools bar (Highlight, Draw, Eraser, Fill, Pages), with undo/redo and saving from the
-viewer; "Pages" (organize, add, merge) and "Fill" open the edit screen, asking to save first. The edit hub is
+viewer; with a markup tool armed, text is marked as soon as you lift the finger (with an Undo message).
+"Pages" (organize, add, merge) and "Fill" open the edit screen, asking to save first. The edit hub is
 gone. Fill and sign in the viewer itself (V-c) is next.
 
 ## Features

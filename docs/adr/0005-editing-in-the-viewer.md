@@ -79,6 +79,8 @@ again (the exit asks once more, never the opposite).
   Cancel); Save runs the normal save dialog and, once written, `onOpenEdit(uri, tool, page, reopenViewer = true)`
   replaces the viewer by one on the saved file (`popUpTo<Home>`) and opens the edit screen above it, so back
   returns to a viewer that shows the saved file (also after a copy). Discard drops the session first.
+- With a markup tool armed the mark is made when the finger lifts (after the long press, or after dragging a handle),
+  with an "Undo" snackbar; the floating Copy/Highlight bar is for reading only. This replaces 7b's "arm, select, apply".
 - `Destination.Viewer(uri, tool)`: Home's Highlight and Draw open the viewer armed (once the annotations are
   read; a protected document says why instead). `Destination.Edit` lost `selectionStart/End`.
 - The FAB → hub container transform (phase 6) went with the FAB: `EditContainerTransform` and the shared

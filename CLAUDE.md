@@ -288,7 +288,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   tests and `assembleDebug` green, CI green; device checks passed (author, 2026-10-08). Author noticed the edit hub
   still offers Highlight/Draw: expected until V-b removes the hub and the Annotate pane (Fill goes in V-c).
 - **V-b Viewer tools UI done (2026-10-08)**, same cloud branch as this session; lint (0 errors), 425 unit tests
-  and `assembleDebug` green; device checks pending (author). **Next: V-c (Opus).**
+  and `assembleDebug` green, CI green; device checks passed (author, 2026-10-08), PR #23. Same PR, after the author's first
+  device test: markup tools apply on release (see Decisions, V-b follow-up). **Next: V-c (Opus).**
 
 ### Notes from V-b (viewer tools UI), for V-c
 - The bar is `ui/viewer/ViewerToolBar` (`ToolStrip`; `ViewerToolGroup` MARKUP/DRAW/ERASER): a button is named after
@@ -306,9 +307,18 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
   once if the document can't take tools (`startToolChecked`). `Destination.Edit` lost `selectionStart/End`; `EditScreen`
   has panes `ORGANIZE, FILL` only and back leaves (exit dialog if unsaved). `EditViewModel` lost the annotate parts.
   FAB, hub, `EditContainerTransform` and the shared transition layout are gone.
+- Markup tools (follow-up): the mark is made when the finger lifts (`ReadyViewer.applyMarkup`, `onSelectionReleased`;
+  `selecting.job` makes a release wait for the page text to load); the floating Copy/Highlight bar shows only with no
+  markup tool armed. `AnnotateTools.kt` has `appliedLabel()` for the snackbar text.
 - Known limits: the rail covers the right edge of a page at fit width in landscape (tap to hide, or zoom); the bar's
   dimmed state for unavailable tools is visual only (a tap says why); with the thumbnails open the tools bar is hidden;
   after "Pages" with a saved copy the viewer below shows the copy, not the original.
+
+### Device checks V-b (author, passed 2026-10-08)
+Every tool from the bar (Highlight, Draw, Eraser, Fill, Pages) and Style (underline/strikeout, marker); Home →
+Highlight / Draw opens the viewer armed; Pages and Fill with and without pending changes (save copy, overwrite,
+discard, cancel); landscape rail; tap for full screen with a tool armed; markup applied on release with the
+Undo message (one word, stretched over two lines, Undo from the message and from the bar).
 
 ### Handoff V-a → V-b (viewer editing)
 - Session: `ViewerUiState.Ready.editing` (`ViewerEditSession`: `edits` flow with `session` + `hasUnsavedChanges`,
