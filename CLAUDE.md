@@ -49,7 +49,7 @@ sub-phase. When the author says "go on" / "next phase" (or similar):
 The author asked for one session and one branch per sub-phase, named after it, so they don't have
 to repeat the names. Session title: `<sub-phase> <Name>` (e.g. `U-b Usability screens`); branch: the
 same in kebab-case (e.g. `u-b-usability-screens`). Set both at the start of a sub-phase.
-Current: session **U-b Usability screens**, branch `u-b-usability-screens`. Next: **9 Scan** (session `9 Scan`, branch `9-scan`).
+Current: session **U-b Usability screens**, branch `u-b-usability-screens`. Next: **V-a Viewer editing core** (session `V-a Viewer editing core`, branch `v-a-viewer-editing-core`).
 
 ## Sub-phases: model, scope, device checks
 Sonnet by default; Opus only for the cores where a wrong design is expensive to fix later.
@@ -72,6 +72,9 @@ Haiku is not recommended for code in this project.
 | 8b Freehand complete | Sonnet | `docs/plan-v2.md` 8b: pen, highlighter, eraser, colours, undo/redo | Plan 8b | Finger and stylus; erase; undo/redo; rotation while drawing |
 | U-a Usability flows | Sonnet | `docs/plan-usability.md` U-a: U1, U2, U3, U5, U13 (edit panes start on the viewer's page and can jump; back to hub; leave after exit-dialog save; Highlight from the viewer selection; page indicator → go to page) | Plan U-a | Edit from page 37 opens on 37; page jump; Home tool → back → hub; exit-dialog save leaves; viewer selection → Copy or Highlight |
 | U-b Usability screens | Sonnet | `docs/plan-usability.md` U-b: U4 (Organize pages, incl. U9), U6, U7, U8, U10, U11, U12, U15, U16, U18–U21 (landscape side rail, 48 dp touch targets, tap for full-screen viewer, Undo/Redo at the bottom, floating selection bar) | Plan U-b | Organize pages (select, rotate, delete, drag, add); overwrite in one dialog; compact draw bar; signature 0/1/many + reminder; one-hand resize; Annotate/Fill in landscape; full-screen tap; Undo/Redo at the bottom |
+| V-a Viewer editing core | **Opus** | `docs/plan-viewer-editing.md` V-a: viewer-scoped edit session (pages fixed), pending edits drawn in `PdfViewport`, markup and freehand on any page of the viewport, eraser, save from the viewer, ADR 0005 | Plan V-a; handoff written | Highlight/draw on several pages at different zooms, save copy/overwrite, other reader; undo/redo; back with changes; rotation |
+| V-b Viewer tools UI | Sonnet | `docs/plan-viewer-editing.md` V-b: tool bar/rail in the viewer, Save, "Pages" with save-first, Edit FAB and hub removed, Home Highlight/Draw open the viewer armed | Plan V-b | Every tool from the bar; Home tools; Pages with/without pending changes; landscape; full-screen tap |
+| V-c Fill and sign in the viewer | **Opus** | `docs/plan-viewer-editing.md` V-c: overlays and form controls in the continuous viewport, gestures vs scroll, Fill pane removed | Plan V-c | Multi-page form while scrolling; signature place/move/resize/turn; save, other reader |
 | 9 Scan | Sonnet | `docs/plan-v2.md` 9: ML Kit Document Scanner, availability, open/add pages | Plan 9; packaged manifest still without `INTERNET` | Scan, save, add to open PDF; airplane mode |
 | 10a OCR core | **Opus** | `docs/plan-v2.md` 10a: Text Recognition v2, invisible text layer in user space | Unit tests on line geometry and search after OCR; handoff written | OCR'd scan searchable in app and other reader |
 | 10b OCR complete | Sonnet | `docs/plan-v2.md` 10b: UI, progress, cancellation, background | Plan 10b | 20-page scan; cancel halfway |
@@ -206,7 +209,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 ## References
 - Specification: `docs/spec.md`. Plan, alignment with the references, upgrade steps:
   `docs/plan.md`. Product phase 2 plan: `docs/plan-v2.md`. Usability review and plan:
-  `docs/plan-usability.md`.
+  `docs/plan-usability.md`. Editing in the viewer: `docs/plan-viewer-editing.md`.
 - ADRs: `docs/adr/0001-viewer.md`, `docs/adr/0002-pdfbox-android.md`,
   `docs/adr/0003-background-save-and-edit-session.md`, `docs/adr/0004-annotations.md`.
 
@@ -264,7 +267,10 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - **U-a Usability flows done (2026-10-07)**, PR #20; lint, 379 unit tests and `assembleDebug` green;
   device checks passed (author, 2026-10-08).
 - **U-b Usability screens done (2026-10-08)**, branch `u-b-usability-screens`; lint (0 errors), unit tests and
-  `assembleDebug` green; **device checks pending** (below). **Next: 9 Scan (Sonnet), `docs/plan-v2.md`.**
+  `assembleDebug` green; **device checks pending** (below). **Next: V-a (Opus), `docs/plan-viewer-editing.md`.**
+- **Viewer editing planned (2026-10-08)**, author's request while testing U-b (option "C"): page tools in the
+  viewer, document tools in the edit screen. `docs/plan-viewer-editing.md`, sub-phases V-a (Opus), V-b
+  (Sonnet), V-c (Opus). Order: U-b → V-a → V-b → V-c → 9 → 10a → 10b → 11 → 12 (place before 9 to confirm at V-a).
 
 ### Notes from U-b (usability screens)
 - `PdfTool.ORGANIZE_PAGES` replaces Add/Insert/Remove/Reorder. `EditPane` is `HUB, ORGANIZE, FILL, ANNOTATE`; the hub
@@ -502,6 +508,12 @@ tap "Page X of N" in the viewer; rotate the phone in each case.
   no accessibility semantics (phase 6); recents remove by long press only, no swipe.
 
 ## Decisions
+- 2026-10-08 · Editing in the viewer (author's answers, `docs/plan-viewer-editing.md`): highlight, draw, eraser
+  **and fill and sign** happen in the viewer; "Pages" (organize, add, merge) stays in `EditScreen`, which loses
+  the hub and opens on Organize; with unsaved viewer changes "Pages" asks to **save first** (no shared unsaved
+  session). The viewer never changes the page list, so it keeps rendering the saved file and draws pending
+  edits on top. Replaces the 7b "one save path" UI decision and U5's route through `EditScreen`; the save
+  engine stays one. ADR 0005 to be written in V-a.
 - 2026-10-08 · U-b: the hub stays a read-only grid and "Organize pages" is its own pane (the plan left it open); hints are
   transient messages over the page, not rows; style (colour/size) is one menu button; in landscape the tool strip is a rail;
   the viewer's tap toggles full screen only when no selection is active (a tap then clears it); date placement and the

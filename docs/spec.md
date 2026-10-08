@@ -139,6 +139,8 @@ Tap su uno strumento senza documento aperto: si apre il selettore PDF e, scelto 
 
 ### 4.2 Viewer
 
+> **Nota (2026-10-08):** il viewer avrà una barra strumenti per evidenziare, disegnare e compilare direttamente sulla pagina; vedi `docs/plan-viewer-editing.md`.
+
 - Top bar: nome file (ellissi al centro se lungo), indicatore "pagina X di N", icona **Cerca** (§5.1), menu con: modalità di scorrimento, vai a pagina, condividi, informazioni documento.
 - **Modalità continua** (default): scorrimento verticale di tutte le pagine.
 - **Modalità pagina singola**: una pagina per schermata, swipe orizzontale, snap alla pagina.
@@ -150,6 +152,8 @@ Tap su uno strumento senza documento aperto: si apre il selettore PDF e, scelto 
 - **FAB "Modifica"**: in basso a destra, si nasconde scorrendo in giù e riappare scorrendo in su o fermandosi. Apre l'Hub modifiche sul documento corrente.
 
 ### 4.3 Hub modifiche
+
+> **Nota (2026-10-08):** l'hub sarà rimosso e gli strumenti di pagina (evidenzia, disegna, compila e firma) passeranno nel viewer (§4.2); vedi `docs/plan-viewer-editing.md`.
 
 Stessi strumenti della Home, legati al documento aperto. Presentazione: schermata a griglia con transizione dal FAB (container transform o equivalente). In alto, nome del documento e numero di pagine.
 
