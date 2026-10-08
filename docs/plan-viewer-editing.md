@@ -4,7 +4,7 @@ Author's request, 2026-10-08, while testing U-b: with a document open, **page** 
 (highlight, draw, erase, fill and sign) happen in the viewer, on the page being read, from a tool bar;
 **document** operations (organize, add, merge) stay in the edit screen. Option "C" of three discussed
 (A: a two-section menu on the Edit button; B: two buttons). Design: ADR 0005. All three sub-phases are
-implemented; code comments cite them as "plan V-a" etc.
+done; code comments cite them as "plan V-a" etc.
 
 ## Author's answers (2026-10-08)
 1. Fill and sign also in the viewer, not as a separate pane.
@@ -23,7 +23,7 @@ two save UIs.
 |---|---|---|---|
 | V-a Viewer editing core | Opus | Page-fixed `ViewerEditSession`; pending edits drawn in `PdfViewport`; markup, freehand on any page of the viewport (document points), eraser; save from the viewer; back guard; ADR 0005 | Done, device checks passed 2026-10-08 |
 | V-b Viewer tools UI | Sonnet | `ViewerToolBar` (bar / landscape rail): Highlight, Draw, Eraser, Fill, Pages; Style; "Pages" with save-first; FAB, hub and Annotate pane removed; Home Highlight/Draw open the viewer armed; markup applied on release with Undo | Done, device checks passed 2026-10-08 |
-| V-c Fill and sign in the viewer | Opus | Overlays and form controls in the viewport (continuous and single page, any zoom); overlay gestures vs scroll; corner handle; signature shortcut; date; "make final" in the viewer's save dialog; Fill pane removed; Home "Fill and sign" opens the viewer armed | Implemented 2026-10-08, device checks pending |
+| V-c Fill and sign in the viewer | Opus | Overlays and form controls in the viewport (continuous and single page, any zoom); overlay gestures vs scroll; corner handle; signature shortcut; date; "make final" in the viewer's save dialog; Fill pane removed; Home "Fill and sign" opens the viewer armed | Done, device checks passed 2026-10-08 |
 
 ## Open points settled
 - Single-page mode: paging is off while a brush is armed (two fingers still zoom and pan).

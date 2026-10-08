@@ -152,13 +152,13 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - Product phase 1 released as **1.0.0** (2026-10-04). Still open from it: the **baseline profile**
   (needs a device: `androidx.baselineprofile` plugin + a macrobenchmark module, startup / open viewer /
   open organize) and the **signing secrets** in the repository (Build APK and Release need them).
-- Done since: 7a–8b (annotations, freehand), U-a/U-b (usability), V-a/V-b (editing in the viewer).
-- **V-c Fill and sign in the viewer**: implemented (this branch); lint, 440 unit tests and
-  `assembleDebug` green. Waiting for the author's device checks (below). **Next: 9 Scan (Sonnet).**
+- Done since: 7a–8b (annotations, freehand), U-a/U-b (usability), V-a…V-c (editing in the viewer).
+- **V-c Fill and sign in the viewer done (2026-10-08)**, PR #24; lint (0 errors), 440 unit tests,
+  `assembleDebug` and CI green; device checks passed (author, 2026-10-08). **Next: 9 Scan (Sonnet).**
 - Open questions for later sub-phases (`docs/plan-v2.md`): OCR bundled or not (10a), ODG or ODT (11),
   release numbering.
 
-### Device checks V-c
+### Device checks V-c (author, passed 2026-10-08)
 Fill a multi-page form while scrolling in continuous mode (text, check box, radio, list; keyboard
 "Next"; a field near the bottom stays above the keyboard); fields filled then Fill put down: the new
 values still show; text, date, tick, cross on several pages at different zooms; signature with 0/1/many
