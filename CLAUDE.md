@@ -577,6 +577,10 @@ tap "Page X of N" in the viewer; rotate the phone in each case.
   Open points of the plan settled: single-page paging off while a brush is armed; opening search puts the tool
   down; protected PDFs show the tools as unavailable (a message). Until V-b the Edit FAB hides while the viewer
   has unsaved changes instead of asking to save first.
+- 2026-10-08 · V-b follow-up (author's device test): with a markup tool armed the mark is applied when the finger lifts
+  (`detectSelectionGestures(onRelease)` → `PdfViewport(onSelectionReleased)` → `ReadyViewer.applyMarkup`), with a snackbar
+  "Undo"; the floating bar is hidden then and only shows while reading. Replaces 7b's "arm, select, then apply" in the viewer
+  (the author chose it over keeping two steps); a long press alone marks one word, undo or a longer drag fixes it.
 - 2026-10-08 · V-b: the bar is always there (not only with a tool armed) and a tap on the page hides it with the top bar;
   the pen button, the Edit FAB, the hub and the FAB → hub transition are removed (the transition had no start left).
   "Fill" opens the edit screen (with save-first) until V-c; the Annotate pane and the edit-side annotation code

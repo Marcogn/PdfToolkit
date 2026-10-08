@@ -118,6 +118,8 @@ fun PdfViewport(
      * off the pages. Full-screen reading (plan U20), the eraser (plan V-a).
      */
     onTap: (PageTap?) -> Unit = {},
+    /** The finger that was selecting text lifted (after a long press, or after dragging a handle). */
+    onSelectionReleased: () -> Unit = {},
     /** The bar that floats by the selection (Copy, Highlight; plan U21); null for none. */
     selectionBar: (@Composable () -> Unit)? = null,
     /** A freehand brush armed (plan V-a): one finger or a stylus draws, two fingers zoom and pan. Null to read. */
@@ -140,6 +142,7 @@ fun PdfViewport(
     val selectionFill = MaterialTheme.colorScheme.primary.copy(alpha = SELECTION_ALPHA)
     val handleColor = MaterialTheme.colorScheme.primary
     val currentOnLongPress by rememberUpdatedState(onLongPress)
+    val currentOnSelectionReleased by rememberUpdatedState(onSelectionReleased)
     val currentOnTap by rememberUpdatedState(onTap)
     val freehandGrab = remember { FreehandGrab() }
     // Pointer → stroke space (document points), set as each stroke starts; the page the stroke starts on, for the mask.
@@ -215,6 +218,7 @@ fun PdfViewport(
                             selection.drag(handle, mapper.screenToPage(local, screen))
                         }
                     },
+                    onRelease = { currentOnSelectionReleased() },
                 )
             },
     ) {

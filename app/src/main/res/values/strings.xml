@@ -331,7 +331,7 @@
     <string name="annotate_apply_highlight">Evidenzia</string>
     <string name="annotate_apply_underline">Sottolinea</string>
     <string name="annotate_apply_strikeout">Barra il testo</string>
-    <string name="annotate_hint_select">Tieni premuto su una parola, poi trascina le maniglie</string>
+    <string name="annotate_hint_select">Tieni premuto su una parola e, senza staccare il dito, trascina per estendere: al rilascio viene applicato</string>
     <string name="annotate_style">Stile</string>
     <string name="annotate_hint_erase">Tocca un\'annotazione per rimuoverla</string>
     <string name="annotate_hint_draw">Disegna con un dito o con la penna; con due dita sposti e ingrandisci. Colore e spessore: pulsante Stile</string>
@@ -350,4 +350,7 @@
     <string name="viewer_tool_pages">Pagine</string>
     <string name="viewer_save_first_title">Salva prima di continuare</string>
     <string name="viewer_save_first_message">Le modifiche fatte qui vanno salvate prima di lavorare sul file: vuoi salvarle?</string>
+    <string name="annotate_applied_highlight">Evidenziato</string>
+    <string name="annotate_applied_underline">Sottolineato</string>
+    <string name="annotate_applied_strikeout">Barrato</string>
 </resources>

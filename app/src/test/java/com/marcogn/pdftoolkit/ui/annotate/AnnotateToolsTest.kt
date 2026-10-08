@@ -45,7 +45,7 @@ class AnnotateToolsTest {
         composeRule.setContent {
             PdfToolkitTheme { Box { TransientHint(state.tool.hint(), key = state.tool) } }
         }
-        composeRule.onNodeWithText("Tieni premuto su una parola, poi trascina le maniglie").assertIsDisplayed()
+        composeRule.onNodeWithText("Tieni premuto su una parola e, senza staccare il dito, trascina per estendere: al rilascio viene applicato").assertIsDisplayed()
     }
 
     @Test

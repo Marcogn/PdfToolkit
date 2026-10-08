@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalDensity
 import com.marcogn.pdftoolkit.domain.annotate.MarkupKind
 import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
 import com.marcogn.pdftoolkit.ui.annotate.AnnotateTool
+import com.marcogn.pdftoolkit.ui.annotate.appliedLabel
 import com.marcogn.pdftoolkit.ui.annotate.applyLabel
 import com.marcogn.pdftoolkit.ui.annotate.rememberAnnotatePaneState
 import com.marcogn.pdftoolkit.ui.common.UndoRedo
@@ -72,6 +73,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
@@ -120,6 +123,7 @@ import com.marcogn.pdftoolkit.ui.annotate.rememberTextSelectionState
 import com.marcogn.pdftoolkit.ui.search.SearchHighlights
 import com.marcogn.pdftoolkit.ui.search.SearchNotice
 import com.marcogn.pdftoolkit.ui.search.SearchTopBar
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -208,9 +212,11 @@ fun ReadyViewer(
     LaunchedEffect(searchOpen) {
         if (searchOpen) selection.clear()
     }
+    // The text of a long-pressed page loads in the background: a release must wait for it (the finger may lift first).
+    val selecting = remember { object { var job: Job? = null } }
     val onLongPress: (Int, Offset) -> Unit = onLongPress@{ page, point ->
         if (searchOpen) return@onLongPress
-        scope.launch {
+        selecting.job = scope.launch {
             val model = state.textReader.selectionModel(page) ?: return@launch
             val word = model.wordAt(point) ?: return@launch
             selection.select(page.toString(), model, word)
@@ -414,6 +420,37 @@ fun ReadyViewer(
             !searchOpen -> immersive = !immersive
         }
     }
+    // Puts the selection into the session as [kind]; false if there is nothing to mark up. The selection is cleared.
+    val applyMarkup: (MarkupKind) -> Boolean = apply@{ kind ->
+        val page = selection.key?.toIntOrNull()
+        val annotation = if (page != null && selection.range != null) {
+            pageTools?.markupAnnotation(page, selection.runs, kind, annotateTools.colorFor(kind))
+        } else {
+            null
+        }
+        selection.clear()
+        annotation != null && editing.addAnnotation(annotation)
+    }
+    // With a markup tool armed the mark is made as soon as the finger lifts, after the long press or after
+    // dragging a handle to stretch it; the snackbar's Undo takes it back (plan V-b follow-up).
+    val appliedMessage = armedTool?.kind?.let { stringResource(it.appliedLabel()) }
+    val undoLabel = stringResource(R.string.edit_undo)
+    val onSelectionReleased: () -> Unit = {
+        val kind = armedTool?.kind
+        if (kind != null && appliedMessage != null) {
+            scope.launch {
+                selecting.job?.join()
+                if (applyMarkup(kind)) {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    launch {
+                        if (snackbarHostState.showSnackbar(appliedMessage, actionLabel = undoLabel, duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed) {
+                            editing.undo()
+                        }
+                    }
+                }
+            }
+        }
+    }
     // Copy and Highlight float by the selected text, within reach, instead of replacing the top bar (plan U21).
     val selectionBar: @Composable () -> Unit = {
         val range = selection.range
@@ -428,10 +465,7 @@ fun ReadyViewer(
                 val tools = pageTools
                 if (range != null && page != null && tools != null) {
                     val kind = applyKind
-                    TextButton(onClick = {
-                        tools.markupAnnotation(page, selection.runs, kind, annotateTools.colorFor(kind))?.let(editing::addAnnotation)
-                        selection.clear()
-                    }) {
+                    TextButton(onClick = { applyMarkup(kind) }) {
                         Icon(Icons.Outlined.BorderColor, contentDescription = null, modifier = Modifier.size(18.dp))
                         Text(stringResource(kind.applyLabel()), modifier = Modifier.padding(start = 8.dp))
                     }
@@ -439,6 +473,9 @@ fun ReadyViewer(
             }
         }
     }
+
+    // The floating bar is for reading and for the other tools; a markup tool applies on release, no bar needed.
+    val pageSelectionBar = selectionBar.takeIf { armedTool?.kind == null }
 
     // The bars float over the pages, which always fill the screen: showing or hiding them (plan U20) never
     // resizes the page area, so the document doesn't move or re-render under the reader's finger.
@@ -548,8 +585,8 @@ fun ReadyViewer(
                 modifier = Modifier.fillMaxSize(),
             ) { mode ->
                 when (mode) {
-                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, selectionBar, drawing, reportPage)
-                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, selectionBar, drawing, reportPage)
+                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, pageSelectionBar, onSelectionReleased, drawing, reportPage)
+                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, pageSelectionBar, onSelectionReleased, drawing, reportPage)
                 }
             }
 
@@ -824,7 +861,8 @@ private fun ContinuousPages(
     selection: TextSelectionState?,
     onLongPress: (Int, Offset) -> Unit,
     onTap: (PageTap?) -> Unit,
-    selectionBar: @Composable () -> Unit,
+    selectionBar: (@Composable () -> Unit)?,
+    onSelectionReleased: () -> Unit,
     drawing: ViewportDrawing?,
     onPageChanged: (Int) -> Unit,
 ) {
@@ -852,6 +890,7 @@ private fun ContinuousPages(
         onLongPress = onLongPress,
         onTap = onTap,
         selectionBar = selectionBar,
+        onSelectionReleased = onSelectionReleased,
         drawing = drawing,
         modifier = Modifier.fillMaxSize(),
     )
@@ -874,7 +913,8 @@ private fun SinglePages(
     selection: TextSelectionState?,
     onLongPress: (Int, Offset) -> Unit,
     onTap: (PageTap?) -> Unit,
-    selectionBar: @Composable () -> Unit,
+    selectionBar: (@Composable () -> Unit)?,
+    onSelectionReleased: () -> Unit,
     drawing: ViewportDrawing?,
     onPageChanged: (Int) -> Unit,
 ) {
@@ -923,6 +963,7 @@ private fun SinglePages(
             onLongPress = onLongPress,
             onTap = onTap,
             selectionBar = selectionBar,
+            onSelectionReleased = onSelectionReleased,
             // One ink layer at a time (the library's advice): only on the page that is shown.
             drawing = drawing?.takeIf { pagerState.settledPage == page },
             modifier = Modifier.fillMaxSize(),

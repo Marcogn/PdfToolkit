@@ -324,6 +324,14 @@ internal fun MarkupKind.applyLabel(): Int = when (this) {
     MarkupKind.SQUIGGLY -> R.string.annotate_apply_underline
 }
 
+/** What the snackbar says after the selected text was marked up as this kind. */
+internal fun MarkupKind.appliedLabel(): Int = when (this) {
+    MarkupKind.HIGHLIGHT -> R.string.annotate_applied_highlight
+    MarkupKind.UNDERLINE -> R.string.annotate_applied_underline
+    MarkupKind.STRIKEOUT -> R.string.annotate_applied_strikeout
+    MarkupKind.SQUIGGLY -> R.string.annotate_applied_underline
+}
+
 private fun AnnotationColor.nameRes(): Int = when (this) {
     AnnotationColor.YELLOW -> R.string.color_yellow
     AnnotationColor.GREEN -> R.string.color_green

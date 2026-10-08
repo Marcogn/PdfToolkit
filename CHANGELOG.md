@@ -12,6 +12,9 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
   at its end. The bar hides with the top bar when you tap the page. The pen button in the top bar and the
   "Edit" button are gone. "Pages" (organize, add, merge) and "Fill" open the edit screen; if the viewer has unsaved
   changes they first ask to save or discard.
+- **Markup applies on release.** With Highlight, Underline or Strikeout armed, lifting the finger after a long
+  press (or after dragging to extend the selection) marks the text at once; a message with "Undo" appears, and
+  Undo/Redo are in the bar. The floating Copy/Highlight bar stays for plain reading.
 - **Highlight and Draw from Home open the viewer** with the tool already armed.
 - **No more edit hub.** "Organize pages" and "Fill and sign" open straight on their screen, and back leaves it
   (asking about unsaved changes). Highlighting and drawing now happen only in the viewer.
