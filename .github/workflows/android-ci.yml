@@ -31,6 +31,9 @@ env:
   # Permissions the packaged release manifest must not declare (space separated, may be empty).
   # PdfToolkit: no INTERNET in product phase 1 (docs/spec.md §1).
   FORBIDDEN_PERMISSIONS: android.permission.INTERNET
+  # 'true' to measure unit test coverage (JaCoCo) and upload the report. The app module must turn
+  # it on for -Pcoverage: `debug { enableUnitTestCoverage = providers.gradleProperty("coverage").isPresent }`.
+  COVERAGE: 'true'
   # --- End of configuration ---
 
 jobs:
@@ -60,7 +63,12 @@ jobs:
         run: ./gradlew ":$APP_MODULE:lintDebug" --no-daemon --stacktrace
 
       - name: Unit tests
-        run: ./gradlew ":$APP_MODULE:testDebugUnitTest" --no-daemon --stacktrace
+        run: |
+          if [ "$COVERAGE" = "true" ]; then
+            ./gradlew ":$APP_MODULE:testDebugUnitTest" ":$APP_MODULE:createDebugUnitTestCoverageReport" -Pcoverage --no-daemon --stacktrace
+          else
+            ./gradlew ":$APP_MODULE:testDebugUnitTest" --no-daemon --stacktrace
+          fi
 
       # The build that ships: R8 and resource shrinking catch missing keep rules here, not on a
       # phone. Unsigned (no secrets on pull requests), so nothing to install.
@@ -102,5 +110,14 @@ jobs:
         with:
           name: unit-test-report
           path: ${{ env.APP_MODULE }}/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload coverage report
+        if: always() && env.COVERAGE == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: ${{ env.APP_MODULE }}/build/reports/coverage/test/debug/
           if-no-files-found: ignore
           retention-days: 14

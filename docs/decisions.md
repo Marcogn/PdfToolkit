@@ -27,6 +27,9 @@ decided or approved it.
   workflows on the Claude subscription, Dependabot (`docs/claude.md`). Generic files are **copied**
   between projects like the CI workflows, not packaged as a plugin: cloud sessions don't load plugins
   a repository enables. Per project: `CLAUDE.md` and `REVIEW.md`.
+- 2026-10-08 · Unit test coverage with AGP's built-in JaCoCo, opt-in (`-Pcoverage`) so local runs stay
+  fast; CI uploads the report. Not a gate: a number to look at, not a threshold. Kover not used (no
+  documented support for AGP 9 built-in Kotlin found).
 - 2026-10-08 · No detekt for now: only 2.0.0 supports Kotlin 2.4 with AGP 9 built-in Kotlin, and it is
   still alpha (stable versions only). Revisit at 2.0.0 stable.
 - 2026-10-03 · `CloudTarget` (spec §7.3) is a minimal interface (`displayName`, `suspend upload(...)`):

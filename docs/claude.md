@@ -101,6 +101,13 @@ new projects start.
 - **Match the model to the work** (the table in CLAUDE.md): Opus for design-heavy steps, Sonnet for
   well-specified ones.
 
+## Coverage
+
+`./gradlew testDebugUnitTest createDebugUnitTestCoverageReport -Pcoverage` writes a JaCoCo report to
+`app/build/reports/coverage/test/debug/`; Android CI uploads it as `coverage-report`. It shows where
+JVM tests are thin, which is where Claude's changes are least protected. Use it to choose what to
+test, not as a percentage to chase.
+
 ## What was considered and left out
 
 - **detekt**: the only line that supports Kotlin 2.4 and AGP 9 built-in Kotlin is 2.0.0, still

@@ -10,7 +10,7 @@ described in [`docs/claude.md`](claude.md) with the rest of the Claude Code setu
 
 | Workflow | Runs | Does | Produces |
 |---|---|---|---|
-| `android-ci.yml` (Android CI) | every pull request to `main`, every push to `main`; a new push cancels the run still going | lint, unit tests, release build with R8 (unsigned), forbidden-permissions check on the packaged release manifest | lint and test reports only (14 days). **No APK to install** |
+| `android-ci.yml` (Android CI) | every pull request to `main`, every push to `main`; a new push cancels the run still going | lint, unit tests, release build with R8 (unsigned), forbidden-permissions check on the packaged release manifest | lint, test and coverage reports only (14 days). **No APK to install** |
 | `build-apk.yml` (Build APK) | by hand: Actions → Build APK → Run workflow, on any branch | release build signed with the persistent key, signature check | the APK and R8's `mapping.txt` (30 days) |
 | `release.yml` (Release) | by hand, with the version (`x.y.z`) | cuts `CHANGELOG.md`'s `[Unreleased]` and bumps the version, signed build, GitHub Release with the APK and `mapping.txt`, then commits the bump to `main` | the GitHub Release |
 | `cleanup-runs.yml` (Clean up runs) | by hand | deletes every completed run except the latest of each workflow (logs and artifacts); releases are untouched | — |
@@ -41,7 +41,9 @@ Build APK uploads it next to the APK; a Release attaches it as `<repo>-x.y.z-map
    - `APP_MODULE`: the Gradle module of the app (usually `app`);
    - `JAVA_VERSION`: the JDK the build needs;
    - `FORBIDDEN_PERMISSIONS` (Android CI only): permissions the app must never declare, space
-     separated, or empty to skip the check.
+     separated, or empty to skip the check;
+   - `COVERAGE` (Android CI only): `'true'` to upload a JaCoCo report of the unit tests; the app
+     module then needs `debug { enableUnitTestCoverage = providers.gradleProperty("coverage").isPresent }`.
 3. The app module's `build.gradle.kts` must:
    - have `versionCode = N` and `versionName = "x.y.z"` as plain literals (Release edits them with `sed`);
    - read the signing data from the environment, signing only when it is there:

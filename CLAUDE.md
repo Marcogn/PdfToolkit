@@ -54,6 +54,7 @@ V-a, V-b, V-c. Haiku is not recommended for code here.
 ```bash
 ./gradlew assembleDebug        # debug APK
 ./gradlew testDebugUnitTest    # JVM tests, Robolectric for UI (sdk=34, robolectric.properties)
+./gradlew testDebugUnitTest createDebugUnitTestCoverageReport -Pcoverage  # + JaCoCo report
 ./gradlew lintDebug            # Android Lint
 ./gradlew assembleRelease      # R8 build (CI builds it too)
 ./gradlew buildEnvironment     # resolved Kotlin/KSP plugin versions
@@ -159,7 +160,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - **V-c Fill and sign in the viewer done (2026-10-08)**, PR #24; lint (0 errors), 440 unit tests,
   `assembleDebug` and CI green; device checks passed (author, 2026-10-08). **Next: 9 Scan (Sonnet).**
 - **Claude Code setup (2026-10-08)**, outside the sub-phases: skills, reviewer agent, SDK hook,
-  `REVIEW.md`, `@claude`/review workflows, Dependabot, PR and issue templates (`docs/claude.md`). Waiting
+  `REVIEW.md`, `@claude`/review workflows, Dependabot, PR and issue templates, opt-in JaCoCo coverage
+  (line coverage 16%; `pdf/edit` 0% in JVM tests) (`docs/claude.md`). Waiting
   on the author: the `CLAUDE_CODE_OAUTH_TOKEN` secret and the environment's setup script.
 - Open questions for later sub-phases (`docs/plan-v2.md`): OCR bundled or not (10a), ODG or ODT (11),
   release numbering.
