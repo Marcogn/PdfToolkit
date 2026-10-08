@@ -43,6 +43,16 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.graphics.Matrix
+import androidx.compose.ui.graphics.drawscope.clipRect
+import com.marcogn.pdftoolkit.domain.annotate.AnnotationColor
+import com.marcogn.pdftoolkit.domain.annotate.FreehandKind
+import com.marcogn.pdftoolkit.pdf.annotations.DocumentStrokes
+import com.marcogn.pdftoolkit.pdf.annotations.FreehandStroke
+import com.marcogn.pdftoolkit.ui.annotate.FreehandGrab
+import com.marcogn.pdftoolkit.ui.annotate.ViewportInkLayer
+import com.marcogn.pdftoolkit.ui.annotate.detectFreehandGestures
+import com.marcogn.pdftoolkit.ui.annotate.setAffine
 import com.marcogn.pdftoolkit.pdf.render.PageCoordinateMapper
 import com.marcogn.pdftoolkit.pdf.render.PageSize
 import com.marcogn.pdftoolkit.pdf.render.RenderBudget
@@ -103,10 +113,15 @@ fun PdfViewport(
     selection: TextSelectionState? = null,
     /** A press and hold at [point] (page points) of document page [documentPage]: start a selection there. */
     onLongPress: (documentPage: Int, point: Offset) -> Unit = { _, _ -> },
-    /** A single tap on the page (after the double-tap timeout, so a double tap stays "zoom"): full-screen reading (plan U20). */
-    onTap: () -> Unit = {},
+    /**
+     * A single tap (after the double-tap timeout, so a double tap stays "zoom"): where it fell, or null
+     * off the pages. Full-screen reading (plan U20), the eraser (plan V-a).
+     */
+    onTap: (PageTap?) -> Unit = {},
     /** The bar that floats by the selection (Copy, Highlight; plan U21); null for none. */
     selectionBar: (@Composable () -> Unit)? = null,
+    /** A freehand brush armed (plan V-a): one finger or a stylus draws, two fingers zoom and pan. Null to read. */
+    drawing: ViewportDrawing? = null,
 ) {
     val scope = rememberCoroutineScope()
     val decay = rememberSplineBasedDecay<Float>()
@@ -126,6 +141,10 @@ fun PdfViewport(
     val handleColor = MaterialTheme.colorScheme.primary
     val currentOnLongPress by rememberUpdatedState(onLongPress)
     val currentOnTap by rememberUpdatedState(onTap)
+    val freehandGrab = remember { FreehandGrab() }
+    // Pointer → stroke space (document points), set as each stroke starts; the page the stroke starts on, for the mask.
+    val pointerToStroke = remember { Matrix() }
+    var strokePage by remember { mutableIntStateOf(0) }
 
     DisposableEffect(bitmaps, requestSource) { onDispose { bitmaps.release(requestSource) } }
 
@@ -147,19 +166,31 @@ fun PdfViewport(
             }
     }
 
-    Box(modifier) {
-    Canvas(
-        modifier = Modifier
-            .fillMaxSize()
+    // The detectors sit on the box, so the ink layer (a child) gets the events after the freehand
+    // detector has seen them in the initial pass (ADR 0004, "Freehand ink").
+    Box(
+        modifier
             .onSizeChanged { state.setContent(pageSizes, it.toSize(), gapPx) }
             .pointerInput(state) {
                 detectTapGestures(
-                    onTap = { currentOnTap() },
+                    onTap = { tap ->
+                        val mapper = state.mapper
+                        currentOnTap(mapper?.hitTest(tap)?.let { PageTap(pageIndexOffset + it.pageIndex, it.point, mapper.screenPxPerPoint) })
+                    },
                     onDoubleTap = { tap -> state.launchAnimation(scope) { state.animateDoubleTap(tap) } },
                 )
             }
+            .pointerInput(state, drawing != null) {
+                if (drawing == null) return@pointerInput
+                detectFreehandGestures(state, freehandGrab) { down ->
+                    state.mapper?.let { mapper ->
+                        pointerToStroke.setAffine(DocumentStrokes.documentToScreen(mapper.layout, mapper.viewport).inverse())
+                        strokePage = mapper.layout.pageAt(mapper.screenToLayout(down).y)
+                    }
+                }
+            }
             .pointerInput(state, yieldHorizontalToParent) {
-                detectZoomPanFling(state, scope, decay, yieldHorizontalToParent, suppressed = { selectionGrab.active })
+                detectZoomPanFling(state, scope, decay, yieldHorizontalToParent, suppressed = { selectionGrab.active || freehandGrab.active })
             }
             .pointerInput(state, selection) {
                 if (selection == null) return@pointerInput
@@ -187,6 +218,9 @@ fun PdfViewport(
                 )
             },
     ) {
+    Canvas(
+        modifier = Modifier.fillMaxSize(),
+    ) {
         // Read so that a new bitmap triggers a redraw.
         @Suppress("UNUSED_EXPRESSION")
         revision
@@ -203,7 +237,10 @@ fun PdfViewport(
                 drawTiles(index, level, planner, mapper, bitmaps)
             }
             annotations.on(pageIndexOffset + index)?.let { page ->
-                drawAnnotations(page.annotations, mapper.userToScreen(index, page.space), mapper.screenPxPerPoint)
+                // Clipped to the page, as a reader clips what an annotation draws outside it.
+                clipRect(pageRect.left, pageRect.top, pageRect.right, pageRect.bottom) {
+                    drawAnnotations(page.annotations, mapper.userToScreen(index, page.space), mapper.screenPxPerPoint)
+                }
             }
             if (!highlights.isEmpty) drawHighlights(index, pageIndexOffset + index, mapper, highlights)
             if (selection != null && selection.key == (pageIndexOffset + index).toString()) {
@@ -211,11 +248,37 @@ fun PdfViewport(
             }
         }
     }
+    if (drawing != null) {
+        ViewportInkLayer(
+            state = state,
+            kind = drawing.kind,
+            color = drawing.color,
+            width = drawing.width,
+            pointerToStroke = pointerToStroke,
+            maskPage = strokePage,
+            onStroke = { local, stroke -> drawing.onStroke(pageIndexOffset + local, stroke) },
+        )
+    }
     if (selection != null && selectionBar != null) {
         SelectionBarHost(selection, state, pageIndexOffset, pageSizes.size, selectionBar)
     }
     }
 }
+
+/** A single tap on a page: document page [documentPage], [point] in its page points, at [screenPxPerPoint] (the zoom). */
+data class PageTap(val documentPage: Int, val point: Offset, val screenPxPerPoint: Float)
+
+/**
+ * A freehand brush armed in the viewport (plan V-a): [kind], [color] and [width] (points of the page)
+ * of the next stroke, and [onStroke], which gets each finished stroke with the document page it
+ * belongs to, in that page's display points, and must draw it from then on (the ink layer stops).
+ */
+data class ViewportDrawing(
+    val kind: FreehandKind,
+    val color: AnnotationColor,
+    val width: Float,
+    val onStroke: (documentPage: Int, stroke: FreehandStroke) -> Unit,
+)
 
 /** Puts [content] by the selection when it is on one of this viewport's pages and on screen (plan U21). */
 @Composable

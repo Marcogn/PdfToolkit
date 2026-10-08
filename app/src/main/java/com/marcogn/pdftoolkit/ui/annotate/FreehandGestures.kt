@@ -31,18 +31,19 @@ internal class FreehandGrab {
  *   the page until they all lift (no fling, nothing is drawn).
  * - While a **stylus** draws, other touches (a resting palm) are ignored.
  *
- * [onStrokeStart] runs on the first down, before the ink layer starts the stroke, so it can set the
- * transforms of the stroke from the current zoom. [grab] is set for the whole gesture.
+ * [onStrokeStart] runs on the first down (its position on screen), before the ink layer starts the
+ * stroke, so it can set the transforms of the stroke from the current zoom. [grab] is set for the
+ * whole gesture.
  */
 internal suspend fun PointerInputScope.detectFreehandGestures(
     viewport: PdfViewportState,
     grab: FreehandGrab,
-    onStrokeStart: () -> Unit,
+    onStrokeStart: (Offset) -> Unit,
 ) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
         viewport.stopAnimation()
-        onStrokeStart()
+        onStrokeStart(down.position)
         grab.active = true
         val stylus = down.type == PointerType.Stylus || down.type == PointerType.Eraser
         var navigating = false

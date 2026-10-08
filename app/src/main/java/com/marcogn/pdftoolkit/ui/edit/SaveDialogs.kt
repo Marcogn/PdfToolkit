@@ -1,5 +1,7 @@
 package com.marcogn.pdftoolkit.ui.edit
 
+import android.content.ClipData
+import android.content.Intent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
@@ -7,7 +9,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.edit.SaveFailure
 
@@ -154,4 +164,42 @@ fun SaveErrorDialog(failure: SaveFailure, onDismiss: () -> Unit) {
         text = { Text(stringResource(message)) },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.save_error_ok)) } },
     )
+}
+
+/** Snackbar after a copy was saved, with the two actions of spec §6.7. */
+@Composable
+fun SavedSnackbar(onOpen: () -> Unit, onShare: () -> Unit, onDismiss: () -> Unit) {
+    Snackbar(
+        modifier = Modifier.padding(12.dp),
+        action = {
+            // A plain TextButton takes the primary colour, unreadable on the snackbar's inverse surface.
+            val actionColors = ButtonDefaults.textButtonColors(contentColor = SnackbarDefaults.actionColor)
+            Row {
+                TextButton(onClick = onOpen, colors = actionColors) { Text(stringResource(R.string.save_open)) }
+                TextButton(onClick = onShare, colors = actionColors) { Text(stringResource(R.string.save_share)) }
+            }
+        },
+        dismissAction = {
+            IconButton(onClick = onDismiss) {
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_close), tint = SnackbarDefaults.dismissActionContentColor)
+            }
+        },
+    ) {
+        Text(stringResource(R.string.save_done))
+    }
+}
+
+fun shareCopy(context: android.content.Context, uri: String, title: String) {
+    val parsed = uri.toUri()
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "application/pdf"
+        putExtra(Intent.EXTRA_STREAM, parsed)
+        clipData = ClipData.newRawUri(null, parsed)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    try {
+        context.startActivity(Intent.createChooser(send, title))
+    } catch (e: Exception) {
+        // No app to share with.
+    }
 }

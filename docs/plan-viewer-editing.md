@@ -47,14 +47,17 @@ only has to draw what is pending on top.
 | V-b Viewer tools UI | Sonnet | Bottom tool bar / landscape rail in the viewer (reusing `ToolStrip`, `StyleButton`, `TransientHint`), immersive hides it, "Save" in the top bar, "Pages" with save-first dialog, Edit FAB and hub removed (`EditScreen` opens on Organize, back leaves with the exit dialog), Home tools Highlight/Draw open the viewer armed (`Destination.Viewer(uri, tool)`), Annotate pane removed from `EditScreen` | Plan V-b | Every tool from the bar; Home → Highlight / Draw; Pages with and without pending changes; landscape rail; full-screen tap with a tool armed |
 | V-c Fill and sign in the viewer | **Opus** | Overlays and form controls in the continuous viewport (controls aligned to widget rectangles at any zoom, tiling, scrolling), overlay gestures vs scroll, corner handle, signature shortcut, date, flatten on save; Fill pane removed from `EditScreen`; Home "Fill and sign" opens the viewer armed | Unit tests on overlay/control placement across pages and zooms; handoff not needed (last) | Fill a multi-page form while scrolling; place, move, resize, turn a signature; save, other reader; landscape |
 
-Order: U-b (device checks, merge) → V-a → V-b → V-c → 9 Scan → … (author: "before 9" is implied by
-the request coming now; to confirm at V-a's start).
+Order: U-b (device checks, merge) → V-a → V-b → V-c → 9 Scan → … (the author started V-a right after
+U-b, which settles "before 9"). **V-a is done (2026-10-08, device checks passed)**; design in ADR 0005, handoff in
+`CLAUDE.md`.
 
-## Open points to settle in V-a (not blocking the plan)
+## Open points settled in V-a (2026-10-08)
 - Single-page mode: the pager turns pages with a one-finger swipe; with Draw armed paging is off, as
-  in the 8a pane (two fingers still zoom and pan).
-- Search while editing: search stays available; opening it disarms the tool.
+  in the 8a pane (two fingers still zoom and pan). (Done.)
+- Search while editing: search stays available; opening it disarms the tool. (Done.)
 - Password-protected PDFs are viewable but not editable (as now): the tool bar shows the tools
-  disabled with a message.
+  disabled with a message. (V-a: the pen button shows the message; V-b's bar shows them disabled.)
+- A freehand stroke belongs to the page under its first point, also when it runs across the gap onto
+  the next page (clipped there, as in other readers).
 - Memory: the viewer keeps one `PdfRenderer`; the session adds the text readers for selection (already
   there) and PdfBox only at save time, in the worker.
