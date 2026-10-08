@@ -255,8 +255,8 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - **Usability review (2026-10-07)**, author's request while testing 8b: `docs/plan-usability.md`
   (findings U1–U17). Author's answers recorded there; sub-phases U-a and U-b (Sonnet) go after 8b
   (done) and before 9. Order now: 8b → U-a → U-b → 9 → 10a → 10b → 11 → 12.
-- **U-a Usability flows done (2026-10-07)**; lint, 379 unit tests and `assembleDebug` green. Needs the
-  author's device checks (below). **Next: U-b (Sonnet), `docs/plan-usability.md`.**
+- **U-a Usability flows done (2026-10-07)**, PR #20; lint, 379 unit tests and `assembleDebug` green;
+  device checks passed (author, 2026-10-08). **Next: U-b (Sonnet), `docs/plan-usability.md`.**
 
 ### Notes from U-a (usability flows)
 - `Destination.Edit` has `page` (index in the main document, -1 from Home), `selectionStart/End` (glyph
@@ -274,7 +274,7 @@ Package `com.marcogn.pdftoolkit`, same layering as ThePatientGamerHelper and Kar
 - Known limits: highlight from the viewer works on the main document only and needs the PDF to be
   editable (protected PDFs can't be, as before); the GoTo dialog in the panes has no thumbnails.
 
-### Device checks U-a (author)
+### Device checks U-a (author, passed 2026-10-08)
 Edit from page 37 opens Fill and Annotate on 37; page chip jump; insertion dialogs default to "after
 page 37" from the viewer and to the end from Home; Home tool → change → back lands on the hub, and with
 no change leaves; exit dialog Save → picker → closes with "PDF saved"; Cancel in the picker stays;
