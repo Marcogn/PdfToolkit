@@ -40,8 +40,9 @@ Requested sub-phase: `$ARGUMENTS` (empty = the next one in CLAUDE.md "Current st
 
 ## 3b. Open bugs
 
-The plan lives in the docs; GitHub issues hold only bugs and ideas (docs/claude.md). List the
-repository's **open issues labelled `bug`** with the GitHub tools (skip this step if there are none
+The plan lives in the docs; GitHub issues hold only bugs and ideas (docs/claude.md). Issues the
+plan already assigns to this sub-phase (written by `/new-plan`, "closes #n") are in scope: list them
+first, as settled. Then list the repository's other **open issues labelled `bug`** with the GitHub tools (skip this step if there are none
 or the tools aren't available). For each, one line: number, title, and whether it touches code this
 sub-phase changes anyway. Ask the author which to include (AskUserQuestion, multi-select; recommend
 the ones in the same area, never more than the sub-phase can absorb). Included bugs become tasks

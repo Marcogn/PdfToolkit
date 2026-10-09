@@ -38,6 +38,10 @@ decided or approved it.
 - 2026-10-09 · GitHub issues only for bugs and ideas, not for the plan (author): the plan stays in the
   docs, the single source Claude reads. `/next-phase` offers open `bug` issues, `/close-phase` closes
   fixed ones with `Fixes #n`. No epics or Projects board for now.
+- 2026-10-09 · Kit updated to 85b2e8a (from 76ea010): adds the `new-plan` skill, `release-build-args` input
+  (left empty here), `/next-phase` also takes issues assigned by a plan. Kept locally: the extra
+  `Read(./local.properties)` deny in `.claude/settings.json` and `INTERNET` as forbidden permission.
+- 2026-10-09 · Kit updated to 425e232: `architecture-reviewer` always runs on Opus (nothing adapted).
 - 2026-10-08 · No detekt for now: only 2.0.0 supports Kotlin 2.4 with AGP 9 built-in Kotlin, and it is
   still alpha (stable versions only). Revisit at 2.0.0 stable.
 - 2026-10-03 · `CloudTarget` (spec §7.3) is a minimal interface (`displayName`, `suspend upload(...)`):

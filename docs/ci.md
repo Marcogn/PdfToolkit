@@ -20,13 +20,15 @@ a change that would break callers gets `@v2`, and projects move to it on purpose
 ## Values and secrets per project
 
 The caller's `with:` sets `app-module` (usually `app`), `java-version`, and for Android CI
-`forbidden-permissions` (space separated, empty to skip) and `coverage`. Secrets are passed by name
+`forbidden-permissions` (space separated, empty to skip), `coverage` and `release-build-args`
+(extra Gradle arguments for its release build only, e.g. `-PofflineSeed`; not secret, so not in
+`BUILD_ENV`). Secrets are passed by name
 in `secrets:` (a reusable workflow in another repository doesn't receive the caller's secrets on its
 own). A project whose secrets still have other names maps them there, e.g.
 `RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}`, until they are renamed.
 
-Extra environment variables the build needs from secrets (an API client id, say) go in the optional
-`BUILD_ENV` secret as `KEY=VALUE` lines, e.g.
+Extra environment variables the build needs **from secrets** (an API client id, say) go in the
+optional `BUILD_ENV` secret as `KEY=VALUE` lines, e.g.
 `BUILD_ENV: "API_CLIENT_ID=${{ secrets.API_CLIENT_ID }}"`: the workflows export them before Gradle.
 
 ## Which APK to install

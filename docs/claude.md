@@ -30,10 +30,11 @@ Two more files feed reviews: `REVIEW.md` (read by Claude Code Review on GitHub a
 | `.claude/hooks/android-sdk.sh` | Installs the Android SDK (cmdline-tools, licences, platform-tools, the `compileSdk` platform), writes `local.properties`, caps Gradle workers, sets `LC_ALL`. Cloud only; idempotent (≈0.5 s when done) | Yes |
 | `.claude/settings.json` | Runs that script at `SessionStart`; allows `./gradlew` and read-only git without prompts; denies reading keystores | Yes |
 | `.claude/skills/verify` | Lint + unit tests + debug build, what counts as transient, how to report. Claude Code (v2.1.286+) also runs a project skill named `verify` on its own before each commit that changes code | Yes |
+| `.claude/skills/new-plan` | Plans new work as phases in the project's format, after asking the decisive questions and considering the open issues; proposes it as a draft PR to adjust and merge. Writes no code | Yes |
 | `.claude/skills/next-phase` | The CLAUDE.md session protocol as steps: model check, reading order, prerequisites, open bugs, scope | Yes, for projects with a phase plan |
 | `.claude/skills/close-phase` | "Done when", checks, two independent reviews, docs, commit, draft PR, device checks | Yes |
 | `.claude/skills/steward` | How to read this CI's failures and handle review findings. Cloud sessions that watch a PR read it before acting on CI or review events | Yes |
-| `.claude/agents/architecture-reviewer.md` | Read-only reviewer of a diff against REVIEW.md, CLAUDE.md rules and ADRs | Yes (rules come from the repo) |
+| `.claude/agents/architecture-reviewer.md` | Read-only reviewer of a diff against REVIEW.md, CLAUDE.md rules and ADRs. Always runs on Opus, whatever the session's model: a stricter second look at the end of a phase, for a little more usage | Yes (rules come from the repo) |
 | `REVIEW.md` | What a review must always check here, severity, what to skip | **No**: per project |
 | `.github/workflows/*.yml` | Short callers of the kit's reusable workflows: CI, Build APK, Release, cleanup, `@claude`, PR review (`docs/ci.md`) | Yes (`with:` values per project) |
 | `.github/dependabot.yml` | Weekly grouped dependency PRs (Gradle) and monthly (Actions) | Yes |
@@ -104,9 +105,9 @@ every session and they are versioned with the code. Repeating it as issues or ep
 with sub-issues) would give two sources that drift apart, so issues hold only what has no place in
 the plan:
 
-- **Bugs** (template "Bug", label `bug`), typically found during device checks. `/next-phase` lists
-  the open ones and asks which to include; `/close-phase` writes `Fixes #n` in the PR, so merging
-  closes them.
+- **Bugs** (template "Bug", label `bug`), typically found during device checks. `/new-plan` asks
+  which open issues a new plan includes and assigns them to phases; `/next-phase` lists the open bugs
+  and asks which to include; `/close-phase` writes `Fixes #n` in the PR, so merging closes them.
 - **Ideas and small tasks** outside the phases (template "Task"): "work on issue #n" in a session.
 - Things found during a phase and left out of scope: Claude proposes them as issues instead of
   notes in CLAUDE.md.
@@ -116,12 +117,24 @@ progress view is missed.
 
 ## A typical cycle
 
-1. From the phone: start a cloud session on the repo, `/next-phase`. The model check runs first.
-2. For a large sub-phase, ask for a plan first (plan mode), read it, then let it run.
-3. Claude works with `verify` as it goes, then `/close-phase`: reviews, docs, draft PR.
-4. The session watches the PR: CI failures and review comments wake it (`steward` rules).
-5. Mark the PR ready → `claude-review.yml` reviews it. Device checks on the phone, merge.
-6. Any time: `@claude` on an issue or PR for small things, without opening a session.
+**New work that isn't planned yet**
+1. A cloud session on the repo, `/new-plan <the idea>` (or an issue number). Claude reads the
+   project, asks the questions that decide the design and which open issues to include, then opens
+   a **draft PR "Piano: …"** with the plan in the project's format, the new rows of the phase table
+   and the decisions taken; in the chat, a short table of the phases.
+2. Adjust it in the chat or with comments on the PR; each change updates the same PR. No code is
+   written while planning.
+3. Merge the PR: the plan is official.
+
+**Planned work**
+1. A cloud session **with the phase's model**, `/next-phase <N>`. The model check runs first; open
+   bugs (and those the plan assigned to the phase) are offered before any work.
+2. Claude works with `verify` as it goes, then `/close-phase`: reviews, docs, draft PR.
+3. The session watches the PR: CI failures and review comments wake it (`steward` rules).
+4. Mark the PR ready → `claude-review.yml` reviews it (if the token is set). Device checks on the
+   phone, merge.
+
+Any time: `@claude` on an issue or PR for small things (needs the token), or open an issue for a bug.
 
 ## Habits that pay off
 

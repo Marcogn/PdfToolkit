@@ -21,6 +21,8 @@ jobs:
       # PdfToolkit: no INTERNET in product phase 1 (docs/spec.md §1).
       forbidden-permissions: android.permission.INTERNET
       coverage: true
+      # Extra Gradle arguments for the release build only, e.g. -PofflineSeed (may be empty).
+      release-build-args: ''
     # If the build needs extra environment variables from secrets, pass them as KEY=VALUE lines:
     # secrets:
     #   BUILD_ENV: "API_CLIENT_ID=${{ secrets.API_CLIENT_ID }}"
