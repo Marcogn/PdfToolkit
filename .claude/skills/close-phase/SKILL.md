@@ -42,6 +42,12 @@ Re-run `verify` if you changed code.
 - One commit per coherent step, message `<sub-phase>: <what>` like the history (`git log`).
 - Push to the session's branch; open a **draft** PR with the repository's template
   (`.github/pull_request_template.md`), then subscribe to its activity.
+- Issues: for each bug included at the start (`next-phase` 3b) and fixed, a line `Fixes #<n>` in
+  the PR body, one per issue, so GitHub closes it on merge. A bug fixed only in part gets
+  `Refs #<n>` and a comment on the issue saying what is left.
+- Bugs or ideas found during the work and left out of scope: propose them as new issues (title and
+  body following `.github/ISSUE_TEMPLATE/`, label `bug` for bugs) and open them once the author
+  agrees, instead of adding notes to CLAUDE.md.
 
 ## 6. Hand back to the author
 

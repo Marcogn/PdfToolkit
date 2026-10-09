@@ -30,7 +30,9 @@ When the author says "go on" / "next phase":
    (`/model opus`, `/model sonnet`, or a new session). Go ahead only if the author says so.
 1. Read the sub-phase row, then the plan section and spec sections it points to.
 2. Check prerequisites (previous sub-phase merged, open questions answered); if unclear, ask.
-3. Do only that sub-phase. Anything else goes into Current status as a note.
+3. Do only that sub-phase. Open `bug` issues touching it may be included (the author picks). Bugs and
+   ideas found along the way become GitHub issues once the author agrees; Current status keeps only
+   status, handoffs and limits.
 4. Close when "Done when" holds: lint + unit tests + `assembleDebug` green; docs updated; commit; PR.
 5. An **a** sub-phase writes a handoff (≤ 15 lines) in Current status for its **b**.
 6. End with the sub-phase's **device checks**: there is no emulator here, the author tests on a phone.

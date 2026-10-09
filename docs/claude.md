@@ -86,6 +86,23 @@ new projects start.
    review (≈15–25 $ each per the docs). On other plans `claude-review.yml` does the job with the
    subscription.
 
+## Issues: bugs and ideas, not the plan
+
+The plan stays in the docs (`docs/plan-*.md`, the sub-phase table in CLAUDE.md): Claude reads them
+every session and they are versioned with the code. Repeating it as issues or epics (parent issues
+with sub-issues) would give two sources that drift apart, so issues hold only what has no place in
+the plan:
+
+- **Bugs** (template "Bug", label `bug`), typically found during device checks. `/next-phase` lists
+  the open ones and asks which to include; `/close-phase` writes `Fixes #n` in the PR, so merging
+  closes them.
+- **Ideas and small tasks** outside the phases (template "Task"): "work on issue #n" in a session.
+- Things found during a phase and left out of scope: Claude proposes them as issues instead of
+  notes in CLAUDE.md.
+
+Epics and a Projects board are worth adding only if the work stops being one person's, or a
+progress view is missed.
+
 ## A typical cycle
 
 1. From the phone: start a cloud session on the repo, `/next-phase`. The model check runs first.

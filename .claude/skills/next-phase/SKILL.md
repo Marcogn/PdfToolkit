@@ -36,6 +36,16 @@ Requested sub-phase: `$ARGUMENTS` (empty = the next one in CLAUDE.md "Current st
 - Open questions the plan lists for this sub-phase have an answer in `docs/decisions.md` or
   CLAUDE.md. If not, ask them all at once (AskUserQuestion), with a recommended option each.
 
+## 3b. Open bugs
+
+The plan lives in the docs; GitHub issues hold only bugs and ideas (docs/claude.md). List the
+repository's **open issues labelled `bug`** with the GitHub tools (skip this step if there are none
+or the tools aren't available). For each, one line: number, title, and whether it touches code this
+sub-phase changes anyway. Ask the author which to include (AskUserQuestion, multi-select; recommend
+the ones in the same area, never more than the sub-phase can absorb). Included bugs become tasks
+of this sub-phase, each with a test that fails before the fix where a JVM test can reach it. Ask
+together with the open questions above, so the author answers once.
+
 ## 4. Plan, then work
 
 - Session title `<sub-phase> <Name>`; the branch is the one the environment gives, else the
