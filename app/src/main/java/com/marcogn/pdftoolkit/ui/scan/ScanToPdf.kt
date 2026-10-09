@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -44,6 +45,7 @@ fun rememberScanToPdf(onSaved: (Uri) -> Unit): DocumentScanner {
     // The app-owned copy waiting for a destination; a path, so it survives rotation and process death.
     var staged by rememberSaveable { mutableStateOf<String?>(null) }
     var askDiscard by rememberSaveable { mutableStateOf(false) }
+    var scanError by remember { mutableStateOf<ScanOutcome.Unavailable?>(null) }
 
     val saveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(PDF_MIME)) { target ->
         val path = staged
@@ -78,11 +80,12 @@ fun rememberScanToPdf(onSaved: (Uri) -> Unit): DocumentScanner {
     val scanner = rememberDocumentScanner(ScanOutput.PDF) { outcome ->
         when (outcome) {
             is ScanOutcome.Pdf -> viewModel.stage(outcome.uri)
-            is ScanOutcome.Unavailable -> Toast.makeText(context, outcome.message(resources), Toast.LENGTH_LONG).show()
+            is ScanOutcome.Unavailable -> scanError = outcome
             ScanOutcome.Cancelled, is ScanOutcome.Images -> Unit
         }
     }
 
+    scanError?.let { ScanUnavailableDialog(it) { scanError = null } }
     if (askDiscard && staged != null) {
         AlertDialog(
             onDismissRequest = {},

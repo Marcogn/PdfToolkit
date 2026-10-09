@@ -364,6 +364,7 @@
     <string name="scan_unsaved_discard">Scarta</string>
     <string name="scan_unavailable_play_services">La scansione richiede Google Play services, che su questo dispositivo non sono disponibili o vanno aggiornati.</string>
     <string name="scan_unavailable_memory">La scansione richiede almeno 1,7 GB di RAM: questo dispositivo ne ha meno.</string>
+    <string name="scan_unavailable_title">Scanner non disponibile</string>
     <string name="scan_unavailable_failed">Impossibile avviare lo scanner. Riprova tra poco: al primo uso Google Play services scarica i modelli.</string>
     <string name="add_from_scanner">Dallo scanner</string>
     <string name="add_from_scanner_hint">Fotografa pagine di carta e aggiungile</string>

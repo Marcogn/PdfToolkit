@@ -360,6 +360,7 @@
     <string name="scan_unsaved_discard">Discard</string>
     <string name="scan_unavailable_play_services">Scanning needs Google Play services, which are missing or need updating on this device.</string>
     <string name="scan_unavailable_memory">Scanning needs at least 1.7 GB of RAM: this device has less.</string>
+    <string name="scan_unavailable_title">Scanner not available</string>
     <string name="scan_unavailable_failed">Could not start the scanner. Try again in a moment: on first use Google Play services downloads the models.</string>
     <string name="add_from_scanner">From scanner</string>
     <string name="add_from_scanner_hint">Photograph paper pages and add them</string>

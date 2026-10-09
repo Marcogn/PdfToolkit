@@ -2,7 +2,6 @@ package com.marcogn.pdftoolkit.ui.scan
 
 import android.app.Activity
 import android.content.Context
-import android.content.res.Resources
 import android.net.Uri
 import android.util.Log
 import androidx.annotation.StringRes
@@ -10,6 +9,15 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,7 +25,11 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.mlkit.common.MlKitException
@@ -50,6 +62,7 @@ sealed interface ScanOutcome {
 }
 
 private const val TAG = "PdfToolkitScan"
+private const val STACK_LINES = 12
 
 /** Maps the failure of `getStartScanIntent` to a reason; the scanner signals low RAM with `UNSUPPORTED`. */
 internal fun scanUnavailableFor(error: Throwable): ScanUnavailable =
@@ -115,7 +128,7 @@ fun rememberDocumentScanner(output: ScanOutput, onOutcome: (ScanOutcome) -> Unit
                 val fail = { e: Exception ->
                     starting = false
                     Log.e(TAG, "Document scanner failed to start", e)
-                    currentOutcome.value(ScanOutcome.Unavailable(scanUnavailableFor(e), e.toString()))
+                    currentOutcome.value(ScanOutcome.Unavailable(scanUnavailableFor(e), e.stackTraceToString().lineSequence().take(STACK_LINES).joinToString("\n")))
                 }
                 starting = true
                 try {
@@ -144,6 +157,25 @@ fun ScanUnavailable.messageRes(): Int = when (this) {
     ScanUnavailable.FAILED -> R.string.scan_unavailable_failed
 }
 
-/** The explanation, followed by the error that caused it when there is one. */
-fun ScanOutcome.Unavailable.message(resources: Resources): String =
-    resources.getString(reason.messageRes()) + (detail?.let { "\n$it" } ?: "")
+/**
+ * Why the scanner can't start, with the error text when there is one. A dialog rather than a toast: the
+ * error must be readable in full (and copied) to be reported from a device.
+ */
+@Composable
+fun ScanUnavailableDialog(outcome: ScanOutcome.Unavailable, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.scan_unavailable_title)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(outcome.reason.messageRes()))
+                outcome.detail?.let { detail ->
+                    SelectionContainer {
+                        Text(detail, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.ok)) } },
+    )
+}

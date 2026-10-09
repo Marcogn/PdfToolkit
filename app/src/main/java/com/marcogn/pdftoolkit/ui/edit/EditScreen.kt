@@ -76,7 +76,7 @@ import com.marcogn.pdftoolkit.ui.common.UndoRedo
 import com.marcogn.pdftoolkit.ui.common.isLandscape
 import com.marcogn.pdftoolkit.ui.scan.ScanOutcome
 import com.marcogn.pdftoolkit.ui.scan.ScanOutput
-import com.marcogn.pdftoolkit.ui.scan.message
+import com.marcogn.pdftoolkit.ui.scan.ScanUnavailableDialog
 import com.marcogn.pdftoolkit.ui.scan.rememberDocumentScanner
 import com.marcogn.pdftoolkit.ui.viewer.takePersistableAccess
 import kotlinx.coroutines.launch
@@ -177,10 +177,11 @@ fun EditScreen(
         viewModel.pickImages(uris)
     }
     // "From scanner": the scanned pages come back as JPEGs and go through the same dialog as other images.
+    var scanError by remember { mutableStateOf<ScanOutcome.Unavailable?>(null) }
     val scanner = rememberDocumentScanner(ScanOutput.IMAGES) { outcome ->
         when (outcome) {
             is ScanOutcome.Images -> viewModel.pickImages(outcome.uris)
-            is ScanOutcome.Unavailable -> Toast.makeText(context, outcome.message(resources), Toast.LENGTH_LONG).show()
+            is ScanOutcome.Unavailable -> scanError = outcome
             ScanOutcome.Cancelled, is ScanOutcome.Pdf -> Unit
         }
     }
@@ -548,6 +549,7 @@ fun EditScreen(
             onDismiss = { showUnsaved = false },
         )
     }
+    scanError?.let { ScanUnavailableDialog(it) { scanError = null } }
     if (showAddSource) {
         AddSourceDialog(
             onFromPdf = {
