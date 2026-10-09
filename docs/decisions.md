@@ -115,6 +115,14 @@ decided or approved it.
   copy of a finished file, not an edit, so it does not go through `SaveWorker` (ADR 0003); a rotation does
   not cut it short.
 
+- 2026-10-09 · `proguard-rules.pro` keeps the no-argument constructor of every Firebase
+  `ComponentRegistrar`. R8 full mode removed `CommonComponentRegistrar.<init>()` (firebase-components'
+  rule names no members), so ML Kit's components were never registered and the release build crashed on
+  "Scan" with a `NullPointerException` in `getClient()`; debug builds are not minified and were fine.
+- 2026-10-09 · A scanner that can't start shows a dialog with the reason and the start of the exception's
+  stack trace (selectable), so a device report names the cause; R8 traces are read with `retrace` and the
+  build's `mapping.txt`.
+
 ## Fill and sign (spec §6.5)
 
 - 2026-10-02 · Overlays and form values live in `EditSession` (one undo history), not as a separate

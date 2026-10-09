@@ -146,6 +146,9 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - `PageItem.rotation` is the rotation the user *added*; the page's own `/Rotate` is added on write.
 - `MainActivity` is an `AppCompatActivity` (per-app language). No hardcoded UI strings: `values/`
   (Italian, default) and `values-en/`. In composables read resources with `LocalResources.current`.
+- **R8 full mode** (release, "Build APK"): a `-keep class` rule without members does not keep the default
+  constructor. Libraries that instantiate classes by reflection (ML Kit's `ComponentRegistrar`s) need
+  `{ <init>(); }` in `proguard-rules.pro`; debug builds are not minified and hide such bugs.
 - AGP 9 built-in Kotlin: no `org.jetbrains.kotlin.android` plugin; options in `kotlin { compilerOptions { } }`.
 
 ## Conventions
