@@ -28,13 +28,13 @@ Two passes, in parallel, on the diff against the base branch:
 
 Re-run `verify` if you changed code.
 
-## 4. Documents (CLAUDE.md "Fixed rule")
+## 4. Documents (what CLAUDE.md asks to update; section names vary by project)
 
 - `CHANGELOG.md`: every user-visible change under `## [Unreleased]` as `- **Summary.** detail`.
 - `CLAUDE.md`: "Current status" (done, date, PR, test count, next sub-phase), "Where things are"
   and "Rules that aren't obvious" if the code changed them, technical limits found.
 - An **a** sub-phase: the handoff (at most 15 lines) for its **b**.
-- `README.md` if features or commands changed; `docs/decisions.md` for new decisions.
+- `README.md` if features or commands changed; the decisions file for new decisions.
 - Keep the docs' language and style; trim, don't pile up.
 
 ## 5. Commit, push, PR
@@ -42,8 +42,14 @@ Re-run `verify` if you changed code.
 - One commit per coherent step, message `<sub-phase>: <what>` like the history (`git log`).
 - Push to the session's branch; open a **draft** PR with the repository's template
   (`.github/pull_request_template.md`), then subscribe to its activity.
+- Issues: for each bug included at the start (`next-phase` 3b) and fixed, a line `Fixes #<n>` in
+  the PR body, one per issue, so GitHub closes it on merge. A bug fixed only in part gets
+  `Refs #<n>` and a comment on the issue saying what is left.
+- Bugs or ideas found during the work and left out of scope: propose them as new issues (title and
+  body following `.github/ISSUE_TEMPLATE/`, label `bug` for bugs) and open them once the author
+  agrees, instead of adding notes to CLAUDE.md.
 
 ## 6. Hand back to the author
 
-End with the sub-phase's **device checks** (CLAUDE.md table and plan) as a short checklist the
+End with the sub-phase's **device checks** (phase table and plan) as a short checklist the
 author can run on the phone, and what is left open. Don't start the next sub-phase.

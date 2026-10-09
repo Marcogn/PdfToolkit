@@ -1,7 +1,9 @@
 # Working with Claude Code (and how to reuse the setup)
 
-How this repository is set up for Claude Code, why each piece exists, and which files to copy into
-the author's other Android projects. Like `docs/ci.md`, this page can be copied along with them.
+How this repository is set up for Claude Code, why each piece exists, and how the same setup (the
+"kit") reaches all the author's Android projects. The kit's source is
+[claude-skill-android-kit](https://github.com/Marcogn/claude-skill-android-kit); this page is part
+of the kit and is copied unchanged into every project that uses it.
 Facts about Claude Code come from its documentation (links at the end), checked on 2026-10-08;
 the product changes quickly, so re-check a link before relying on a detail.
 
@@ -21,49 +23,58 @@ Rule of thumb: *knowledge* → CLAUDE.md, *procedure* → skill, *second opinion
 Two more files feed reviews: `REVIEW.md` (read by Claude Code Review on GitHub and by the
 `architecture-reviewer` agent here) and `.github/pull_request_template.md`.
 
-## What is in this repository
+## What the kit puts in a project
 
 | File | What it does | Generic? |
 |---|---|---|
 | `.claude/hooks/android-sdk.sh` | Installs the Android SDK (cmdline-tools, licences, platform-tools, the `compileSdk` platform), writes `local.properties`, caps Gradle workers, sets `LC_ALL`. Cloud only; idempotent (≈0.5 s when done) | Yes |
 | `.claude/settings.json` | Runs that script at `SessionStart`; allows `./gradlew` and read-only git without prompts; denies reading keystores | Yes |
 | `.claude/skills/verify` | Lint + unit tests + debug build, what counts as transient, how to report. Claude Code (v2.1.286+) also runs a project skill named `verify` on its own before each commit that changes code | Yes |
-| `.claude/skills/next-phase` | The CLAUDE.md "Session protocol" as steps: model check, reading order, prerequisites, scope | Yes, for projects with a phase table in CLAUDE.md |
+| `.claude/skills/next-phase` | The CLAUDE.md session protocol as steps: model check, reading order, prerequisites, open bugs, scope | Yes, for projects with a phase plan |
 | `.claude/skills/close-phase` | "Done when", checks, two independent reviews, docs, commit, draft PR, device checks | Yes |
 | `.claude/skills/steward` | How to read this CI's failures and handle review findings. Cloud sessions that watch a PR read it before acting on CI or review events | Yes |
 | `.claude/agents/architecture-reviewer.md` | Read-only reviewer of a diff against REVIEW.md, CLAUDE.md rules and ADRs | Yes (rules come from the repo) |
 | `REVIEW.md` | What a review must always check here, severity, what to skip | **No**: per project |
-| `.github/workflows/claude.yml` | `@claude` in issues and PRs, with the Android toolchain so Claude can build | Yes (`env` block) |
-| `.github/workflows/claude-review.yml` | Review posted on a PR when it is opened or marked ready | Yes |
+| `.github/workflows/*.yml` | Short callers of the kit's reusable workflows: CI, Build APK, Release, cleanup, `@claude`, PR review (`docs/ci.md`) | Yes (`with:` values per project) |
 | `.github/dependabot.yml` | Weekly grouped dependency PRs (Gradle) and monthly (Actions) | Yes |
 | `.github/pull_request_template.md`, `ISSUE_TEMPLATE/` | Same structure for every PR; issues written so they can be handed to Claude as they are | Yes |
+| `docs/claude.md`, `docs/ci.md` | This page and the CI page | Yes |
+| `.claude/kit-version` | The kit version the project was last aligned with | Written by the skill |
 
-## Reusing it in another Android project
+## How the kit reaches every project
 
-Copy the "generic" files unchanged, then write the two per-project ones: `CLAUDE.md` (run `/init`
-for a first draft, then cut it down) and `REVIEW.md` (the project's invariants). Generic files
-never name the project, so a fix made in one project can be copied to the others as is.
+Three channels, each used for what it is good at:
+
+| What | Where it lives | How a project gets it | How an update arrives |
+|---|---|---|---|
+| CI, Build APK, Release, Claude workflows | the kit's `.github/workflows/` (reusable) | short callers in the project | automatically at the next run (callers pin `@v1`) |
+| `.claude/`, templates, Dependabot, these docs | the kit's `template/` | **copied** by the `android-kit` skill | run `/android-kit` again in the project |
+| The `android-kit` skill | the author's **claude.ai account** (source: the kit's `skill/`) | uploaded once on claude.ai | re-upload only if the launcher itself changes |
+
+The skill on claude.ai is only a launcher: it clones the kit and follows its `INSTALL.md`, where
+all the logic is. So a change to the procedure is a commit to the kit, with nothing to re-upload.
+
+Per repository: start a cloud session on it (Sonnet is enough) and type `/android-kit`. It copies
+the generic files, replaces the workflows with callers (keeping this project's values and secret
+names), writes `REVIEW.md` from the project's own rules (checked against its code), runs the checks
+and opens a draft PR. It records the kit version in `.claude/kit-version`.
+
+To improve the kit, change it in the kit repository (a PR there), then run `/android-kit` in each
+project; workflow changes need no step in the projects.
 
 Why copying and not a plugin: Claude Code can package skills, agents and hooks as a **plugin** in a
 marketplace repository, which is the cleanest way to share them, but **cloud sessions don't load
 plugins** a repository enables, nor anything in `~/.claude` on your machine. They see only what is
 committed in the repository (CLAUDE.md, `.claude/skills`, `.claude/agents`, `.claude/settings.json`)
-plus skills enabled on the claude.ai account. Since most sessions here start from the phone, the
-committed copy is what works everywhere: cloud, terminal, and the GitHub Action.
+plus skills enabled on the claude.ai account. Hence the copies of `.claude/` in each project, and the
+account for the one cross-project procedure. Claude Code's "run `verify` before
+each commit" also works only for a project skill, another reason `verify` lives in the repository.
 
-Two things *are* shared without copying:
-
-- **The cloud environment.** Use one environment for all Android projects and paste
-  `.claude/hooks/android-sdk.sh` into its *Setup script* (claude.ai/code → environment menu → Edit).
-  The environment is then cached with the SDK installed (the cache needs the script to finish in
-  about five minutes; this one takes ~15 s), and the SessionStart hook in each repository only
-  writes `local.properties`.
-- **Skills enabled on claude.ai** load in every cloud and terminal session of the account. Good for
-  personal, project-independent skills; not versioned in git, and Claude Code's "run `verify` before
-  each commit" only works for a project skill, so `verify` stays in the repository.
-
-If the number of projects grows, the generic files can move to a template repository from which
-new projects start.
+The **cloud environment** is shared too: use one environment for all Android projects and paste
+`.claude/hooks/android-sdk.sh` into its *Setup script* (claude.ai/code → environment menu → Edit).
+It is then cached with the SDK installed (the cache needs the script to finish in about five
+minutes; this one takes ~15 s), and the SessionStart hook in each repository only writes
+`local.properties`.
 
 ## One-time setup (by the author)
 
@@ -85,6 +96,23 @@ new projects start.
 4. Optional, **Claude Code Review** (managed, multi-agent): Team/Enterprise plans only, billed per
    review (≈15–25 $ each per the docs). On other plans `claude-review.yml` does the job with the
    subscription.
+
+## Issues: bugs and ideas, not the plan
+
+The plan stays in the docs (the plan files and the phase table CLAUDE.md points to): Claude reads them
+every session and they are versioned with the code. Repeating it as issues or epics (parent issues
+with sub-issues) would give two sources that drift apart, so issues hold only what has no place in
+the plan:
+
+- **Bugs** (template "Bug", label `bug`), typically found during device checks. `/next-phase` lists
+  the open ones and asks which to include; `/close-phase` writes `Fixes #n` in the PR, so merging
+  closes them.
+- **Ideas and small tasks** outside the phases (template "Task"): "work on issue #n" in a session.
+- Things found during a phase and left out of scope: Claude proposes them as issues instead of
+  notes in CLAUDE.md.
+
+Epics and a Projects board are worth adding only if the work stops being one person's, or a
+progress view is missed.
 
 ## A typical cycle
 

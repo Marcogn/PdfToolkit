@@ -1,123 +1,26 @@
-# .github/workflows/android-ci.yml
-#
-# Verification only: lint, unit tests and the release build (R8, unsigned) on every pull request
-# to main and every push to main. It produces no APK to install: the APK to try on a phone comes
-# from "Build APK" (release build signed with the persistent key, installs over the existing app).
-#
-# Shared by the author's Android projects: copy the file as is and change only the `env` block.
+# Android CI: lint, unit tests, release build (R8), forbidden-permissions check. The logic lives in
+# the kit (https://github.com/Marcogn/claude-skill-android-kit); here only this project's values.
 name: Android CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
-
-# A new push to the same branch or PR cancels the run still going for the previous one.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [main]
 
 permissions:
   contents: read
 
-env:
-  # --- Per-project configuration ---
-  # Gradle module of the application.
-  APP_MODULE: app
-  JAVA_VERSION: '17'
-  # Permissions the packaged release manifest must not declare (space separated, may be empty).
-  # PdfToolkit: no INTERNET in product phase 1 (docs/spec.md §1).
-  FORBIDDEN_PERMISSIONS: android.permission.INTERNET
-  # 'true' to measure unit test coverage (JaCoCo) and upload the report. The app module must turn
-  # it on for -Pcoverage: `debug { enableUnitTestCoverage = providers.gradleProperty("coverage").isPresent }`.
-  COVERAGE: 'true'
-  # --- End of configuration ---
-
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Lint
-        run: ./gradlew ":$APP_MODULE:lintDebug" --no-daemon --stacktrace
-
-      - name: Unit tests
-        run: |
-          if [ "$COVERAGE" = "true" ]; then
-            ./gradlew ":$APP_MODULE:testDebugUnitTest" ":$APP_MODULE:createDebugUnitTestCoverageReport" -Pcoverage --no-daemon --stacktrace
-          else
-            ./gradlew ":$APP_MODULE:testDebugUnitTest" --no-daemon --stacktrace
-          fi
-
-      # The build that ships: R8 and resource shrinking catch missing keep rules here, not on a
-      # phone. Unsigned (no secrets on pull requests), so nothing to install.
-      - name: Assemble release (R8)
-        run: ./gradlew ":$APP_MODULE:assembleRelease" --no-daemon --stacktrace
-
-      # Checks the merged manifest that actually gets packaged in the release APK, so a dependency
-      # bringing a forbidden permission back fails CI instead of going unnoticed.
-      - name: Check forbidden permissions
-        if: env.FORBIDDEN_PERMISSIONS != ''
-        run: |
-          MANIFEST=$(find "$APP_MODULE/build/intermediates/packaged_manifests/release" -name AndroidManifest.xml | head -1)
-          if [ -z "$MANIFEST" ]; then
-            echo "Packaged release manifest not found" >&2
-            exit 1
-          fi
-          FOUND=0
-          for permission in $FORBIDDEN_PERMISSIONS; do
-            if grep -q "\"$permission\"" "$MANIFEST"; then
-              echo "$permission found in $MANIFEST" >&2
-              FOUND=1
-            fi
-          done
-          [ "$FOUND" -eq 0 ] || exit 1
-          echo "OK: none of [$FORBIDDEN_PERMISSIONS] in $MANIFEST"
-
-      - name: Upload lint report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: lint-report
-          path: ${{ env.APP_MODULE }}/build/reports/lint-results-debug.html
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Upload unit test report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: unit-test-report
-          path: ${{ env.APP_MODULE }}/build/reports/tests/testDebugUnitTest/
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Upload coverage report
-        if: always() && env.COVERAGE == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-report
-          path: ${{ env.APP_MODULE }}/build/reports/coverage/test/debug/
-          if-no-files-found: ignore
-          retention-days: 14
+  ci:
+    uses: Marcogn/claude-skill-android-kit/.github/workflows/android-ci.yml@v1
+    with:
+      app-module: app
+      java-version: '17'
+      # Permissions the packaged release manifest must not declare (space separated, may be empty).
+      # PdfToolkit: no INTERNET in product phase 1 (docs/spec.md §1).
+      forbidden-permissions: android.permission.INTERNET
+      coverage: true
+    # If the build needs extra environment variables from secrets, pass them as KEY=VALUE lines:
+    # secrets:
+    #   BUILD_ENV: "API_CLIENT_ID=${{ secrets.API_CLIENT_ID }}"

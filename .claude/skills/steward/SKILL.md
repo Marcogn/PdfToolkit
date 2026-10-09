@@ -12,7 +12,7 @@ request read this file from the PR's head branch before acting on CI or review e
 
 `android-ci.yml` runs, in order: `lintDebug`, `testDebugUnitTest`, `assembleRelease` (R8), then a
 check that the packaged release manifest declares none of `FORBIDDEN_PERMISSIONS`. Reports are
-uploaded as artifacts (lint HTML, test XML), 14 days. `docs/ci.md` describes all workflows.
+uploaded as artifacts (lint HTML, test XML), 14 days. `docs/ci.md`, where present, describes all workflows.
 
 ## Reading a failure
 
@@ -40,7 +40,7 @@ uploaded as artifacts (lint HTML, test XML), 14 days. `docs/ci.md` describes all
   Wrong or not worth its code: reply on the thread with the reason.
 - Findings that cite CLAUDE.md, REVIEW.md or an ADR weigh more than style.
 - Dependabot PRs: read the library's release notes for breaking changes; the project uses latest
-  **stable** versions only (no alpha/beta/RC unless CLAUDE.md or `docs/decisions.md` pins one).
+  **stable** versions only (no alpha/beta/RC unless CLAUDE.md or the decisions file pins one).
 
 ## Before each push
 

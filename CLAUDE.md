@@ -30,7 +30,9 @@ When the author says "go on" / "next phase":
    (`/model opus`, `/model sonnet`, or a new session). Go ahead only if the author says so.
 1. Read the sub-phase row, then the plan section and spec sections it points to.
 2. Check prerequisites (previous sub-phase merged, open questions answered); if unclear, ask.
-3. Do only that sub-phase. Anything else goes into Current status as a note.
+3. Do only that sub-phase. Open `bug` issues touching it may be included (the author picks). Bugs and
+   ideas found along the way become GitHub issues once the author agrees; Current status keeps only
+   status, handoffs and limits.
 4. Close when "Done when" holds: lint + unit tests + `assembleDebug` green; docs updated; commit; PR.
 5. An **a** sub-phase writes a handoff (≤ 15 lines) in Current status for its **b**.
 6. End with the sub-phase's **device checks**: there is no emulator here, the author tests on a phone.
@@ -96,11 +98,14 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   `pdf/edit`: `PdfEditor`/`PdfBoxEditor`, `FillWriter`, `AnnotationWriter`, fonts. `pdf/forms`:
   `FormReader`. `pdf/text`: extraction, normalisation, index, search, selection. `pdf/annotations`:
   reader, geometry, eraser, markup factory, freehand geometry, `DocumentStrokes`.
-- `.github/workflows/`: generic, shared with the author's other projects (`docs/ci.md`); `claude.yml`
-  and `claude-review.yml` run Claude on GitHub, `dependabot.yml` updates dependencies.
+- `.github/workflows/`: short callers of the reusable workflows in
+  [claude-skill-android-kit](https://github.com/Marcogn/claude-skill-android-kit) (`@v1`): CI, Build APK,
+  Release, cleanup, `@claude`, PR review; only this project's values here (`docs/ci.md`).
+  `dependabot.yml` updates dependencies.
 - `.claude/`: skills (`verify`, `next-phase`, `close-phase`, `steward`), the `architecture-reviewer`
-  agent, the SDK hook, permissions. Generic, copied between the author's Android projects; per project
-  only this file and `REVIEW.md` (`docs/claude.md`).
+  agent, the SDK hook, permissions: copied from the kit by `/android-kit` (version in
+  `.claude/kit-version`); improve them in the kit, not here. Per project only this file and `REVIEW.md`
+  (`docs/claude.md`).
 
 ## Rules that aren't obvious
 - **Renderer**: one page open at a time per `PdfRenderer`, a mutex per document, rendering on

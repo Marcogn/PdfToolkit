@@ -1,6 +1,6 @@
 ---
 name: architecture-reviewer
-description: Reviews a diff against this project's own architecture rules (CLAUDE.md "Rules that aren't obvious", REVIEW.md, ADRs in docs/adr, docs/decisions.md) and reports violations with file:line. Use before closing a sub-phase or opening a PR, and when a change touches rendering, coordinates, saving, navigation or permissions. Read-only.
+description: Reviews a diff against this project's own architecture rules (CLAUDE.md "Rules that aren't obvious", REVIEW.md, ADRs, decisions file) and reports violations with file:line. Use before closing a sub-phase or opening a PR, and when a change touches rendering, coordinates, saving, navigation or permissions. Read-only.
 tools: Read, Grep, Glob, Bash
 model: inherit
 color: purple
@@ -16,8 +16,9 @@ rules come from the repository, not from this prompt.
    another base). Use only `git` read commands in Bash.
 2. The rules, in this order of weight:
    - `REVIEW.md` (what must always be checked here),
-   - `CLAUDE.md`, section "Rules that aren't obvious" and "Conventions",
-   - the ADRs in `docs/adr/` and `docs/decisions.md` that concern the files changed.
+   - `CLAUDE.md`: its rules and conventions sections (here "Rules that aren't obvious" and
+     "Conventions"; other projects name them differently),
+   - the ADRs (e.g. `docs/adr/`) and the decisions file CLAUDE.md names, where they concern the files changed.
 
 ## Method
 

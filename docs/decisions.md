@@ -17,19 +17,27 @@ decided or approved it.
 - 2026-10-01 · Release keystore dedicated to this app (RSA 2048, 10,000 days, alias `pdftoolkit`, PKCS12),
   handed to the author, never committed.
 - 2026-10-04 · CI uploads no debug APK (author; spec §13 phase 0 asked for one): it needed uninstalling
-  the app and wasn't minified. "Build APK" (signed release, R8) is the APK for device checks. The four
-  workflows are generic, with the per-project values in their `env` block (`docs/ci.md`).
+  the app and wasn't minified. "Build APK" (signed release, R8) is the APK for device checks. The
+  workflows now come from the kit (see 2026-10-09), with the per-project values in the callers.
 - 2026-10-04 · Product phase 2 is numbered as development phases 7–12, so "phase 2" keeps meaning the
   edit session. Order (author): highlight and draw, then scan, then OCR, ODF, cloud last (it brings
   `INTERNET`). Usability (U-a, U-b) and viewer editing (V-a, V-b, V-c) were inserted before 9.
 - 2026-10-08 · Claude Code setup shared by the author's Android projects (author): skills, a reviewer
   agent, a SessionStart hook that installs the Android SDK in cloud sessions, `@claude` and review
-  workflows on the Claude subscription, Dependabot (`docs/claude.md`). Generic files are **copied**
-  between projects like the CI workflows, not packaged as a plugin: cloud sessions don't load plugins
-  a repository enables. Per project: `CLAUDE.md` and `REVIEW.md`.
+  workflows on the Claude subscription, Dependabot (`docs/claude.md`). The `.claude/` files are
+  **copied** into each project, not packaged as a plugin: cloud sessions don't load plugins a
+  repository enables. Per project: `CLAUDE.md` and `REVIEW.md`.
 - 2026-10-08 · Unit test coverage with AGP's built-in JaCoCo, opt-in (`-Pcoverage`) so local runs stay
   fast; CI uploads the report. Not a gate: a number to look at, not a threshold. Kover not used (no
   documented support for AGP 9 built-in Kotlin found).
+- 2026-10-09 · The kit lives in its own repository,
+  [claude-skill-android-kit](https://github.com/Marcogn/claude-skill-android-kit) (author), not in this
+  one: reusable workflows (callers here pin `@v1`, secrets passed by name, optional `BUILD_ENV`), the
+  `.claude/` files and templates copied by the `android-kit` skill (a launcher on the author's claude.ai
+  account that follows the kit's `INSTALL.md`). Same workflows and secret names in every project.
+- 2026-10-09 · GitHub issues only for bugs and ideas, not for the plan (author): the plan stays in the
+  docs, the single source Claude reads. `/next-phase` offers open `bug` issues, `/close-phase` closes
+  fixed ones with `Fixes #n`. No epics or Projects board for now.
 - 2026-10-08 · No detekt for now: only 2.0.0 supports Kotlin 2.4 with AGP 9 built-in Kotlin, and it is
   still alpha (stable versions only). Revisit at 2.0.0 stable.
 - 2026-10-03 · `CloudTarget` (spec §7.3) is a minimal interface (`displayName`, `suspend upload(...)`):
