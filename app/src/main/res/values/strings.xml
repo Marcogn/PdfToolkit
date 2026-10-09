@@ -354,4 +354,17 @@
     <string name="annotate_applied_highlight">Evidenziato</string>
     <string name="annotate_applied_underline">Sottolineato</string>
     <string name="annotate_applied_strikeout">Barrato</string>
+
+    <!-- Scan (plan 9) -->
+    <string name="scan_file_label">Scansione</string>
+    <string name="scan_save_failed">Impossibile salvare la scansione.</string>
+    <string name="scan_unsaved_title">Scansione non salvata</string>
+    <string name="scan_unsaved_message">La scansione non è ancora stata salvata. Se la scarti, dovrai rifarla.</string>
+    <string name="scan_unsaved_save">Salva</string>
+    <string name="scan_unsaved_discard">Scarta</string>
+    <string name="scan_unavailable_play_services">La scansione richiede Google Play services, che su questo dispositivo non sono disponibili o vanno aggiornati.</string>
+    <string name="scan_unavailable_memory">La scansione richiede almeno 1,7 GB di RAM: questo dispositivo ne ha meno.</string>
+    <string name="scan_unavailable_failed">Impossibile avviare lo scanner. Riprova tra poco: al primo uso Google Play services scarica i modelli.</string>
+    <string name="add_from_scanner">Dallo scanner</string>
+    <string name="add_from_scanner_hint">Fotografa pagine di carta e aggiungile</string>
 </resources>

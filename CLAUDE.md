@@ -77,6 +77,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   fill bundles), `ViewportFill` (fill geometry across pages), `ViewerToolBar`.
 - `ui/edit/`: `EditScreen` = "Organize pages" (and merge), `EditViewModel`, save dialogs, `SaveRunner`
   (shared by both save UIs). `ui/merge/`: merge list.
+- `ui/scan/`: ML Kit Document Scanner (`DocumentScanner`: PDF or JPEG output, availability), the
+  Home "Scan" flow (`ScanToPdf` + `ScanViewModel`: scan → staged copy → `CreateDocument` → viewer).
 - `ui/annotate/`: annotation drawing (`AnnotationLayer`, `drawAnnotations`), text selection
   (`TextSelectionState`, handles, gestures), tool state and Style menu (`AnnotateTools.kt`), freehand
   on `androidx.ink` (`FreehandGestures`, `FreehandInk`, `ViewportInkLayer`).
@@ -132,7 +134,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   screen and writer share `OverlayGeometry`, `PdfPageSpace` and `TextBlock` (Noto Sans metrics).
 - Search highlights are overlay only, never written. Search is in the viewer only.
 - **No `INTERNET`** in product phase 1: the manifest removes it with `tools:node="remove"` and CI
-  checks the packaged manifest. Don't add dependencies that need it (phase 12 is the exception).
+  checks the packaged manifest (`ACCESS_NETWORK_STATE` stays: WorkManager declares it). Don't add dependencies that need it (phase 12 is the exception).
 - **Navigation**: every `navigate()`/`popBackStack()` goes through the owning entry's
   `lifecycleIsResumed()` guard, except navigation from an activity result (the picker). Transitions
   200–250 ms; `NavHost` needs both pop and `predictivePop*` transitions. Don't turn the edit screen into
@@ -158,7 +160,10 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   open organize) and the **signing secrets** in the repository (Build APK and Release need them).
 - Done since: 7a–8b (annotations, freehand), U-a/U-b (usability), V-a…V-c (editing in the viewer).
 - **V-c Fill and sign in the viewer done (2026-10-08)**, PR #24; lint (0 errors), 440 unit tests,
-  `assembleDebug` and CI green; device checks passed (author, 2026-10-08). **Next: 9 Scan (Sonnet).**
+  `assembleDebug` and CI green; device checks passed (author, 2026-10-08).
+- **9 Scan built (2026-10-09)**, lint, unit tests, `assembleDebug` and
+  `assembleRelease` green; packaged release manifest has no `INTERNET`.
+  **Device checks pending** (below). Next after them: 10a OCR core (**Opus**).
 - **Claude Code setup (2026-10-08)**, outside the sub-phases: skills, reviewer agent, SDK hook,
   `REVIEW.md`, `@claude`/review workflows, Dependabot, PR and issue templates, opt-in JaCoCo coverage
   (line coverage 16%; `pdf/edit` 0% in JVM tests) (`docs/claude.md`). Waiting
@@ -175,6 +180,12 @@ undo/redo; single-page mode; landscape rail; Home → Fill and sign opens the vi
 and overwrite with "make final" on and off, open in another reader; back with changes; rotate the
 phone mid-edit; password PDF says it can't be edited.
 
+### Device checks 9 (author, pending)
+Scan 3 pages from Home, save, it opens in the viewer; cancel the save picker (Save/Discard dialog);
+Organize pages → Add → From scanner, pages appear in the images dialog and are added; airplane mode (scan
+still works, first use may need the models); a device without Play services if at hand (tool dimmed with
+the explanation); the scanner's gallery import.
+
 ### Technical limits worth knowing
 - Form controls are recomposed on every scroll frame for the pages on screen; fine for usual forms,
   not measured on very dense ones. "Next" on the keyboard follows Compose focus order, which only
@@ -186,4 +197,6 @@ phone mid-edit; password PDF says it can't be edited.
 - Canvas-drawn content (pages, overlays, the corner handle) has no per-element accessibility semantics.
 - Reopened ink is drawn from its centre line (even width) in the app; other readers show the outline.
 - `AndroidPageImageLoader` and `Stroke → FreehandStroke` have no unit tests (device only).
+- The scanner flow (`ScanToPdf`, `DocumentScanner`) needs Play services and has no JVM test beyond the
+  pure helpers (`scanUnavailableFor`, `scanFileName`); the rest is device only.
 - Lint warns about `ConfigurationScreenWidthHeight` on `isLandscape()`.

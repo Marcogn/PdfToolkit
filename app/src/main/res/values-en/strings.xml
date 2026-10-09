@@ -350,4 +350,17 @@
     <string name="annotate_applied_highlight">Highlighted</string>
     <string name="annotate_applied_underline">Underlined</string>
     <string name="annotate_applied_strikeout">Struck out</string>
+
+    <!-- Scan (plan 9) -->
+    <string name="scan_file_label">Scan</string>
+    <string name="scan_save_failed">Could not save the scan.</string>
+    <string name="scan_unsaved_title">Scan not saved</string>
+    <string name="scan_unsaved_message">The scan has not been saved yet. If you discard it you will have to scan again.</string>
+    <string name="scan_unsaved_save">Save</string>
+    <string name="scan_unsaved_discard">Discard</string>
+    <string name="scan_unavailable_play_services">Scanning needs Google Play services, which are missing or need updating on this device.</string>
+    <string name="scan_unavailable_memory">Scanning needs at least 1.7 GB of RAM: this device has less.</string>
+    <string name="scan_unavailable_failed">Could not start the scanner. Try again in a moment: on first use Google Play services downloads the models.</string>
+    <string name="add_from_scanner">From scanner</string>
+    <string name="add_from_scanner_hint">Photograph paper pages and add them</string>
 </resources>

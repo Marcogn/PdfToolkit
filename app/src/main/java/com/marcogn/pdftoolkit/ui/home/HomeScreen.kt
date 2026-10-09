@@ -48,7 +48,7 @@ private val ToolMinSize = 100.dp
 
 /**
  * Home without an open document (spec §4.1): "Open PDF" card, recents, tool grid.
- * [recents] is null until the first load. Tools still lead to a placeholder.
+ * [recents] is null until the first load. [scanAvailable] is false without Google Play services.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +56,7 @@ fun HomeScreen(
     onMenuClick: () -> Unit,
     onOpenPdfClick: () -> Unit,
     onToolClick: (PdfTool) -> Unit,
+    scanAvailable: Boolean = true,
     recents: List<RecentItem>? = emptyList(),
     onRecentClick: (RecentItem) -> Unit = {},
     onRecentRemove: (RecentItem) -> Unit = {},
@@ -68,6 +69,13 @@ fun HomeScreen(
         if (tool.comingSoon) {
             // Product phase 2 tool: just a short snackbar, no navigation (spec §4.1).
             val message = resources.getString(R.string.home_coming_soon_message, resources.getString(tool.labelRes()))
+            scope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(message)
+            }
+        } else if (tool == PdfTool.SCAN && !scanAvailable) {
+            // The scanner runs in Google Play services: say why the tool is off (spec §7.1).
+            val message = resources.getString(R.string.scan_unavailable_play_services)
             scope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(message)
@@ -123,7 +131,9 @@ fun HomeScreen(
                 }
             }
             fullWidth { SectionTitle(stringResource(R.string.home_tools_title)) }
-            items(PdfTool.available, key = { it.name }) { tool -> ToolButton(tool, onClick = { onToolTap(tool) }) }
+            items(PdfTool.available, key = { it.name }) { tool ->
+                ToolButton(tool, onClick = { onToolTap(tool) }, unavailable = tool == PdfTool.SCAN && !scanAvailable)
+            }
             fullWidth { SectionTitle(stringResource(R.string.home_upcoming_title)) }
             items(PdfTool.upcoming, key = { it.name }) { tool -> ToolButton(tool, onClick = { onToolTap(tool) }) }
         }

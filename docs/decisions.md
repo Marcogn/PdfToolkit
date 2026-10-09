@@ -97,6 +97,24 @@ decided or approved it.
 - 2026-10-01 · Protected PDFs are rejected when added or merged (a password per file would have to be
   kept until the save). To revisit with the author.
 
+## Scan (plan 9, spec §7.1)
+
+- 2026-10-09 · The scanner is `play-services-mlkit-document-scanner` 16.0.0 (the UI and models run in
+  Google Play services). Home "Scan" asks for a **PDF** and then `CreateDocument` ("Scansione
+  yyyy-MM-dd HHmm.pdf"); cancelling the picker offers Save or Discard rather than losing the scan. "Add
+  → From scanner" in "Organize pages" asks for **JPEG** pages and reuses the images dialog.
+- 2026-10-09 · Availability: Play services is checked up front (`GoogleApiAvailability`) and dims the
+  tool with an explanation; low RAM is not guessed from `totalMem` (marketing GB differ from what the
+  system reports) but reported when the scanner itself fails with `MlKitException.UNSUPPORTED`.
+- 2026-10-09 · `ACCESS_NETWORK_STATE` is **kept** (author). The 2026-10-04 plan assumed the scanner brought
+  it; the manifest merger report shows `work-runtime` 2.12.0 (in use since 1.0) and `transport-runtime`
+  declare it too, and removing it could break WorkManager's network trackers. It gives no network access;
+  only `INTERNET` is removed and forbidden in CI.
+- 2026-10-09 · The scanned PDF is first copied to `cacheDir/work/` by `ScanViewModel`, then written to the
+  `CreateDocument` file there (in `viewModelScope`, a failed write deletes the empty file). This is a plain
+  copy of a finished file, not an edit, so it does not go through `SaveWorker` (ADR 0003); a rotation does
+  not cut it short.
+
 ## Fill and sign (spec §6.5)
 
 - 2026-10-02 · Overlays and form values live in `EditSession` (one undo history), not as a separate

@@ -14,11 +14,13 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.NoteAdd
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.runtime.produceState
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -120,15 +122,17 @@ private fun InsertionPointSelector(pageCount: Int, point: InsertionPoint, onChan
 }
 
 private const val MAX_DIGITS = 5
+private const val DISABLED_ALPHA = 0.5f
 
 /** One tappable row of a source dialog: icon, title and a line of explanation, on the full width. */
 @Composable
-private fun SourceRow(icon: ImageVector, title: String, hint: String, onClick: () -> Unit) {
+private fun SourceRow(icon: ImageVector, title: String, hint: String, onClick: () -> Unit, enabled: Boolean = true) {
     Row(
         Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .padding(vertical = 12.dp, horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -143,7 +147,15 @@ private fun SourceRow(icon: ImageVector, title: String, hint: String, onClick: (
 
 /** The one place to add pages in "Organize pages": another PDF, blank pages, or images (plan U4). */
 @Composable
-fun AddSourceDialog(onFromPdf: () -> Unit, onBlank: () -> Unit, onPhotos: () -> Unit, onFiles: () -> Unit, onDismiss: () -> Unit) {
+fun AddSourceDialog(
+    onFromPdf: () -> Unit,
+    onBlank: () -> Unit,
+    onPhotos: () -> Unit,
+    onFiles: () -> Unit,
+    onScan: () -> Unit,
+    scanAvailable: Boolean,
+    onDismiss: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.organize_add_title)) },
@@ -153,6 +165,13 @@ fun AddSourceDialog(onFromPdf: () -> Unit, onBlank: () -> Unit, onPhotos: () -> 
                 SourceRow(Icons.Outlined.NoteAdd, stringResource(R.string.add_blank), stringResource(R.string.add_blank_hint), onBlank)
                 SourceRow(Icons.Outlined.PhotoLibrary, stringResource(R.string.images_from_photos), stringResource(R.string.images_from_photos_hint), onPhotos)
                 SourceRow(Icons.Outlined.Folder, stringResource(R.string.images_from_files), stringResource(R.string.images_from_files_hint), onFiles)
+                SourceRow(
+                    Icons.Outlined.DocumentScanner,
+                    stringResource(R.string.add_from_scanner),
+                    stringResource(if (scanAvailable) R.string.add_from_scanner_hint else R.string.scan_unavailable_play_services),
+                    onScan,
+                    enabled = scanAvailable,
+                )
             }
         },
         confirmButton = {},

@@ -50,13 +50,14 @@ class HomeScreenTest {
         accessible,
     )
 
-    private fun setHome(recents: List<RecentItem>? = emptyList()) {
+    private fun setHome(recents: List<RecentItem>? = emptyList(), scanAvailable: Boolean = true) {
         composeRule.setContent {
             PdfToolkitTheme {
                 HomeScreen(
                     onMenuClick = { menuClicks++ },
                     onOpenPdfClick = { openClicks++ },
                     onToolClick = { toolClicks += it },
+                    scanAvailable = scanAvailable,
                     recents = recents,
                     onRecentClick = { recentClicks += it.document.uri },
                     onRecentRemove = { recentRemovals += it.document.uri },
@@ -105,9 +106,26 @@ class HomeScreenTest {
     @Test
     fun comingSoonToolShowsSnackbarAndDoesNotNavigate() {
         setHome()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Carica su cloud"))
+        composeRule.onNodeWithText("Carica su cloud").performClick()
+        composeRule.onNodeWithText("Carica su cloud arriverà in una prossima versione.").assertIsDisplayed()
+        assertTrue(toolClicks.isEmpty())
+    }
+
+    @Test
+    fun scanToolNavigatesWhenPlayServicesAreThere() {
+        setHome()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Scansiona"))
         composeRule.onNodeWithText("Scansiona").performClick()
-        composeRule.onNodeWithText("Scansiona arriverà in una prossima versione.").assertIsDisplayed()
+        assertEquals(listOf(PdfTool.SCAN), toolClicks)
+    }
+
+    @Test
+    fun scanToolExplainsWhyItIsOffWithoutPlayServices() {
+        setHome(scanAvailable = false)
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Scansiona"))
+        composeRule.onNodeWithText("Scansiona").performClick()
+        composeRule.onNodeWithText("La scansione richiede Google Play services", substring = true).assertIsDisplayed()
         assertTrue(toolClicks.isEmpty())
     }
 

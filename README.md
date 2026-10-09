@@ -21,10 +21,12 @@ no cloud, no network access.
   - fill forms (text, check boxes, radio buttons, lists) and add text, the date, ticks, crosses and
     signatures, which can be moved, resized and turned; signatures are drawn or imported into a private
     archive ("My signatures").
-- **Organizing pages**: select, rotate, remove, drag to reorder, add pages from another PDF, blank or
-  from images. **Merging** several PDFs.
+- **Scanning** paper with the Google document scanner (needs Google Play services and 1.7 GB of RAM):
+  saved as a PDF, or added as pages to an open document.
+- **Organizing pages**: select, rotate, remove, drag to reorder, add pages from another PDF, blank,
+  from images or from the scanner. **Merging** several PDFs.
 
-Planned: document scanning, OCR, export to OpenDocument and upload to a WebDAV server (Nextcloud).
+Planned: OCR, export to OpenDocument and upload to a WebDAV server (Nextcloud).
 They already show on Home as "Soon"; order and plan in [`docs/plan-v2.md`](docs/plan-v2.md).
 
 ## Requirements
@@ -75,11 +77,12 @@ docs/        specification, plans, decisions, ADRs, CI
 ## Privacy
 
 The app does not declare the `INTERNET` permission: files stay on the phone and nothing leaves the
-device. CI checks on every pull request that no dependency brings the permission back.
+device. CI checks on every pull request that no dependency brings the permission back. The document
+scanner runs in Google Play services, outside the app.
 
 ## Libraries and licences
 
-Kotlin, AndroidX (including WorkManager and Ink), Jetpack Compose and Dagger Hilt, PdfBox-Android
+Kotlin, AndroidX (including WorkManager and Ink), ML Kit Document Scanner (Google Play services; ML Kit terms), Jetpack Compose and Dagger Hilt, PdfBox-Android
 (editing), and Reorderable (page drag and drop), all under the Apache 2.0 licence; the viewer uses Android's
 `PdfRenderer`. The reasons are in [`docs/adr/`](docs/adr/). Text written into PDFs uses the Noto Sans
 font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1: it is bundled in

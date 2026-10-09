@@ -2,7 +2,7 @@
 
 Status on 2026-10-08: 1.0.0 is released; 7a, 7b, 8a and 8b are done, and so are the inserted
 series U-a/U-b (`docs/plan-usability.md`) and V-a…V-c (`docs/plan-viewer-editing.md`), which moved
-every page tool into the viewer. **Next: 9 Scan.**
+every page tool into the viewer. 9 Scan is built (device checks pending); next: 10a.
 
 Development continues the numbering of spec §13 (phases 7–12), so "phase 2" keeps meaning the edit
 session. Order chosen by the author: **highlight and draw first** (closes the annotation thread),
@@ -45,7 +45,8 @@ the author.
   ([guide](https://developers.google.com/ml-kit/vision/doc-scanner/android)). Its POM pulls
   `transport-backend-cct`, whose manifest declares **`INTERNET`** and `ACCESS_NETWORK_STATE`
   (Firelog telemetry): our manifest's `tools:node="remove"` drops `INTERNET`, so the merged APK stays
-  without it, but `ACCESS_NETWORK_STATE` would come in. Whether the scanner works with the app lacking
+  without it. `ACCESS_NETWORK_STATE` was already merged in by `work-runtime` and stays (checked in the
+  merger report, 2026-10-09). Whether the scanner works with the app lacking
   `INTERNET` is expected (the flow runs in Play services) but **not verified**: device check of phase 9.
 - **ML Kit Text Recognition v2**: unbundled `play-services-mlkit-text-recognition` (19.0.1, model
   downloaded by Play services, ~260 KB) or bundled `com.google.mlkit:text-recognition` (16.0.1, ~4 MB
@@ -58,7 +59,7 @@ the author.
 
 Answered on 2026-10-04: highlight and draw first went into an "Annotate" pane of the edit screen, then
 (2026-10-08) into the viewer; Google Play services is accepted for phases 9 and 10, and
-`ACCESS_NETWORK_STATE`, merged by the scanner, is to be removed like `INTERNET` (phase 9).
+`ACCESS_NETWORK_STATE` was first to be removed like `INTERNET`, then kept (2026-10-09, `docs/decisions.md`).
 
 Still open:
 1. **OCR bundled or unbundled** (before 10a): bundled works without Play services and offline from the
@@ -75,9 +76,8 @@ Ink annotations with their outline as appearance, "make final". Design in ADR 00
 passed (7b on 2026-10-05, 8a and 8b on 2026-10-07). Since V-a…V-c these tools live in the viewer.
 
 ### 9 Scan — Sonnet
-Scope: ML Kit Document Scanner; availability check (Play services and RAM) with the tool disabled and
-an explanation otherwise; result: open the scanned PDF in the viewer (save as with `CreateDocument`)
-and "Add → from scanner" in "Organize pages"; remove `ACCESS_NETWORK_STATE` merged by the scanner; manifest stays without `INTERNET` (CI check unchanged).
+Scope: ML Kit Document Scanner; availability check (Play services up front, which dims the tool with an explanation; low RAM is reported when the scanner itself refuses, `UNSUPPORTED`); result: open the scanned PDF in the viewer (save as with `CreateDocument`)
+and "Add → from scanner" in "Organize pages"; manifest stays without `INTERNET` (CI check unchanged).
 Device check: scan 3 pages, save, open; add scanned pages to an open PDF; airplane mode; a device
 without Play services if one is at hand.
 
