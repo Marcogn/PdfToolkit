@@ -76,7 +76,7 @@ import com.marcogn.pdftoolkit.ui.common.UndoRedo
 import com.marcogn.pdftoolkit.ui.common.isLandscape
 import com.marcogn.pdftoolkit.ui.scan.ScanOutcome
 import com.marcogn.pdftoolkit.ui.scan.ScanOutput
-import com.marcogn.pdftoolkit.ui.scan.messageRes
+import com.marcogn.pdftoolkit.ui.scan.message
 import com.marcogn.pdftoolkit.ui.scan.rememberDocumentScanner
 import com.marcogn.pdftoolkit.ui.viewer.takePersistableAccess
 import kotlinx.coroutines.launch
@@ -180,7 +180,7 @@ fun EditScreen(
     val scanner = rememberDocumentScanner(ScanOutput.IMAGES) { outcome ->
         when (outcome) {
             is ScanOutcome.Images -> viewModel.pickImages(outcome.uris)
-            is ScanOutcome.Unavailable -> Toast.makeText(context, outcome.reason.messageRes(), Toast.LENGTH_LONG).show()
+            is ScanOutcome.Unavailable -> Toast.makeText(context, outcome.message(resources), Toast.LENGTH_LONG).show()
             ScanOutcome.Cancelled, is ScanOutcome.Pdf -> Unit
         }
     }

@@ -2,7 +2,9 @@ package com.marcogn.pdftoolkit.ui.scan
 
 import android.app.Activity
 import android.content.Context
+import android.content.res.Resources
 import android.net.Uri
+import android.util.Log
 import androidx.annotation.StringRes
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -43,8 +45,11 @@ sealed interface ScanOutcome {
     data class Pdf(val uri: Uri) : ScanOutcome
     data class Images(val uris: List<Uri>) : ScanOutcome
     data object Cancelled : ScanOutcome
-    data class Unavailable(val reason: ScanUnavailable) : ScanOutcome
+    /** [detail] is the exception that stopped the scanner, if any: shown so a device report can name it. */
+    data class Unavailable(val reason: ScanUnavailable, val detail: String? = null) : ScanOutcome
 }
+
+private const val TAG = "PdfToolkitScan"
 
 /** Maps the failure of `getStartScanIntent` to a reason; the scanner signals low RAM with `UNSUPPORTED`. */
 internal fun scanUnavailableFor(error: Throwable): ScanUnavailable =
@@ -105,16 +110,28 @@ fun rememberDocumentScanner(output: ScanOutput, onOutcome: (ScanOutcome) -> Unit
                     )
                     .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
                     .build()
+                // Starting the scanner must never take the app down: anything thrown here, now or when the
+                // intent is launched, becomes an explanation instead, and is logged.
+                val fail = { e: Exception ->
+                    starting = false
+                    Log.e(TAG, "Document scanner failed to start", e)
+                    currentOutcome.value(ScanOutcome.Unavailable(scanUnavailableFor(e), e.toString()))
+                }
                 starting = true
-                GmsDocumentScanning.getClient(options).getStartScanIntent(activity)
-                    .addOnSuccessListener {
-                        starting = false
-                        launcher.launch(IntentSenderRequest.Builder(it).build())
-                    }
-                    .addOnFailureListener {
-                        starting = false
-                        currentOutcome.value(ScanOutcome.Unavailable(scanUnavailableFor(it)))
-                    }
+                try {
+                    GmsDocumentScanning.getClient(options).getStartScanIntent(activity)
+                        .addOnSuccessListener {
+                            try {
+                                launcher.launch(IntentSenderRequest.Builder(it).build())
+                                starting = false
+                            } catch (e: Exception) {
+                                fail(e)
+                            }
+                        }
+                        .addOnFailureListener(fail)
+                } catch (e: Exception) {
+                    fail(e)
+                }
             }
         }
     }
@@ -126,3 +143,7 @@ fun ScanUnavailable.messageRes(): Int = when (this) {
     ScanUnavailable.LOW_MEMORY -> R.string.scan_unavailable_memory
     ScanUnavailable.FAILED -> R.string.scan_unavailable_failed
 }
+
+/** The explanation, followed by the error that caused it when there is one. */
+fun ScanOutcome.Unavailable.message(resources: Resources): String =
+    resources.getString(reason.messageRes()) + (detail?.let { "\n$it" } ?: "")

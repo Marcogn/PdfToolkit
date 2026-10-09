@@ -78,7 +78,7 @@ fun rememberScanToPdf(onSaved: (Uri) -> Unit): DocumentScanner {
     val scanner = rememberDocumentScanner(ScanOutput.PDF) { outcome ->
         when (outcome) {
             is ScanOutcome.Pdf -> viewModel.stage(outcome.uri)
-            is ScanOutcome.Unavailable -> Toast.makeText(context, outcome.reason.messageRes(), Toast.LENGTH_LONG).show()
+            is ScanOutcome.Unavailable -> Toast.makeText(context, outcome.message(resources), Toast.LENGTH_LONG).show()
             ScanOutcome.Cancelled, is ScanOutcome.Images -> Unit
         }
     }
