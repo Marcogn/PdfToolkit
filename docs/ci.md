@@ -14,8 +14,8 @@ This page is part of the kit and is copied unchanged into each project.
 | `cleanup-runs.yml` (Clean up runs) | by hand | deletes every completed run except the latest of each workflow (logs and artifacts); releases are untouched | — |
 | `claude.yml`, `claude-review.yml` | `@claude` mentions; PRs opened or marked ready | Claude on GitHub (see `docs/claude.md`); skip themselves without `CLAUDE_CODE_OAUTH_TOKEN` | comments, commits |
 
-Callers pin the kit at `@v1`, a tag that moves with compatible changes; a change that would break
-callers gets `@v2`, and projects move to it on purpose.
+Callers pin the kit at `@v1`, a branch of the kit that moves (fast-forward) with compatible changes;
+a change that would break callers gets `@v2`, and projects move to it on purpose.
 
 ## Values and secrets per project
 
