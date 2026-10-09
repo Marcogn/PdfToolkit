@@ -100,7 +100,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   and `claude-review.yml` run Claude on GitHub, `dependabot.yml` updates dependencies.
 - `.claude/`: skills (`verify`, `next-phase`, `close-phase`, `steward`), the `architecture-reviewer`
   agent, the SDK hook, permissions. Generic, copied between the author's Android projects; per project
-  only this file and `REVIEW.md` (`docs/claude.md`).
+  only this file and `REVIEW.md` (`docs/claude.md`). This repository is the kit's source:
+  `tools/claude-kit/android-claude-kit/` is the claude.ai skill that copies it into other projects.
 
 ## Rules that aren't obvious
 - **Renderer**: one page open at a time per `PdfRenderer`, a mutex per document, rendering on

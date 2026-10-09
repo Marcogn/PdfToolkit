@@ -28,13 +28,13 @@ Two passes, in parallel, on the diff against the base branch:
 
 Re-run `verify` if you changed code.
 
-## 4. Documents (CLAUDE.md "Fixed rule")
+## 4. Documents (what CLAUDE.md asks to update; section names vary by project)
 
 - `CHANGELOG.md`: every user-visible change under `## [Unreleased]` as `- **Summary.** detail`.
 - `CLAUDE.md`: "Current status" (done, date, PR, test count, next sub-phase), "Where things are"
   and "Rules that aren't obvious" if the code changed them, technical limits found.
 - An **a** sub-phase: the handoff (at most 15 lines) for its **b**.
-- `README.md` if features or commands changed; `docs/decisions.md` for new decisions.
+- `README.md` if features or commands changed; the decisions file for new decisions.
 - Keep the docs' language and style; trim, don't pile up.
 
 ## 5. Commit, push, PR
@@ -51,5 +51,5 @@ Re-run `verify` if you changed code.
 
 ## 6. Hand back to the author
 
-End with the sub-phase's **device checks** (CLAUDE.md table and plan) as a short checklist the
+End with the sub-phase's **device checks** (phase table and plan) as a short checklist the
 author can run on the phone, and what is left open. Don't start the next sub-phase.

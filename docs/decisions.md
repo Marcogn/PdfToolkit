@@ -30,6 +30,10 @@ decided or approved it.
 - 2026-10-08 · Unit test coverage with AGP's built-in JaCoCo, opt-in (`-Pcoverage`) so local runs stay
   fast; CI uploads the report. Not a gate: a number to look at, not a threshold. Kover not used (no
   documented support for AGP 9 built-in Kotlin found).
+- 2026-10-09 · The kit reaches the other Android projects through `android-claude-kit`, a skill on the
+  author's claude.ai account (source in `tools/claude-kit/`): it copies the generic files from this
+  repository, writes `REVIEW.md` per project, and leaves `build-apk.yml`/`release.yml` and non-shared CI
+  untouched (alignment proposed as an issue). Re-running it updates a project (`.claude/kit-version`).
 - 2026-10-09 · GitHub issues only for bugs and ideas, not for the plan (author): the plan stays in the
   docs, the single source Claude reads. `/next-phase` offers open `bug` issues, `/close-phase` closes
   fixed ones with `Fixes #n`. No epics or Projects board for now.

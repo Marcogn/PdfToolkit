@@ -1,7 +1,9 @@
 # Working with Claude Code (and how to reuse the setup)
 
-How this repository is set up for Claude Code, why each piece exists, and which files to copy into
-the author's other Android projects. Like `docs/ci.md`, this page can be copied along with them.
+How this repository is set up for Claude Code, why each piece exists, and how the same setup (the
+"kit") reaches the author's other Android projects. The kit's source is
+[PdfToolkit](https://github.com/Marcogn/PdfToolkit); this page is part of the kit and is copied
+unchanged into every project that uses it.
 Facts about Claude Code come from its documentation (links at the end), checked on 2026-10-08;
 the product changes quickly, so re-check a link before relying on a detail.
 
@@ -38,32 +40,37 @@ Two more files feed reviews: `REVIEW.md` (read by Claude Code Review on GitHub a
 | `.github/dependabot.yml` | Weekly grouped dependency PRs (Gradle) and monthly (Actions) | Yes |
 | `.github/pull_request_template.md`, `ISSUE_TEMPLATE/` | Same structure for every PR; issues written so they can be handed to Claude as they are | Yes |
 
-## Reusing it in another Android project
+## Reusing it in another Android project: the kit skill
 
-Copy the "generic" files unchanged, then write the two per-project ones: `CLAUDE.md` (run `/init`
-for a first draft, then cut it down) and `REVIEW.md` (the project's invariants). Generic files
-never name the project, so a fix made in one project can be copied to the others as is.
+The generic files live in PdfToolkit and are **copied** into each project; per project there are
+only `CLAUDE.md`, `REVIEW.md` and a few values (JDK, the coverage line). Copying and adapting is done
+by a skill, `android-claude-kit`, whose source is `tools/claude-kit/android-claude-kit/SKILL.md` in
+PdfToolkit and which lives on the author's **claude.ai account**, so it is available in every
+cloud session of every repository:
+
+1. Once: zip the `android-claude-kit` folder and upload it on claude.ai (skills settings, "Upload
+   skill"). After a change to the skill, upload it again.
+2. Per repository: start a cloud session on it (Sonnet is enough) and type `/android-claude-kit`.
+   It copies the generic files, adapts the values, writes `REVIEW.md` from that project's own rules
+   (checked against its code), touches the CI only if it is the shared version, runs the checks and
+   opens a draft PR. It records the kit version in `.claude/kit-version`.
+3. Later, when the kit improves in any project: bring the change to PdfToolkit, then run
+   `/android-claude-kit` again in the others. That is how copies stay in step.
 
 Why copying and not a plugin: Claude Code can package skills, agents and hooks as a **plugin** in a
 marketplace repository, which is the cleanest way to share them, but **cloud sessions don't load
 plugins** a repository enables, nor anything in `~/.claude` on your machine. They see only what is
 committed in the repository (CLAUDE.md, `.claude/skills`, `.claude/agents`, `.claude/settings.json`)
-plus skills enabled on the claude.ai account. Since most sessions here start from the phone, the
-committed copy is what works everywhere: cloud, terminal, and the GitHub Action.
+plus skills enabled on the claude.ai account. The kit therefore uses both channels for what each is
+good at: the repository for files that must be versioned with the code (and that the GitHub Action
+also reads), the account for the one cross-project procedure. Claude Code's "run `verify` before
+each commit" also works only for a project skill, another reason `verify` lives in the repository.
 
-Two things *are* shared without copying:
-
-- **The cloud environment.** Use one environment for all Android projects and paste
-  `.claude/hooks/android-sdk.sh` into its *Setup script* (claude.ai/code → environment menu → Edit).
-  The environment is then cached with the SDK installed (the cache needs the script to finish in
-  about five minutes; this one takes ~15 s), and the SessionStart hook in each repository only
-  writes `local.properties`.
-- **Skills enabled on claude.ai** load in every cloud and terminal session of the account. Good for
-  personal, project-independent skills; not versioned in git, and Claude Code's "run `verify` before
-  each commit" only works for a project skill, so `verify` stays in the repository.
-
-If the number of projects grows, the generic files can move to a template repository from which
-new projects start.
+The **cloud environment** is shared too: use one environment for all Android projects and paste
+`.claude/hooks/android-sdk.sh` into its *Setup script* (claude.ai/code → environment menu → Edit).
+It is then cached with the SDK installed (the cache needs the script to finish in about five
+minutes; this one takes ~15 s), and the SessionStart hook in each repository only writes
+`local.properties`.
 
 ## One-time setup (by the author)
 
@@ -88,7 +95,7 @@ new projects start.
 
 ## Issues: bugs and ideas, not the plan
 
-The plan stays in the docs (`docs/plan-*.md`, the sub-phase table in CLAUDE.md): Claude reads them
+The plan stays in the docs (the plan files and the phase table CLAUDE.md points to): Claude reads them
 every session and they are versioned with the code. Repeating it as issues or epics (parent issues
 with sub-issues) would give two sources that drift apart, so issues hold only what has no place in
 the plan:
