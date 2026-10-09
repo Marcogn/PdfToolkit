@@ -135,6 +135,26 @@ decided or approved it.
   the error (ML Kit code and message, or exception type, message and cause; author). The full stack trace
   goes to logcat (tag `PdfToolkitScan`); R8 traces are read with `retrace` and the build's `mapping.txt`.
 
+## OCR (plan 10a, spec §7.2)
+
+- 2026-10-09 · Text recognition is ML Kit Text Recognition v2 **bundled**, `com.google.mlkit:text-recognition`
+  16.0.1, Latin script (author): the model is in the APK (Google gives about 4 MB per script per architecture),
+  available at once, offline and without Play services. The unbundled 19.0.1 would have been ~260 KB but
+  waits for Play services to download the model.
+- 2026-10-09 · The layer is text render mode 3 (invisible) in Noto Sans (subset, with PdfBox's `/ToUnicode`),
+  appended to the page content in user space through `PdfPageSpace`. Per ML Kit **line**: one font size (the
+  font's ascent-to-descent made as tall as the line box, the same extent the extractor gives a glyph) and one
+  angle (the box's bottom edge). Per ML Kit **word** (element): its own start along the baseline and its own
+  `Tz` stretch to its box, with a space stretched over the gap to the next word. The plan said one stretch per
+  line; with Noto Sans not being the scanned font, that drifts words off their image and can shrink the gaps
+  under the extractor's word-break threshold (0.15 line heights), joining words.
+- 2026-10-09 · Pages are rendered with `PdfRenderer` at 200 dpi (body text gets the 16–24 px per character
+  ML Kit asks for), at most 3000 px on the long side; one bitmap at a time. A page with any non-blank
+  character (visible or not, e.g. an earlier OCR) is not recognised again.
+- 2026-10-09 · Until 10b, Home "Scan" runs OCR on the staged scan before the save picker, with a progress
+  dialog and no cancel (author: temporary entry point for the 10a device check). If recognition fails, the scan
+  is saved as it came from the scanner.
+
 ## Fill and sign (spec §6.5)
 
 - 2026-10-02 · Overlays and form values live in `EditSession` (one undo history), not as a separate

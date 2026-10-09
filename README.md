@@ -22,11 +22,12 @@ no cloud, no network access.
     signatures, which can be moved, resized and turned; signatures are drawn or imported into a private
     archive ("My signatures").
 - **Scanning** paper with the Google document scanner (needs Google Play services and 1.7 GB of RAM):
-  saved as a PDF, or added as pages to an open document.
+  saved as a PDF, or added as pages to an open document. Scans from Home are made **searchable** with
+  text recognition on the phone (OCR, Latin script, offline).
 - **Organizing pages**: select, rotate, remove, drag to reorder, add pages from another PDF, blank,
   from images or from the scanner. **Merging** several PDFs.
 
-Planned: OCR, export to OpenDocument and upload to a WebDAV server (Nextcloud).
+Planned: OCR of any PDF from the viewer, export to OpenDocument and upload to a WebDAV server (Nextcloud).
 They already show on Home as "Soon"; order and plan in [`docs/plan-v2.md`](docs/plan-v2.md).
 
 ## Requirements
@@ -82,7 +83,8 @@ scanner runs in Google Play services, outside the app.
 
 ## Libraries and licences
 
-Kotlin, AndroidX (including WorkManager and Ink), ML Kit Document Scanner (Google Play services; ML Kit terms), Jetpack Compose and Dagger Hilt, PdfBox-Android
+Kotlin, AndroidX (including WorkManager and Ink), ML Kit Document Scanner (Google Play services; ML Kit terms), ML Kit
+Text Recognition v2 (model bundled in the app; ML Kit terms), Jetpack Compose and Dagger Hilt, PdfBox-Android
 (editing), and Reorderable (page drag and drop), all under the Apache 2.0 licence; the viewer uses Android's
 `PdfRenderer`. The reasons are in [`docs/adr/`](docs/adr/). Text written into PDFs uses the Noto Sans
 font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1: it is bundled in
@@ -107,6 +109,8 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
 - **Search and text selection** follow PdfBox's extraction order, which may differ from the reading
   order in columns and tables; a hyphenated word is two words; right-to-left scripts aren't handled;
   scans have no text until OCR. The search index is rebuilt each time a document is opened.
+- **OCR** recognises Latin script only; the hidden text is placed word by word on the recognised boxes, good
+  for search and copy but not a copy of the layout. For now it runs only on scans from Home, with no cancel.
 - **Annotations** are drawn by the app, because Android's renderer doesn't: one with a custom look may
   look plainer than in the app that made it, and notes, stamps and shapes aren't shown (the eraser can
   still remove them). Thumbnails don't show annotations. On Android 8 and 9 a highlight looks lighter

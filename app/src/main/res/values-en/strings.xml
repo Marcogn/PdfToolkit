@@ -354,6 +354,8 @@
     <!-- Scan (plan 9) -->
     <string name="scan_file_label">Scan</string>
     <string name="scan_save_failed">Could not save the scan.</string>
+    <string name="scan_recognising_title">Recognising text</string>
+    <string name="scan_recognising_message">Making the scan searchable…</string>
     <string name="scan_unsaved_title">Scan not saved</string>
     <string name="scan_unsaved_message">The scan has not been saved yet. If you discard it you will have to scan again.</string>
     <string name="scan_unsaved_save">Save</string>
