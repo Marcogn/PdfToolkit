@@ -174,7 +174,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - **V-c Fill and sign in the viewer done (2026-10-08)**, PR #24; lint (0 errors), 440 unit tests,
   `assembleDebug` and CI green; device checks passed (author, 2026-10-08).
 - **9 Scan done (2026-10-09)**, PR #27; device checks passed (author, 2026-10-09) after an R8 fix.
-- **10a OCR core written (2026-10-09)**, PR pending; lint (0 errors), 461 unit tests, `assembleRelease` green;
+- **10a OCR core written (2026-10-09)**, PR #30; lint (0 errors), 461 unit tests, `assembleRelease` green;
   OCR bundled (author); device checks pending. **Next: 10b OCR
   complete (Sonnet)**, after the 10a device checks.
 - **Claude Code setup (2026-10-08)**, outside the sub-phases: skills, reviewer agent, SDK hook,
