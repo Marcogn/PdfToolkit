@@ -80,7 +80,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - `ui/edit/`: `EditScreen` = "Organize pages" (and merge), `EditViewModel`, save dialogs, `SaveRunner`
   (shared by both save UIs). `ui/merge/`: merge list.
 - `ui/scan/`: ML Kit Document Scanner (`DocumentScanner`: PDF or JPEG output, availability), the
-  Home "Scan" flow (`ScanToPdf` + `ScanViewModel`: scan → staged copy → `CreateDocument` → viewer).
+  Home "Scan" flow (`ScanToPdf` + `ScanViewModel`: scan → staged copy → OCR (temporary, 10a) →
+  `CreateDocument` → viewer).
 - `ui/annotate/`: annotation drawing (`AnnotationLayer`, `drawAnnotations`), text selection
   (`TextSelectionState`, handles, gestures), tool state and Style menu (`AnnotateTools.kt`), freehand
   on `androidx.ink` (`FreehandGestures`, `FreehandInk`, `ViewportInkLayer`).
@@ -173,7 +174,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - **V-c Fill and sign in the viewer done (2026-10-08)**, PR #24; lint (0 errors), 440 unit tests,
   `assembleDebug` and CI green; device checks passed (author, 2026-10-08).
 - **9 Scan done (2026-10-09)**, PR #27; device checks passed (author, 2026-10-09) after an R8 fix.
-- **10a OCR core written (2026-10-09)**: OCR bundled (author); device checks pending. **Next: 10b OCR
+- **10a OCR core written (2026-10-09)**, PR pending; lint (0 errors), 461 unit tests, `assembleRelease` green;
+  OCR bundled (author); device checks pending. **Next: 10b OCR
   complete (Sonnet)**, after the 10a device checks.
 - **Claude Code setup (2026-10-08)**, outside the sub-phases: skills, reviewer agent, SDK hook,
   `REVIEW.md`, `@claude`/review workflows, Dependabot, PR and issue templates, opt-in JaCoCo coverage
@@ -190,7 +192,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   in a worker like `SaveWorker` (request as a file, result in `cacheDir/work/`, ADR 0003), progress and
   cancel; then remove the temporary dialog and the KDoc notes that say "temporary".
 - No password support: `run` opens the PDF without one (scans have none); a protected PDF fails.
-- Page detection: any non-blank glyph skips the page (`OcrProcessor.needsRecognition`).
+- Page detection: any non-blank glyph skips the page (`OcrProcessor.needsRecognition`). A page whose
+  extraction fails comes out empty and would be OCR'd again: fix before OCR reaches arbitrary PDFs.
 - `pdf/ocr` on device only: `OcrProcessor`, `MlKitTextRecognizer` (no JVM test); geometry and writer are
   tested (`OcrGeometryTest`, `PdfBoxOcrTest`: rotations 0–270, crop offset, search, invisibility).
 - Limits for README in 10b: time per page (measure on the 20-page check), memory (one bitmap ≤ 3000 px).

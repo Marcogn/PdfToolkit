@@ -106,6 +106,9 @@ class ScanViewModel @Inject constructor(
             // ML Kit, rendering or writing: the scan itself is still good.
             output.delete()
             staged
+        } catch (e: OutOfMemoryError) {
+            output.delete()
+            staged
         } finally {
             _recognising.value = null
         }

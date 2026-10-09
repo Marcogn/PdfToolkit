@@ -139,7 +139,7 @@ internal class FillWriter(
 
     private fun drawText(stream: PDPageContentStream, overlay: TextOverlay) {
         val font = overlayFont ?: fonts.openRegular().use { PDType0Font.load(document, it, true) }.also { overlayFont = it }
-        val text = TextBlock.sanitize(overlay.text) { codePoint -> canEncode(font, codePoint) }
+        val text = TextBlock.sanitize(overlay.text) { codePoint -> font.canEncode(codePoint) }
         if (text.isBlank()) return
         stream.setNonStrokingColor(0f, 0f, 0f)
         stream.beginText()
@@ -190,16 +190,6 @@ internal class FillWriter(
         }
     }
 
-    private fun canEncode(font: PDFont, codePoint: Int): Boolean = try {
-        font.encode(String(Character.toChars(codePoint)))
-        true
-    } catch (e: IllegalArgumentException) {
-        false
-    } catch (e: IOException) {
-        false
-    }
-
-    private fun Affine.toMatrix() = Matrix(a, b, c, d, e, f)
 
     private companion object {
         const val ROUND = 1
@@ -208,3 +198,15 @@ internal class FillWriter(
         val FONT_SIZE = Regex("""(\d+(?:\.\d+)?)\s+Tf""")
     }
 }
+
+/** Whether [font] can write [codePoint] (shared by the writers that put text into the page content). */
+internal fun PDFont.canEncode(codePoint: Int): Boolean = try {
+    encode(String(Character.toChars(codePoint)))
+    true
+} catch (e: IllegalArgumentException) {
+    false
+} catch (e: IOException) {
+    false
+}
+
+internal fun Affine.toMatrix() = Matrix(a, b, c, d, e, f)

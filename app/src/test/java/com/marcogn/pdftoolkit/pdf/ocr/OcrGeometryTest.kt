@@ -116,14 +116,19 @@ class OcrGeometryTest {
     }
 
     @Test
-    fun `overlapping words are pushed apart and get no space`() {
+    fun `overlapping words are pulled apart around their meeting point, with a space between`() {
+        // "Hello" ends at 70, "world" starts at 65: they meet at 67.5 and get 0.25 line heights (3 pt) between them.
         val overlapping = line.copy(
             words = listOf(OcrWord("Hello", quad(20f, 50f, 70f, 62f)), OcrWord("world", quad(65f, 50f, 120f, 62f))),
         )
-        val runs = OcrGeometry.runs(overlapping, space(0), font)
-        assertEquals(listOf("Hello", "world"), runs.map { it.text })
         val s = space(0)
-        assertPoint(Offset(70f, 59.6f), s.userToDisplay.map(Offset(runs[1].matrix.e, runs[1].matrix.f)))
+        val runs = OcrGeometry.runs(overlapping, s, font)
+        assertEquals(listOf("Hello", " ", "world"), runs.map { it.text })
+        val origins = runs.map { s.userToDisplay.map(Offset(it.matrix.e, it.matrix.f)) }
+        assertPoint(Offset(66f, 59.6f), origins[1])
+        assertPoint(Offset(69f, 59.6f), origins[2])
+        // "Hello" now spans 20..66.
+        assertEquals(100f * 46f / 30f, runs[0].horizontalScaling, 1e-2f)
     }
 
     @Test

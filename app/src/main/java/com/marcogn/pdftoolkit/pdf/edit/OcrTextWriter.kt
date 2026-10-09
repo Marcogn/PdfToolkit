@@ -13,7 +13,6 @@ import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.font.PDType0Font
 import com.tom_roush.pdfbox.pdmodel.graphics.state.RenderingMode
-import com.tom_roush.pdfbox.util.Matrix
 import java.io.IOException
 
 /**
@@ -51,10 +50,15 @@ internal class OcrTextWriter(private val document: PDDocument, private val fonts
         PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true, true).use { stream ->
             stream.beginText()
             stream.setRenderingMode(RenderingMode.NEITHER)
+            var fontSize = Float.NaN
             for (run in runs) {
-                stream.setFont(font, run.fontSize)
+                // One size per line: Tf only when it changes.
+                if (run.fontSize != fontSize) {
+                    fontSize = run.fontSize
+                    stream.setFont(font, fontSize)
+                }
                 stream.setHorizontalScaling(run.horizontalScaling)
-                run.matrix.let { stream.setTextMatrix(Matrix(it.a, it.b, it.c, it.d, it.e, it.f)) }
+                stream.setTextMatrix(run.matrix.toMatrix())
                 stream.showText(run.text)
             }
             stream.endText()
@@ -70,16 +74,7 @@ internal class OcrTextWriter(private val document: PDDocument, private val fonts
     )
 
     private fun clean(text: String): String =
-        TextBlock.sanitize(text) { canEncode(it) }.replace('\n', ' ')
-
-    private fun canEncode(codePoint: Int): Boolean = try {
-        font.encode(String(Character.toChars(codePoint)))
-        true
-    } catch (e: IllegalArgumentException) {
-        false
-    } catch (e: IOException) {
-        false
-    }
+        TextBlock.sanitize(text) { font.canEncode(it) }.replace('\n', ' ')
 
     private companion object {
         const val GLYPH_UNITS = 1000f

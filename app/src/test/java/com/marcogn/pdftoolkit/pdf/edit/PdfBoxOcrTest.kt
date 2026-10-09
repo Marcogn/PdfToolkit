@@ -141,6 +141,19 @@ class PdfBoxOcrTest {
     }
 
     @Test
+    fun `words whose boxes touch are still two words`() {
+        val tight = OcrLine(
+            text = "per favore",
+            box = quad(20f, 50f, 100f, 64f),
+            words = listOf(OcrWord("per", quad(20f, 50f, 50f, 64f)), OcrWord("favore", quad(49.5f, 50f, 100f, 64f))),
+        )
+        runBlocking { editor.addTextLayer(source, output, listOf(OcrPage(0, listOf(tight)))) }
+        val page = runBlocking { PdfBoxTextExtractor().pages({ output.inputStream() }).toList() }.first()
+        assertEquals("per favore", page.plain())
+        assertEquals(1, PageTextIndex.build(page).find(SearchQuery.of("per favore")!!).size)
+    }
+
+    @Test
     fun `characters the font lacks are dropped, the rest is still written`() {
         val odd = OcrLine("ab", quad(20f, 50f, 60f, 64f), emptyList())
         runBlocking { editor.addTextLayer(source, output, listOf(OcrPage(0, listOf(odd)))) }

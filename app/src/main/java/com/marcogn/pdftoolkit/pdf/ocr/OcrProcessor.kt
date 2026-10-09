@@ -6,11 +6,15 @@ import com.marcogn.pdftoolkit.pdf.render.PageKey
 import com.marcogn.pdftoolkit.pdf.render.PdfDocumentRenderer
 import com.marcogn.pdftoolkit.pdf.text.PageText
 import com.marcogn.pdftoolkit.pdf.text.PdfTextExtractor
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 import javax.inject.Inject
@@ -18,7 +22,7 @@ import kotlin.math.ceil
 
 /** How an OCR run ended when it didn't fail. */
 sealed interface OcrOutcome {
-    /** [output] was written: [lines] lines recognised on [pages] pages. */
+    /** [output] was written: [lines] lines recognised, on [pages] pages with text. */
     data class Written(val pages: Int, val lines: Int) : OcrOutcome
 
     /** Every page already has text: nothing to recognise, [output] untouched. */
@@ -55,27 +59,37 @@ class OcrProcessor @Inject constructor(
         if (lines == 0) return OcrOutcome.NoTextFound
         editor.addTextLayer(source, output, pages)
         onProgress(1f)
-        return OcrOutcome.Written(pages.size, lines)
+        return OcrOutcome.Written(pages.count { it.lines.isNotEmpty() }, lines)
     }
 
     private suspend fun recognize(source: File, pageIndices: List<Int>, onPage: (Int) -> Unit): List<OcrPage> {
-        val renderer = PdfDocumentRenderer.open(ParcelFileDescriptor.open(source, ParcelFileDescriptor.MODE_READ_ONLY))
+        val fd = withContext(Dispatchers.IO) { ParcelFileDescriptor.open(source, ParcelFileDescriptor.MODE_READ_ONLY) }
+        val renderer = try {
+            PdfDocumentRenderer.open(fd)
+        } catch (e: CancellationException) {
+            // Cancelled before the renderer took the descriptor: closing twice is harmless.
+            runCatching { fd.close() }
+            throw e
+        }
         try {
             recognizers.create().use { recognizer ->
                 return pageIndices.mapIndexed { done, index ->
                     currentCoroutineContext().ensureActive()
-                    val size = renderer.pageSizes[index]
+                    // PdfBox and pdfium may disagree on a damaged file's page count.
+                    val size = renderer.pageSizes.getOrNull(index) ?: throw IOException("Page ${index + 1} not found by the renderer")
                     val scale = OcrGeometry.renderScale(size)
                     val key = PageKey(index, ceil(size.width * scale).toInt(), ceil(size.height * scale).toInt(), scale)
                     val bitmap = renderer.render(key) ?: throw IOException("Page ${index + 1} could not be rendered")
-                    val lines = try {
-                        recognizer.recognize(bitmap)
-                    } finally {
-                        bitmap.recycle()
+                    // ML Kit can't be stopped mid-image: let it finish before the bitmap and the client go away.
+                    val lines = withContext(NonCancellable) {
+                        try {
+                            recognizer.recognize(bitmap)
+                        } finally {
+                            bitmap.recycle()
+                        }
                     }
                     onPage(done + 1)
-                    // Bitmap pixels → page points.
-                    OcrPage(index, lines.map { line -> line.map { it / scale } })
+                    OcrPage(index, lines.map { line -> line.map { pixel -> pixel / scale } })
                 }
             }
         } finally {

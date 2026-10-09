@@ -51,7 +51,7 @@ data class OcrLineFrame(val bottomLeft: Offset, val direction: Offset, val up: O
  * (ascent to descent, the same extent the text extractor uses for a glyph's box) as tall as the
  * box, the angle is the box's bottom edge. Each word is then placed at its own position along the
  * baseline and stretched (`Tz`) to its own width, with a space stretched over the gap to the next
- * word: Noto Sans is not the scanned font, so one stretch for the whole line would drift the
+ * word (at least [MIN_WORD_GAP] line heights): Noto Sans is not the scanned font, so one stretch for the whole line would drift the
  * words off their image and could close the gaps that separate words (decisions, 2026-10-09).
  */
 object OcrGeometry {
@@ -95,20 +95,33 @@ object OcrGeometry {
             horizontalScaling = PERCENT * width / advance,
         )
 
+        // Each word's span along the line, in reading order.
+        val words = user.wordsOrWhole.filter { it.text.isNotBlank() }
+        val advances = words.map { font.advance(it.text) * fontSize }
+        val starts = FloatArray(words.size) { frame.span(words[it].box).start }
+        val ends = FloatArray(words.size) { frame.span(words[it].box).endInclusive }
+        // Touching or overlapping boxes (tight italics) are pulled apart around their meeting point,
+        // so the extractor still sees two words (its threshold is 0.15 line heights).
+        val minGap = MIN_WORD_GAP * frame.height
+        for (i in 1 until words.size) {
+            if (starts[i] - ends[i - 1] < minGap) {
+                val middle = (ends[i - 1] + max(starts[i], starts[i - 1])) / 2f
+                ends[i - 1] = min(ends[i - 1], middle - minGap / 2f)
+                starts[i] = max(starts[i], middle + minGap / 2f)
+            }
+        }
+
         val runs = mutableListOf<OcrRun>()
         var previousEnd = 0f
-        for (word in user.wordsOrWhole) {
-            if (word.text.isBlank()) continue
-            val span = frame.span(word.box)
-            // Words never overlap: an overlap would join them into one word for the extractor.
-            val start = if (runs.isEmpty()) span.start else max(span.start, previousEnd)
-            val end = span.endInclusive
-            val advance = font.advance(word.text) * fontSize
-            if (end - start < MIN_SIZE || advance <= 0f) continue
+        words.forEachIndexed { i, word ->
+            val start = starts[i]
+            val end = ends[i]
+            if (end - start < MIN_SIZE || advances[i] <= 0f) return@forEachIndexed
+            // A real space between words, stretched over the gap: copy and other readers get it too.
             if (runs.isNotEmpty() && spaceAdvance > 0f && start - previousEnd > MIN_SIZE) {
                 runs += runAt(" ", previousEnd, start - previousEnd, spaceAdvance)
             }
-            runs += runAt(word.text, start, end - start, advance)
+            runs += runAt(word.text, start, end - start, advances[i])
             previousEnd = end
         }
         return runs
@@ -118,6 +131,9 @@ object OcrGeometry {
 
     private const val TARGET_SCALE = 200f / 72f
     private const val MAX_SIDE_PX = 3000f
+
+    /** Least gap between two words, in line heights: above the extractor's word break (0.15). */
+    private const val MIN_WORD_GAP = 0.25f
 
     /** Below this (in points) a box or a gap counts as empty. */
     private const val MIN_SIZE = 0.01f
