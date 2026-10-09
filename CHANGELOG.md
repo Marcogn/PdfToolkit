@@ -11,6 +11,10 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
   you choose where to save it and it opens in the viewer. In "Organize pages", Add → "From scanner" adds
   scanned pages to the open document. Without Google Play services (or with less than 1.7 GB of RAM) the
   tool is dimmed and says why. The app still has no `INTERNET` permission.
+- **Searchable scans.** A scan made from Home is run through text recognition on the phone (ML Kit, Latin
+  script, offline) before you save it: its text becomes an invisible layer, so you can search, select and copy
+  it here and in other readers. Pages that already have text are left alone. For now there is no cancel; if
+  recognition fails the scan is saved as it is. The app is a few MB larger: the recognition model is inside it.
 
 ## [1.1.0] - 2026-10-08
 
