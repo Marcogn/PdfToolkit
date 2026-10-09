@@ -14,7 +14,7 @@ enum class PdfTool(
     ORGANIZE_PAGES,
     FILL_AND_SIGN,
     MY_SIGNATURES(requiresDocument = false),
-    SCAN(comingSoon = true, requiresDocument = false),
+    SCAN(requiresDocument = false),
     CLOUD_UPLOAD(comingSoon = true),
     HIGHLIGHT,
     DRAW,

@@ -36,10 +36,10 @@ private const val COMING_SOON_ALPHA = 0.5f
 /**
  * Square button of the tool grid (spec §9): rounded corners, large icon, short label, light
  * elevation, 0.96 scale while pressed. "Soon" tools stay clickable (they show the snackbar) but
- * are dimmed and carry the badge.
+ * are dimmed and carry the badge; an [unavailable] tool (Scan without Play services) is only dimmed.
  */
 @Composable
-fun ToolButton(tool: PdfTool, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ToolButton(tool: PdfTool, onClick: () -> Unit, modifier: Modifier = Modifier, unavailable: Boolean = false) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) PRESSED_SCALE else 1f, tween(100), label = "toolPress")
@@ -67,7 +67,7 @@ fun ToolButton(tool: PdfTool, onClick: () -> Unit, modifier: Modifier = Modifier
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(10.dp)
-                    .alpha(if (tool.comingSoon) COMING_SOON_ALPHA else 1f),
+                    .alpha(if (tool.comingSoon || unavailable) COMING_SOON_ALPHA else 1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {

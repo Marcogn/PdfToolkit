@@ -142,6 +142,7 @@ dependencies {
     implementation(libs.ink.brush)
     implementation(libs.ink.geometry)
     implementation(libs.ink.strokes)
+    implementation(libs.mlkit.document.scanner)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

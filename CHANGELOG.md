@@ -6,6 +6,12 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Scan documents.** "Scan" on Home opens the Google document scanner (cropping, filters, shadow removal;
+  the camera runs in Google Play services, the app asks for no camera permission). The result is a PDF:
+  you choose where to save it and it opens in the viewer. In "Organize pages", Add → "From scanner" adds
+  scanned pages to the open document. Without Google Play services (or with less than 1.7 GB of RAM) the
+  tool is dimmed and says why. The app still has no `INTERNET` permission.
+
 ## [1.1.0] - 2026-10-08
 
 - **Edit right on the page.** The viewer has a tools bar (a rail at the side in landscape): Highlight, Draw,

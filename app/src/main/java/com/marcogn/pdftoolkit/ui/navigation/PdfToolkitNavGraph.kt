@@ -49,6 +49,7 @@ import com.marcogn.pdftoolkit.ui.settings.SettingsScreen
 import com.marcogn.pdftoolkit.ui.signatures.SignaturesScreen
 import com.marcogn.pdftoolkit.ui.viewer.ViewerScreen
 import com.marcogn.pdftoolkit.ui.viewer.rememberOpenPdfLauncher
+import com.marcogn.pdftoolkit.ui.scan.rememberScanToPdf
 import com.marcogn.pdftoolkit.ui.viewer.takePersistableAccess
 import kotlinx.coroutines.launch
 
@@ -191,8 +192,14 @@ fun PdfToolkitNavGraph(
                         navController.navigate(Destination.Merge(uris.map { it.toString() }))
                     }
                 }
+                // "Scan" (plan 9): the scanned PDF is saved where the user says and opened in the viewer.
+                // The copy to the destination is asynchronous, so this is not straight from the picker: guarded.
+                val scanner = rememberScanToPdf { uri ->
+                    if (entry.lifecycleIsResumed()) navController.navigate(Destination.Viewer(uri.toString()))
+                }
                 HomeScreen(
                     onMenuClick = openDrawer,
+                    scanAvailable = scanner.available,
                     onOpenPdfClick = {
                         if (entry.lifecycleIsResumed()) {
                             pendingTool = null
@@ -209,6 +216,8 @@ fun PdfToolkitNavGraph(
                             // Same screen as the drawer entry, so same navigation: this way
                             // two copies never pile up on the back stack.
                             navigateFromDrawer(Destination.Signatures)
+                        } else if (tool == PdfTool.SCAN) {
+                            if (entry.lifecycleIsResumed()) scanner.launch()
                         } else if (tool == PdfTool.MERGE) {
                             if (entry.lifecycleIsResumed()) mergePicker.launch(arrayOf("application/pdf"))
                         } else if (tool in pageTools) {
