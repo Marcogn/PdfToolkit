@@ -119,9 +119,9 @@ decided or approved it.
   `ComponentRegistrar`. R8 full mode removed `CommonComponentRegistrar.<init>()` (firebase-components'
   rule names no members), so ML Kit's components were never registered and the release build crashed on
   "Scan" with a `NullPointerException` in `getClient()`; debug builds are not minified and were fine.
-- 2026-10-09 · A scanner that can't start shows a dialog with the reason and the start of the exception's
-  stack trace (selectable), so a device report names the cause; R8 traces are read with `retrace` and the
-  build's `mapping.txt`.
+- 2026-10-09 · A scanner that can't start shows a dialog with the reason and one selectable line naming
+  the error (ML Kit code and message, or exception type, message and cause; author). The full stack trace
+  goes to logcat (tag `PdfToolkitScan`); R8 traces are read with `retrace` and the build's `mapping.txt`.
 
 ## Fill and sign (spec §6.5)
 

@@ -2,7 +2,7 @@
 
 Status on 2026-10-08: 1.0.0 is released; 7a, 7b, 8a and 8b are done, and so are the inserted
 series U-a/U-b (`docs/plan-usability.md`) and V-a…V-c (`docs/plan-viewer-editing.md`), which moved
-every page tool into the viewer. 9 Scan is built (device checks pending); next: 10a.
+every page tool into the viewer. 9 Scan is done too (device checks passed 2026-10-09). **Next: 10a OCR core.**
 
 Development continues the numbering of spec §13 (phases 7–12), so "phase 2" keeps meaning the edit
 session. Order chosen by the author: **highlight and draw first** (closes the annotation thread),

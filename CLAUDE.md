@@ -48,7 +48,7 @@ The cloud environment may fix the branch name: then use the one it gives.
 | 12 Cloud (WebDAV) | Sonnet (Opus reviews the credential store) | `docs/plan-v2.md` 12; adds `INTERNET` | Plan 12 | Nextcloud upload, wrong password, no network |
 
 Done: 0, 1a, 1b, 2, 3, 4a, 4b, 5a, 5b, 6 (except the baseline profile), 7a, 7b, 8a, 8b, U-a, U-b,
-V-a, V-b, V-c. Haiku is not recommended for code here.
+V-a, V-b, V-c, 9. Haiku is not recommended for code here.
 
 ## Commands
 ```bash
@@ -157,16 +157,16 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   written and kept isolated.
 - If a requirement is unclear or not feasible, stop and ask.
 
-## Current status (2026-10-08)
+## Current status (2026-10-09)
 - Product phase 1 released as **1.0.0** (2026-10-04). Still open from it: the **baseline profile**
   (needs a device: `androidx.baselineprofile` plugin + a macrobenchmark module, startup / open viewer /
   open organize) and the **signing secrets** in the repository (Build APK and Release need them).
 - Done since: 7a–8b (annotations, freehand), U-a/U-b (usability), V-a…V-c (editing in the viewer).
 - **V-c Fill and sign in the viewer done (2026-10-08)**, PR #24; lint (0 errors), 440 unit tests,
   `assembleDebug` and CI green; device checks passed (author, 2026-10-08).
-- **9 Scan built (2026-10-09)**, lint, unit tests, `assembleDebug` and
-  `assembleRelease` green; packaged release manifest has no `INTERNET`.
-  **Device checks pending** (below). Next after them: 10a OCR core (**Opus**).
+- **9 Scan done (2026-10-09)**, PR #27; lint, 448 unit tests, `assembleRelease` and CI green; packaged release
+  manifest has no `INTERNET`; device checks passed (author, 2026-10-09) after an R8 fix (release-only NPE,
+  see the R8 rule below). **Next: 10a OCR core (Opus)**; its open question (OCR bundled or not) first.
 - **Claude Code setup (2026-10-08)**, outside the sub-phases: skills, reviewer agent, SDK hook,
   `REVIEW.md`, `@claude`/review workflows, Dependabot, PR and issue templates, opt-in JaCoCo coverage
   (line coverage 16%; `pdf/edit` 0% in JVM tests) (`docs/claude.md`). Waiting
@@ -174,16 +174,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - Open questions for later sub-phases (`docs/plan-v2.md`): OCR bundled or not (10a), ODG or ODT (11),
   release numbering.
 
-### Device checks V-c (author, passed 2026-10-08)
-Fill a multi-page form while scrolling in continuous mode (text, check box, radio, list; keyboard
-"Next"; a field near the bottom stays above the keyboard); fields filled then Fill put down: the new
-values still show; text, date, tick, cross on several pages at different zooms; signature with 0/1/many
-saved, place, move, resize and turn (two fingers and the corner handle), long press to grab another;
-undo/redo; single-page mode; landscape rail; Home → Fill and sign opens the viewer armed; save as copy
-and overwrite with "make final" on and off, open in another reader; back with changes; rotate the
-phone mid-edit; password PDF says it can't be edited.
-
-### Device checks 9 (author, pending)
+### Device checks 9 (author, passed 2026-10-09)
 Scan 3 pages from Home, save, it opens in the viewer; cancel the save picker (Save/Discard dialog);
 Organize pages → Add → From scanner, pages appear in the images dialog and are added; airplane mode (scan
 still works, first use may need the models); a device without Play services if at hand (tool dimmed with

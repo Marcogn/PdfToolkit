@@ -62,11 +62,22 @@ sealed interface ScanOutcome {
 }
 
 private const val TAG = "PdfToolkitScan"
-private const val STACK_LINES = 12
 
 /** Maps the failure of `getStartScanIntent` to a reason; the scanner signals low RAM with `UNSUPPORTED`. */
 internal fun scanUnavailableFor(error: Throwable): ScanUnavailable =
     if ((error as? MlKitException)?.errorCode == MlKitException.UNSUPPORTED) ScanUnavailable.LOW_MEMORY else ScanUnavailable.FAILED
+
+/**
+ * One line naming what went wrong, for the dialog: ML Kit's error code and message, or the exception's type
+ * and message, plus the first frame of the cause when it adds a different one. The full stack trace is in
+ * logcat (tag [TAG]).
+ */
+internal fun describeScanError(error: Throwable): String {
+    val head = (error as? MlKitException)?.let { "ML Kit ${it.errorCode}: ${it.message.orEmpty()}" }
+        ?: listOfNotNull(error.javaClass.simpleName, error.message?.takeIf { it.isNotBlank() }).joinToString(": ")
+    val cause = error.cause?.takeIf { it !== error }?.let { "${it.javaClass.simpleName}: ${it.message.orEmpty()}" }
+    return listOfNotNull(head, cause?.let { "($it)" }).joinToString(" ").trimEnd(':', ' ')
+}
 
 /** Cheap check done up front, so Home and the Add dialog can show the tool disabled with its explanation. */
 fun playServicesAvailable(context: Context): Boolean =
@@ -128,7 +139,7 @@ fun rememberDocumentScanner(output: ScanOutput, onOutcome: (ScanOutcome) -> Unit
                 val fail = { e: Exception ->
                     starting = false
                     Log.e(TAG, "Document scanner failed to start", e)
-                    currentOutcome.value(ScanOutcome.Unavailable(scanUnavailableFor(e), e.stackTraceToString().lineSequence().take(STACK_LINES).joinToString("\n")))
+                    currentOutcome.value(ScanOutcome.Unavailable(scanUnavailableFor(e), describeScanError(e)))
                 }
                 starting = true
                 try {

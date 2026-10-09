@@ -24,6 +24,20 @@ class ScanTest {
     }
 
     @Test
+    fun `an ML Kit error is described by its code and message`() {
+        assertEquals("ML Kit 13: Failed to create IntentSender", describeScanError(MlKitException("Failed to create IntentSender", 13)))
+    }
+
+    @Test
+    fun `other errors are described by type, message and cause on one line`() {
+        assertEquals("NullPointerException", describeScanError(NullPointerException()))
+        assertEquals(
+            "IllegalStateException: not ready (IOException: disk)",
+            describeScanError(IllegalStateException("not ready", java.io.IOException("disk"))),
+        )
+    }
+
+    @Test
     fun `scan file name carries the label and the minute`() {
         assertEquals("Scansione 2026-10-09 1432.pdf", scanFileName("Scansione", LocalDateTime.of(2026, 10, 9, 14, 32, 59)))
     }
