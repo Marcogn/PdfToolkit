@@ -56,7 +56,7 @@ Android CI checks every pull request (lint, unit tests, release build with R8) a
 To try a branch on the phone, run **Build APK** on it (Actions → Build APK → Run workflow): it gives
 the release build signed with the persistent key, which installs over the app already there, plus
 R8's `mapping.txt` to read crash stack traces. Releases come from the **Release** workflow. Details,
-and how to reuse the workflows in another project: [`docs/ci.md`](docs/ci.md). Dependabot opens grouped
+and where the workflows come from (the shared [kit](https://github.com/Marcogn/claude-skill-android-kit)): [`docs/ci.md`](docs/ci.md). Dependabot opens grouped
 dependency PRs every week; `@claude` in an issue or PR and an automatic review of PRs run Claude on
 GitHub once the `CLAUDE_CODE_OAUTH_TOKEN` secret is set ([`docs/claude.md`](docs/claude.md)).
 
