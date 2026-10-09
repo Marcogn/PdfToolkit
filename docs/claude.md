@@ -34,7 +34,7 @@ Two more files feed reviews: `REVIEW.md` (read by Claude Code Review on GitHub a
 | `.claude/skills/next-phase` | The CLAUDE.md session protocol as steps: model check, reading order, prerequisites, open bugs, scope | Yes, for projects with a phase plan |
 | `.claude/skills/close-phase` | "Done when", checks, two independent reviews, docs, commit, draft PR, device checks | Yes |
 | `.claude/skills/steward` | How to read this CI's failures and handle review findings. Cloud sessions that watch a PR read it before acting on CI or review events | Yes |
-| `.claude/agents/architecture-reviewer.md` | Read-only reviewer of a diff against REVIEW.md, CLAUDE.md rules and ADRs | Yes (rules come from the repo) |
+| `.claude/agents/architecture-reviewer.md` | Read-only reviewer of a diff against REVIEW.md, CLAUDE.md rules and ADRs. Always runs on Opus, whatever the session's model: a stricter second look at the end of a phase, for a little more usage | Yes (rules come from the repo) |
 | `REVIEW.md` | What a review must always check here, severity, what to skip | **No**: per project |
 | `.github/workflows/*.yml` | Short callers of the kit's reusable workflows: CI, Build APK, Release, cleanup, `@claude`, PR review (`docs/ci.md`) | Yes (`with:` values per project) |
 | `.github/dependabot.yml` | Weekly grouped dependency PRs (Gradle) and monthly (Actions) | Yes |

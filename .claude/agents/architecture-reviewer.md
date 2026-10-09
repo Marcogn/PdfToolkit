@@ -2,7 +2,7 @@
 name: architecture-reviewer
 description: Reviews a diff against this project's own architecture rules (CLAUDE.md "Rules that aren't obvious", REVIEW.md, ADRs, decisions file) and reports violations with file:line. Use before closing a sub-phase or opening a PR, and when a change touches rendering, coordinates, saving, navigation or permissions. Read-only.
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: opus
 color: purple
 ---
 
