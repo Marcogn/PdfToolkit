@@ -2,6 +2,7 @@ package com.marcogn.pdftoolkit.pdf.edit
 
 import com.marcogn.pdftoolkit.domain.edit.DocRef
 import com.marcogn.pdftoolkit.domain.edit.EditSession
+import com.marcogn.pdftoolkit.pdf.ocr.OcrPage
 import java.io.File
 import java.io.InputStream
 
@@ -38,6 +39,15 @@ interface PdfEditor {
         options: WriteOptions = WriteOptions(),
         onProgress: (Float) -> Unit = {},
     )
+
+    /**
+     * Writes [source] to [output] with the text recognised on [pages] added as an invisible text
+     * layer (spec §7.2): nothing visible changes, the text becomes searchable and selectable.
+     * Pages not listed, or out of range, are left as they are.
+     *
+     * @throws com.marcogn.pdftoolkit.domain.edit.SaveException as [applySession].
+     */
+    suspend fun addTextLayer(source: File, output: File, pages: List<OcrPage>)
 
     /** Whether the PDF read from [open] has AcroForm fields (merge warns about them, spec §6.6); false if it can't be read. */
     suspend fun hasFormFields(open: () -> InputStream?): Boolean

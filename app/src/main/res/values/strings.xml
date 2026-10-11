@@ -358,6 +358,8 @@
     <!-- Scan (plan 9) -->
     <string name="scan_file_label">Scansione</string>
     <string name="scan_save_failed">Impossibile salvare la scansione.</string>
+    <string name="scan_recognising_title">Riconoscimento del testo</string>
+    <string name="scan_recognising_message">Rendo la scansione ricercabile…</string>
     <string name="scan_unsaved_title">Scansione non salvata</string>
     <string name="scan_unsaved_message">La scansione non è ancora stata salvata. Se la scarti, dovrai rifarla.</string>
     <string name="scan_unsaved_save">Salva</string>

@@ -4,17 +4,22 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -34,6 +39,7 @@ internal fun scanFileName(label: String, now: LocalDateTime = LocalDateTime.now(
  * "Scan" from Home (plan 9): the scanner makes a PDF, [ScanViewModel] keeps a copy, the user chooses where to
  * keep it (`CreateDocument`), and [onSaved] receives the saved file to open in the viewer. If the picker is
  * cancelled, or writing fails, a dialog offers to save again or discard, so the scan is not lost at once.
+ * Before that the scan is made searchable (plan 10a, temporary: see [ScanViewModel]).
  * Returns the scanner to start.
  */
 @Composable
@@ -86,6 +92,21 @@ fun rememberScanToPdf(onSaved: (Uri) -> Unit): DocumentScanner {
     }
 
     scanError?.let { ScanUnavailableDialog(it) { scanError = null } }
+    val recognising by viewModel.recognising.collectAsState()
+    recognising?.let { progress ->
+        // Temporary (plan 10a): no cancel yet, 10b adds it with the background run.
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.scan_recognising_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.scan_recognising_message))
+                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                }
+            },
+            confirmButton = {},
+        )
+    }
     if (askDiscard && staged != null) {
         AlertDialog(
             onDismissRequest = {},

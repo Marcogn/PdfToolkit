@@ -143,6 +143,8 @@ dependencies {
     implementation(libs.ink.geometry)
     implementation(libs.ink.strokes)
     implementation(libs.mlkit.document.scanner)
+    // OCR (spec §7.2, plan 10a): bundled model, works offline from the first use.
+    implementation(libs.mlkit.text.recognition)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

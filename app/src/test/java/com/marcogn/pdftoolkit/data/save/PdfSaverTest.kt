@@ -51,6 +51,8 @@ class PdfSaverTest {
             output.writeBytes(result!!)
         }
 
+        override suspend fun addTextLayer(source: File, output: File, pages: List<com.marcogn.pdftoolkit.pdf.ocr.OcrPage>) = Unit
+
         override suspend fun hasFormFields(open: () -> java.io.InputStream?) = false
     }
 
