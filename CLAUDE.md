@@ -193,7 +193,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   cancel; then remove the temporary dialog and the KDoc notes that say "temporary".
 - No password support: `run` opens the PDF without one (scans have none); a protected PDF fails.
 - Page detection: any non-blank glyph skips the page (`OcrProcessor.needsRecognition`). A page whose
-  extraction fails comes out empty and would be OCR'd again: fix before OCR reaches arbitrary PDFs.
+  extraction fails would be OCR'd again: issue #31, fix before OCR reaches arbitrary PDFs.
 - `pdf/ocr` on device only: `OcrProcessor`, `MlKitTextRecognizer` (no JVM test); geometry and writer are
   tested (`OcrGeometryTest`, `PdfBoxOcrTest`: rotations 0–270, crop offset, search, invisibility).
 - Limits for README in 10b: time per page (measure on the 20-page check), memory (one bitmap ≤ 3000 px).
