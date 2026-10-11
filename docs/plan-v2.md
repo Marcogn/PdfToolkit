@@ -2,7 +2,8 @@
 
 Status on 2026-10-08: 1.0.0 is released; 7a, 7b, 8a and 8b are done, and so are the inserted
 series U-a/U-b (`docs/plan-usability.md`) and V-a…V-c (`docs/plan-viewer-editing.md`), which moved
-every page tool into the viewer. 9 Scan is done too (device checks passed 2026-10-09). **Next: 10a OCR core.**
+every page tool into the viewer. 9 Scan is done too (device checks passed 2026-10-09). 10a OCR core is
+written (2026-10-09, device checks pending). **Next: 10b OCR complete.**
 
 Development continues the numbering of spec §13 (phases 7–12), so "phase 2" keeps meaning the edit
 session. Order chosen by the author: **highlight and draw first** (closes the annotation thread),
@@ -62,10 +63,10 @@ Answered on 2026-10-04: highlight and draw first went into an "Annotate" pane of
 `ACCESS_NETWORK_STATE` was first to be removed like `INTERNET`, then kept (2026-10-09, `docs/decisions.md`).
 
 Still open:
-1. **OCR bundled or unbundled** (before 10a): bundled works without Play services and offline from the
-   first use, at +~4 MB; unbundled is lighter but adds a Play services download. Proposal: bundled.
-2. **ODF: ODG or ODT** (spec §7.5, before 11).
-3. Release numbering above.
+1. **ODF: ODG or ODT** (spec §7.5, before 11).
+2. Release numbering above.
+
+Answered on 2026-10-09: OCR is **bundled** (`docs/decisions.md`, OCR).
 
 ## Sub-phases
 
@@ -89,6 +90,9 @@ space of the page (any `/Rotate`); detection of pages that already have text. Te
 user space on rotated pages, text layer found by our own search (`PdfTextExtractor`).
 Device check: an OCR'd scan is searchable in the app and in another reader; text selection lands on
 the right line.
+Done 2026-10-09: `pdf/ocr` (`OcrGeometry`, `OcrProcessor`, ML Kit bundled), `PdfEditor.addTextLayer`
+(`OcrTextWriter`); words placed one by one inside the line (decisions). Temporary entry: Home "Scan" runs
+OCR before the save picker.
 
 ### 10b OCR complete — Sonnet
 Scope: "Recognise text" from the viewer's scanned-PDF message and as an option after a scan;

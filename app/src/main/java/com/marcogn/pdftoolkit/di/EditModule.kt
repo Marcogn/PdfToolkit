@@ -8,6 +8,8 @@ import com.marcogn.pdftoolkit.pdf.edit.PdfBoxEditor
 import com.marcogn.pdftoolkit.pdf.edit.PdfEditor
 import com.marcogn.pdftoolkit.pdf.forms.FormReader
 import com.marcogn.pdftoolkit.pdf.forms.PdfBoxFormReader
+import com.marcogn.pdftoolkit.pdf.ocr.MlKitTextRecognizerFactory
+import com.marcogn.pdftoolkit.pdf.ocr.TextRecognizerFactory
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -28,4 +30,7 @@ abstract class EditModule {
 
     @Binds
     abstract fun bindFormReader(reader: PdfBoxFormReader): FormReader
+
+    @Binds
+    abstract fun bindTextRecognizerFactory(factory: MlKitTextRecognizerFactory): TextRecognizerFactory
 }

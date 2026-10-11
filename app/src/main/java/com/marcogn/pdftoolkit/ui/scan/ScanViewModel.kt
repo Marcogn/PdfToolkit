@@ -7,12 +7,17 @@ import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.marcogn.pdftoolkit.data.save.PdfSaver
+import com.marcogn.pdftoolkit.pdf.ocr.OcrOutcome
+import com.marcogn.pdftoolkit.pdf.ocr.OcrProcessor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,19 +42,30 @@ sealed interface ScanEvent {
  * folder and its URI grant are not ours to rely on once the app is backgrounded, so the PDF is first copied
  * to `cacheDir/work/` (cleaned at startup after an hour, like the other work files). Copies run in
  * [viewModelScope], so a rotation does not cut one short.
+ *
+ * Temporary (plan 10a, until 10b makes it an option with cancellation and a background run): the staged
+ * scan is made searchable ([OcrProcessor]) before the user is asked where to keep it. If recognition fails
+ * the scan is kept as it came from the scanner.
  */
 @HiltViewModel
-class ScanViewModel @Inject constructor(@ApplicationContext private val context: Context) : ViewModel() {
+class ScanViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val ocr: OcrProcessor,
+) : ViewModel() {
 
     private val _events = Channel<ScanEvent>(Channel.BUFFERED)
     val events: Flow<ScanEvent> = _events.receiveAsFlow()
+
+    /** Progress (0..1) of the text recognition of the staged scan; null when none is running. */
+    private val _recognising = MutableStateFlow<Float?>(null)
+    val recognising: StateFlow<Float?> = _recognising.asStateFlow()
 
     fun stage(source: Uri) {
         viewModelScope.launch {
             val staged = File(PdfSaver.workDir(context), "scan-${UUID.randomUUID()}.pdf")
             val ok = runCatchingIo { copy(source, staged.toUri()) }
             if (ok) {
-                _events.trySend(ScanEvent.Staged(staged.absolutePath))
+                _events.trySend(ScanEvent.Staged(recognise(staged).absolutePath))
             } else {
                 staged.delete()
                 _events.trySend(ScanEvent.Failed)
@@ -68,6 +84,33 @@ class ScanViewModel @Inject constructor(@ApplicationContext private val context:
                 withContext(Dispatchers.IO) { runCatching { DocumentsContract.deleteDocument(context.contentResolver, target) } }
                 _events.trySend(ScanEvent.Failed)
             }
+        }
+    }
+
+    /** The searchable copy of [staged] (which is then deleted), or [staged] itself if there is nothing to add or recognition fails. */
+    private suspend fun recognise(staged: File): File {
+        val output = File(PdfSaver.workDir(context), "scan-${UUID.randomUUID()}.pdf")
+        _recognising.value = 0f
+        return try {
+            when (ocr.run(staged, output) { _recognising.value = it }) {
+                is OcrOutcome.Written -> {
+                    staged.delete()
+                    output
+                }
+                OcrOutcome.AlreadyText, OcrOutcome.NoTextFound -> staged
+            }
+        } catch (e: CancellationException) {
+            output.delete()
+            throw e
+        } catch (e: Exception) {
+            // ML Kit, rendering or writing: the scan itself is still good.
+            output.delete()
+            staged
+        } catch (e: OutOfMemoryError) {
+            output.delete()
+            staged
+        } finally {
+            _recognising.value = null
         }
     }
 

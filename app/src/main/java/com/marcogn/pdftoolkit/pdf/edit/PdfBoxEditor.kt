@@ -8,6 +8,7 @@ import com.marcogn.pdftoolkit.domain.edit.SaveException
 import com.marcogn.pdftoolkit.domain.edit.PageSizing
 import com.marcogn.pdftoolkit.domain.edit.SaveFailure
 import com.marcogn.pdftoolkit.domain.edit.SizePt
+import com.marcogn.pdftoolkit.pdf.ocr.OcrPage
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -47,53 +48,88 @@ class PdfBoxEditor @Inject constructor(
         // Other PDFs must stay open until the result is saved: imported pages still read their streams.
         val others = mutableMapOf<DocRef, PDDocument>()
         try {
-            onProgress(0f)
-            load(file).use { document ->
-                for (ref in session.extraDocuments) {
-                    val extra = sources[ref] ?: throw SaveException(SaveFailure.FAILED)
-                    others[ref] = load(extra)
-                }
-                onProgress(LOADED)
-                // First: references to existing annotations are indices into /Annots as it was read.
-                val annotations = AnnotationWriter(document)
-                session.annotations.removed.groupBy { DocRef(it.docId) to it.pageIndex }.forEach { (at, refs) ->
-                    val (doc, pageIndex) = at
-                    val source = if (doc == DocRef.MAIN) document else others[doc]
-                    if (source != null && pageIndex in 0 until source.numberOfPages) annotations.removeExisting(source.getPage(pageIndex), refs)
-                }
-                val fill = FillWriter(document, fonts, images)
-                // Values go in while every widget is still on its page; flattening and overlays
-                // work on the final pages, so removed pages cost nothing.
-                fill.fillForm(session.fill.fields)
-                val pages = rearrange(document, session, others)
-                if (options.flattenForm) fill.flattenForm()
-                val pagesById = session.pages.map { it.id }.zip(pages).toMap()
-                fill.drawOverlays(session.fill.overlays, pagesById)
-                annotations.addNew(session.annotations.added, pagesById, options.flattenInk)
-                onProgress(REARRANGED)
-                document.save(output)
+            withSaveFailures {
+                writeSession(session, sources, file, others, output, options, onProgress)
             }
-            onProgress(SAVED)
-            // The file we hand back must be a readable PDF with the pages we expect.
-            load(output).use { check ->
-                if (check.numberOfPages != session.pageCount) {
-                    throw IOException("Expected ${session.pageCount} pages, found ${check.numberOfPages}")
-                }
-            }
-            onProgress(1f)
-        } catch (e: SaveException) {
-            throw e
-        } catch (e: InvalidPasswordException) {
-            throw SaveException(SaveFailure.PROTECTED, e)
-        } catch (e: OutOfMemoryError) {
-            throw SaveException(SaveFailure.OUT_OF_MEMORY, e)
-        } catch (e: IOException) {
-            throw SaveException(SaveFailure.FAILED, e)
-        } catch (e: RuntimeException) {
-            throw SaveException(SaveFailure.FAILED, e)
         } finally {
             others.values.forEach { runCatching { it.close() } }
         }
+    }
+
+    private fun writeSession(
+        session: EditSession,
+        sources: Map<DocRef, File>,
+        file: File,
+        others: MutableMap<DocRef, PDDocument>,
+        output: File,
+        options: WriteOptions,
+        onProgress: (Float) -> Unit,
+    ) {
+        onProgress(0f)
+        load(file).use { document ->
+            for (ref in session.extraDocuments) {
+                val extra = sources[ref] ?: throw SaveException(SaveFailure.FAILED)
+                others[ref] = load(extra)
+            }
+            onProgress(LOADED)
+            // First: references to existing annotations are indices into /Annots as it was read.
+            val annotations = AnnotationWriter(document)
+            session.annotations.removed.groupBy { DocRef(it.docId) to it.pageIndex }.forEach { (at, refs) ->
+                val (doc, pageIndex) = at
+                val source = if (doc == DocRef.MAIN) document else others[doc]
+                if (source != null && pageIndex in 0 until source.numberOfPages) annotations.removeExisting(source.getPage(pageIndex), refs)
+            }
+            val fill = FillWriter(document, fonts, images)
+            // Values go in while every widget is still on its page; flattening and overlays
+            // work on the final pages, so removed pages cost nothing.
+            fill.fillForm(session.fill.fields)
+            val pages = rearrange(document, session, others)
+            if (options.flattenForm) fill.flattenForm()
+            val pagesById = session.pages.map { it.id }.zip(pages).toMap()
+            fill.drawOverlays(session.fill.overlays, pagesById)
+            annotations.addNew(session.annotations.added, pagesById, options.flattenInk)
+            onProgress(REARRANGED)
+            document.save(output)
+        }
+        onProgress(SAVED)
+        // The file we hand back must be a readable PDF with the pages we expect.
+        load(output).use { check ->
+            if (check.numberOfPages != session.pageCount) {
+                throw IOException("Expected ${session.pageCount} pages, found ${check.numberOfPages}")
+            }
+        }
+        onProgress(1f)
+    }
+
+    override suspend fun addTextLayer(source: File, output: File, pages: List<OcrPage>) = withContext(Dispatchers.IO) {
+        withSaveFailures {
+            val pageCount = load(source).use { document ->
+                val writer = OcrTextWriter(document, fonts)
+                for (page in pages) {
+                    if (page.pageIndex in 0 until document.numberOfPages) writer.write(document.getPage(page.pageIndex), page.lines)
+                }
+                document.save(output)
+                document.numberOfPages
+            }
+            load(output).use { check ->
+                if (check.numberOfPages != pageCount) throw IOException("Expected $pageCount pages, found ${check.numberOfPages}")
+            }
+        }
+    }
+
+    /** Every failure of a write as a [SaveException] with its reason. */
+    private inline fun <T> withSaveFailures(block: () -> T): T = try {
+        block()
+    } catch (e: SaveException) {
+        throw e
+    } catch (e: InvalidPasswordException) {
+        throw SaveException(SaveFailure.PROTECTED, e)
+    } catch (e: OutOfMemoryError) {
+        throw SaveException(SaveFailure.OUT_OF_MEMORY, e)
+    } catch (e: IOException) {
+        throw SaveException(SaveFailure.FAILED, e)
+    } catch (e: RuntimeException) {
+        throw SaveException(SaveFailure.FAILED, e)
     }
 
     override suspend fun hasFormFields(open: () -> InputStream?): Boolean = withContext(Dispatchers.IO) {

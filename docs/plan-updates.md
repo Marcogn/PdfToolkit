@@ -68,7 +68,8 @@ shared design, the facts checked before planning and their sources are in the pi
   mapping and the frequency preference.
 - **Network audit**: with `INTERNET` declared, the libraries already in the APK may start using it
   (plan-v2 notes that ML Kit's `transport-backend-cct` declares `INTERNET` for Firelog telemetry, so
-  far blocked by the removal). Check on the device which hosts the app contacts (e.g. a capture with
+  far blocked by the removal; since 10a the APK also bundles ML Kit Text Recognition, `text-recognition`
+  16.0.1). Check on the device which hosts the app contacts (e.g. a capture with
   PCAPdroid, or the network log) during scan and OCR; if anything other than GitHub shows up, stop and
   ask the author before closing (the About text must stay true).
 - lint (0 errors), unit tests, `assembleDebug` and `assembleRelease` green; CI green; packaged release
