@@ -2,6 +2,7 @@ package com.marcogn.pdftoolkit.ui.viewer
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.net.toUri
@@ -11,6 +12,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.marcogn.pdftoolkit.data.images.ImageImporter
 import com.marcogn.pdftoolkit.data.recents.RecentsRepository
+import com.marcogn.pdftoolkit.data.ocr.OcrRequest
+import com.marcogn.pdftoolkit.data.ocr.OcrScheduler
 import com.marcogn.pdftoolkit.data.save.SaveScheduler
 import com.marcogn.pdftoolkit.data.settings.SavePreferences
 import com.marcogn.pdftoolkit.data.settings.ReadingPreferences
@@ -38,6 +41,8 @@ import com.marcogn.pdftoolkit.ui.edit.SaveRunner
 import com.marcogn.pdftoolkit.ui.edit.SaveUiState
 import com.marcogn.pdftoolkit.ui.edit.hasWriteAccess
 import com.marcogn.pdftoolkit.ui.edit.takeWritePermission
+import com.marcogn.pdftoolkit.ui.ocr.OcrRunner
+import com.marcogn.pdftoolkit.ui.ocr.OcrUiState
 import com.marcogn.pdftoolkit.ui.navigation.Destination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -118,6 +123,7 @@ class ViewerViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val opener: PdfDocumentOpener,
     scheduler: SaveScheduler,
+    ocrScheduler: OcrScheduler,
     private val savePreferences: SavePreferences,
     private val recents: RecentsRepository,
     private val readingPreferences: ReadingPreferences,
@@ -141,6 +147,10 @@ class ViewerViewModel @Inject constructor(
     private val saveRunner = SaveRunner(viewModelScope, scheduler)
     /** The save started from the viewer (plan V-a): the same engine as the edit screen (ADR 0005). */
     val saveState: StateFlow<SaveUiState> = saveRunner.state
+
+    private val ocrRunner = OcrRunner(viewModelScope, ocrScheduler)
+    /** The text recognition started from the viewer (plan 10b); runs in the background like a save. */
+    val ocrState: StateFlow<OcrUiState> = ocrRunner.state
 
     private val _overwriteChoice = MutableStateFlow(false)
     /** Last choice in the save dialog (spec §8), shared with the edit screen. */
@@ -320,7 +330,7 @@ class ViewerViewModel @Inject constructor(
     /** Writes the viewer's edits into [destination] in the background. [overwrite]: [destination] is the original. */
     fun save(destination: Uri, overwrite: Boolean) {
         val ready = _uiState.value as? ViewerUiState.Ready ?: return
-        if (saveRunner.isRunning || ready.editAvailability.value != EditAvailability.READY) return
+        if (saveRunner.isRunning || ocrRunner.isRunning || ready.editAvailability.value != EditAvailability.READY) return
         if (!overwrite) context.takeWritePermission(destination)
         val editing = ready.editing
         val request = editing.saveRequest(uriString, destination.toString(), flattenForm = _flattenFormChoice.value, flattenInk = _flattenInkChoice.value)
@@ -329,6 +339,34 @@ class ViewerViewModel @Inject constructor(
     }
 
     fun dismissSaveResult() = saveRunner.dismiss()
+
+    // --- Text recognition (plan 10b) ---
+
+    /**
+     * Makes the open document searchable into [destination] in the background; [overwrite]: it is the original.
+     * Works on the saved file, so the caller makes sure there are no unsaved edits. A copy that ends up
+     * unwritten (nothing to recognise, failure, cancel) is removed: the picker had already created it empty.
+     */
+    fun recognise(destination: Uri, overwrite: Boolean) {
+        val ready = _uiState.value as? ViewerUiState.Ready ?: return
+        if (ocrRunner.isRunning || saveRunner.isRunning || ready.editAvailability.value == EditAvailability.PROTECTED) {
+            // The picker already created the empty copy.
+            if (!overwrite) deleteDocument(destination)
+            return
+        }
+        if (!overwrite) context.takeWritePermission(destination)
+        ocrRunner.start(OcrRequest(uriString, destination.toString()), overwrite) { written ->
+            if (!overwrite && !written) deleteDocument(destination)
+        }
+    }
+
+    private fun deleteDocument(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) { runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) } }
+    }
+
+    fun cancelOcr() = ocrRunner.cancel()
+
+    fun dismissOcrResult() = ocrRunner.dismiss()
 
     /** After a moment, so it doesn't compete with the first pages for the renderer. */
     private suspend fun saveFirstPageThumbnail(renderer: PdfDocumentRenderer) {

@@ -28,6 +28,7 @@ import com.marcogn.pdftoolkit.pdf.render.toPageSpace
 import com.marcogn.pdftoolkit.pdf.text.LineRun
 import com.marcogn.pdftoolkit.ui.edit.PickedImage
 import com.marcogn.pdftoolkit.ui.edit.SaveUiState
+import com.marcogn.pdftoolkit.ui.ocr.OcrUiState
 
 /** What the system back does in the viewer, in this order (plan V-a). */
 enum class ViewerBackStep {
@@ -78,6 +79,15 @@ class ViewerSaveUi(
     val onFlattenFormChange: (Boolean) -> Unit,
     val onSave: (destination: Uri, overwrite: Boolean) -> Unit,
     val suggestedCopyName: (suffix: String) -> String,
+    val onDismissResult: () -> Unit,
+)
+
+/** What the viewer's "Recognise text" reads and does (plan 10b); [ViewerScreen] builds it from the view model. */
+class ViewerOcrUi(
+    val state: OcrUiState,
+    /** Recognise into [destination]; [overwrite]: it is the original file. */
+    val onStart: (destination: Uri, overwrite: Boolean) -> Unit,
+    val onCancel: () -> Unit,
     val onDismissResult: () -> Unit,
 )
 

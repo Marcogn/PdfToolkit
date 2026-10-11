@@ -104,8 +104,9 @@ class OcrProcessor @Inject constructor(
         /**
          * A page needs recognition when it has no text at all: a scan. Any character, even an
          * invisible one (an earlier OCR) or a stamped page number, means the page is left alone,
-         * so text is never written twice.
+         * so text is never written twice. A page whose text could not be read ([PageText.failed])
+         * may well have some: it is left alone too (issue #31).
          */
-        fun needsRecognition(page: PageText): Boolean = page.glyphs.none { glyph -> glyph.text.any { !it.isWhitespace() } }
+        fun needsRecognition(page: PageText): Boolean = !page.failed && page.glyphs.none { glyph -> glyph.text.any { !it.isWhitespace() } }
     }
 }

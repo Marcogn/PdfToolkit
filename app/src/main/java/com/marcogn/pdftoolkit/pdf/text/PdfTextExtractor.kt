@@ -6,6 +6,7 @@ import com.marcogn.pdftoolkit.pdf.render.PdfPageSpace
 import com.marcogn.pdftoolkit.pdf.render.toPageSpace
 import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
 import com.tom_roush.pdfbox.pdmodel.font.PDFont
 import com.tom_roush.pdfbox.pdmodel.font.PDType3Font
 import com.tom_roush.pdfbox.text.PDFTextStripper
@@ -29,7 +30,10 @@ import java.util.IdentityHashMap
 import javax.inject.Inject
 
 /** The PDF could not be opened for text extraction (missing, damaged, wrong password). */
-class TextExtractionException(cause: Throwable?) : IOException("Text extraction failed", cause)
+class TextExtractionException(cause: Throwable?) : IOException("Text extraction failed", cause) {
+    /** The PDF needs a password (or the one given is wrong). The cause chain is walked: coroutines wrap exceptions again. */
+    val passwordRequired: Boolean get() = generateSequence<Throwable>(this) { it.cause }.any { it is InvalidPasswordException }
+}
 
 /** Text of a PDF with the position of every glyph (spec §5.1); the UI never touches PdfBox (ADR 0002). */
 interface PdfTextExtractor {
@@ -171,7 +175,7 @@ private class PdfBoxPageTextReader(
  *
  * Not thread-safe: one per extraction.
  */
-class PositionedTextStripper : PDFTextStripper() {
+open class PositionedTextStripper : PDFTextStripper() {
 
     private val glyphs = mutableListOf<TextGlyph>()
     private val fontExtents = IdentityHashMap<PDFont, FontExtent>()
@@ -179,7 +183,7 @@ class PositionedTextStripper : PDFTextStripper() {
     private var cropLeft = 0f
     private var cropBottom = 0f
 
-    /** The text of page [index] (0-based); empty if the page can't be read. */
+    /** The text of page [index] (0-based); empty and [PageText.failed] if the page can't be read. */
     fun extract(document: PDDocument, index: Int): PageText {
         glyphs.clear()
         val page = document.getPage(index)
@@ -190,14 +194,19 @@ class PositionedTextStripper : PDFTextStripper() {
         }
         startPage = index + 1
         endPage = index + 1
-        try {
-            getText(document)
+        return try {
+            readText(document)
+            PageText(index, glyphs.toList())
         } catch (e: IOException) {
-            glyphs.clear()
+            PageText(index, emptyList(), failed = true)
         } catch (e: RuntimeException) {
-            glyphs.clear()
+            PageText(index, emptyList(), failed = true)
         }
-        return PageText(index, glyphs.toList())
+    }
+
+    /** The one call into PdfBox's text engine; a seam for tests, which make it fail. */
+    internal open fun readText(document: PDDocument) {
+        getText(document)
     }
 
     /**

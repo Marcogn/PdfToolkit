@@ -366,4 +366,32 @@
     <string name="scan_unavailable_failed">Could not start the scanner. Try again in a moment: on first use Google Play services downloads the models.</string>
     <string name="add_from_scanner">From scanner</string>
     <string name="add_from_scanner_hint">Photograph paper pages and add them</string>
+
+    <!-- Text recognition (plan 10b) -->
+    <string name="ocr_channel_name">Text recognition</string>
+    <string name="ocr_notification_title">Recognising text</string>
+    <string name="ocr_action">Recognise text</string>
+    <string name="ocr_dialog_title">Recognise text</string>
+    <string name="ocr_dialog_message">Pages without text are read and their text is added, invisibly, so you can search and copy it. It takes time, even if you leave the app.</string>
+    <string name="ocr_confirm">Recognise</string>
+    <string name="ocr_copy_suffix">_searchable</string>
+    <string name="ocr_progress">Recognising text… %1$d%%</string>
+    <string name="ocr_cancel">Cancel</string>
+    <string name="ocr_done">Text recognised</string>
+    <string name="ocr_done_pending">Text recognised. Save your changes and reopen the document to see it.</string>
+    <string name="ocr_already_text">The document already has text: nothing changed.</string>
+    <string name="ocr_no_text">No text to recognise was found: nothing changed.</string>
+    <string name="ocr_error_title">Recognition failed</string>
+    <string name="ocr_error_source">The original file can no longer be read.</string>
+    <string name="ocr_error_protected">Password-protected PDFs cannot be recognised yet.</string>
+    <string name="ocr_error_destination">The destination could not be written. The original was not touched.</string>
+    <string name="ocr_error_memory">Not enough memory for this document.</string>
+    <string name="ocr_error_generic">The text was not recognised. The original was not touched.</string>
+    <string name="ocr_error_ok">Got it</string>
+    <string name="scan_ocr_title">Make the scan searchable?</string>
+    <string name="scan_ocr_message">Recognising the text lets you search the document and copy parts of it. Recognition goes on if you leave the app.</string>
+    <string name="scan_ocr_yes">Recognise text</string>
+    <string name="scan_ocr_no">Save without</string>
+    <string name="scan_recognising_skip">Save without text</string>
+    <string name="scan_ocr_failed">Recognition failed: the scan is saved without text.</string>
 </resources>

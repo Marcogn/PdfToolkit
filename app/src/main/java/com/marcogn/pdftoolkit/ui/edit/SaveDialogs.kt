@@ -38,7 +38,8 @@ import com.marcogn.pdftoolkit.domain.edit.SaveFailure
 /**
  * "Save as copy" (default) or "overwrite", the second only when the original accepts writes (spec
  * §6.7). For a document with form fields, [flatten] is the "make final" option (spec §6.5); null hides it.
- * [flattenInk] is "make final" for new drawings (spec §7.4); null hides it.
+ * [flattenInk] is "make final" for new drawings (spec §7.4); null hides it. Text recognition (plan 10b) asks
+ * the same question with its own [titleRes], [confirmRes] and an [introRes] explaining the action.
  */
 @Composable
 fun SaveDialog(
@@ -51,12 +52,16 @@ fun SaveDialog(
     onFlattenChange: (Boolean) -> Unit = {},
     flattenInk: Boolean? = null,
     onFlattenInkChange: (Boolean) -> Unit = {},
+    @StringRes titleRes: Int = R.string.save_title,
+    @StringRes confirmRes: Int = R.string.save_confirm,
+    @StringRes introRes: Int? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.save_title)) },
+        title = { Text(stringResource(titleRes)) },
         text = {
             Column(Modifier.selectableGroup()) {
+                if (introRes != null) Text(stringResource(introRes), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp))
                 SaveOption(
                     title = R.string.save_as_copy,
                     hint = R.string.save_as_copy_hint,
@@ -81,7 +86,7 @@ fun SaveDialog(
         confirmButton = {
             TextButton(onClick = onConfirm) {
                 Text(
-                    stringResource(if (overwrite) R.string.save_overwrite else R.string.save_confirm),
+                    stringResource(if (overwrite) R.string.save_overwrite else confirmRes),
                     color = if (overwrite) MaterialTheme.colorScheme.error else Color.Unspecified,
                 )
             }
@@ -175,7 +180,7 @@ fun SaveErrorDialog(failure: SaveFailure, onDismiss: () -> Unit) {
 
 /** Snackbar after a copy was saved, with the two actions of spec §6.7. */
 @Composable
-fun SavedSnackbar(onOpen: () -> Unit, onShare: () -> Unit, onDismiss: () -> Unit) {
+fun SavedSnackbar(onOpen: () -> Unit, onShare: () -> Unit, onDismiss: () -> Unit, @StringRes message: Int = R.string.save_done) {
     Snackbar(
         modifier = Modifier.padding(12.dp),
         action = {
@@ -192,7 +197,7 @@ fun SavedSnackbar(onOpen: () -> Unit, onShare: () -> Unit, onDismiss: () -> Unit
             }
         },
     ) {
-        Text(stringResource(R.string.save_done))
+        Text(stringResource(message))
     }
 }
 

@@ -11,10 +11,16 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
   you choose where to save it and it opens in the viewer. In "Organize pages", Add → "From scanner" adds
   scanned pages to the open document. Without Google Play services (or with less than 1.7 GB of RAM) the
   tool is dimmed and says why. The app still has no `INTERNET` permission.
-- **Searchable scans.** A scan made from Home is run through text recognition on the phone (ML Kit, Latin
-  script, offline) before you save it: its text becomes an invisible layer, so you can search, select and copy
-  it here and in other readers. Pages that already have text are left alone. For now there is no cancel; if
-  recognition fails the scan is saved as it is. The app is a few MB larger: the recognition model is inside it.
+- **Searchable scans.** After a scan from Home the app asks whether to make it searchable: text recognition
+  on the phone (ML Kit, Latin script, offline) writes the text as an invisible layer, so you can search, select
+  and copy it here and in other readers. It runs in the background (it goes on if you leave the app) with a
+  progress bar, and "Save without text" skips it. Pages that already have text are left alone. The app is a few
+  MB larger: the recognition model is inside it.
+- **Recognise text in any PDF.** When a search finds a document without text (a scan), the notice offers
+  "Recognise text": you choose copy or overwrite as for a save, a progress strip under the top bar shows how it
+  goes and "Cancel" stops it (the original is untouched until the very end). If the document already has text,
+  or none is found, nothing changes. Password-protected PDFs can't be recognised yet.
+- **Fix.** A page whose text PdfBox can't read is no longer recognised again on top of its real text (#31).
 
 ## [1.1.0] - 2026-10-08
 

@@ -1,5 +1,6 @@
 package com.marcogn.pdftoolkit.ui.search
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -13,6 +14,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -98,21 +100,27 @@ internal fun searchCounter(query: String, state: SearchState): String? = when {
 
 /**
  * The explanations that replace results (spec §5.1): the document has no text (a scan), or it
- * couldn't be read. Nothing otherwise.
+ * couldn't be read. Nothing otherwise. For a scan, [onRecognise] (plan 10b) adds the "Recognise text"
+ * button; null hides it (the document is protected, or has unsaved changes).
  */
 @Composable
-fun SearchNotice(state: SearchState, modifier: Modifier = Modifier) {
+fun SearchNotice(state: SearchState, modifier: Modifier = Modifier, onRecognise: (() -> Unit)? = null) {
     val message = when {
         state.noSearchableText -> R.string.search_no_text
         state.status == IndexStatus.FAILED -> R.string.search_failed
         else -> return
     }
     Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = modifier) {
-        Text(
-            stringResource(message),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-        )
+        Column {
+            Text(
+                stringResource(message),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = if (onRecognise != null && state.noSearchableText) 0.dp else 12.dp),
+            )
+            if (onRecognise != null && state.noSearchableText) {
+                TextButton(onClick = onRecognise, modifier = Modifier.padding(start = 8.dp)) { Text(stringResource(R.string.ocr_action)) }
+            }
+        }
     }
 }

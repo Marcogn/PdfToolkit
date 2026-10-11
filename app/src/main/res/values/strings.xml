@@ -370,4 +370,32 @@
     <string name="scan_unavailable_failed">Impossibile avviare lo scanner. Riprova tra poco: al primo uso Google Play services scarica i modelli.</string>
     <string name="add_from_scanner">Dallo scanner</string>
     <string name="add_from_scanner_hint">Fotografa pagine di carta e aggiungile</string>
+
+    <!-- Text recognition (plan 10b) -->
+    <string name="ocr_channel_name">Riconoscimento del testo</string>
+    <string name="ocr_notification_title">Riconoscimento del testo</string>
+    <string name="ocr_action">Riconosci testo</string>
+    <string name="ocr_dialog_title">Riconosci il testo</string>
+    <string name="ocr_dialog_message">Le pagine senza testo vengono lette e il testo viene aggiunto, invisibile: poi potrai cercarlo e copiarlo. Richiede tempo, anche se lasci l\'app.</string>
+    <string name="ocr_confirm">Riconosci</string>
+    <string name="ocr_copy_suffix">_ricercabile</string>
+    <string name="ocr_progress">Riconoscimento del testo… %1$d%%</string>
+    <string name="ocr_cancel">Annulla</string>
+    <string name="ocr_done">Testo riconosciuto</string>
+    <string name="ocr_done_pending">Testo riconosciuto. Salva le modifiche e riapri il documento per vederlo.</string>
+    <string name="ocr_already_text">Il documento ha già del testo: non è cambiato nulla.</string>
+    <string name="ocr_no_text">Non ho trovato testo da riconoscere: non è cambiato nulla.</string>
+    <string name="ocr_error_title">Riconoscimento non riuscito</string>
+    <string name="ocr_error_source">Il file originale non è più leggibile.</string>
+    <string name="ocr_error_protected">I PDF protetti da password non si possono ancora riconoscere.</string>
+    <string name="ocr_error_destination">Non è stato possibile scrivere nella destinazione. L\'originale non è stato toccato.</string>
+    <string name="ocr_error_memory">Memoria insufficiente per questo documento.</string>
+    <string name="ocr_error_generic">Il testo non è stato riconosciuto. L\'originale non è stato toccato.</string>
+    <string name="ocr_error_ok">Ho capito</string>
+    <string name="scan_ocr_title">Rendere ricercabile la scansione?</string>
+    <string name="scan_ocr_message">Riconoscendo il testo potrai cercare nel documento e copiarne le parti. Il riconoscimento prosegue anche se lasci l\'app.</string>
+    <string name="scan_ocr_yes">Riconosci testo</string>
+    <string name="scan_ocr_no">Salva senza</string>
+    <string name="scan_recognising_skip">Salva senza testo</string>
+    <string name="scan_ocr_failed">Riconoscimento non riuscito: la scansione viene salvata senza testo.</string>
 </resources>

@@ -1,9 +1,9 @@
 # Product phase 2 (V2): plan
 
-Status on 2026-10-08: 1.0.0 is released; 7a, 7b, 8a and 8b are done, and so are the inserted
+Status on 2026-10-11: 1.0.0 is released; 7a, 7b, 8a and 8b are done, and so are the inserted
 series U-a/U-b (`docs/plan-usability.md`) and V-a…V-c (`docs/plan-viewer-editing.md`), which moved
 every page tool into the viewer. 9 Scan is done too (device checks passed 2026-10-09). 10a OCR core is
-written (2026-10-09, device checks pending). **Next: 10b OCR complete.**
+written (2026-10-09, device checks passed). 10b written (2026-10-11, device checks pending).
 
 Development continues the numbering of spec §13 (phases 7–12), so "phase 2" keeps meaning the edit
 session. Order chosen by the author: **highlight and draw first** (closes the annotation thread),
@@ -98,6 +98,8 @@ OCR before the save picker.
 Scope: "Recognise text" from the viewer's scanned-PDF message and as an option after a scan;
 progress and cancellation, background run (WorkManager like the save); limits in README.
 Device check: 20-page scan; search after OCR; cancel halfway.
+Done 2026-10-11: `OcrWorker`/`OcrJob`/`OcrScheduler`, `OcrRunner`; viewer button in the no-text notice, scan
+option dialog with progress and "Save without text"; closes #31 (decisions, OCR). Device checks pending.
 
 ### 11 ODF export — Sonnet
 Scope: the format the author chose (ODG: one page image per page; ODT: image + extracted or OCR text),

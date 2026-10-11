@@ -50,7 +50,7 @@ The cloud environment may fix the branch name: then use the one it gives.
 | 12 Cloud (WebDAV) | Sonnet (Opus reviews the credential store) | `docs/plan-v2.md` 12; adds `INTERNET` | Plan 12 | Nextcloud upload, wrong password, no network |
 
 Done: 0, 1a, 1b, 2, 3, 4a, 4b, 5a, 5b, 6 (except the baseline profile), 7a, 7b, 8a, 8b, U-a, U-b,
-V-a, V-b, V-c, 9, 10a (device checks pending). Haiku is not recommended for code here.
+V-a, V-b, V-c, 9, 10a, 10b (device checks pending). Haiku is not recommended for code here.
 
 ## Commands
 ```bash
@@ -80,8 +80,9 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - `ui/edit/`: `EditScreen` = "Organize pages" (and merge), `EditViewModel`, save dialogs, `SaveRunner`
   (shared by both save UIs). `ui/merge/`: merge list.
 - `ui/scan/`: ML Kit Document Scanner (`DocumentScanner`: PDF or JPEG output, availability), the
-  Home "Scan" flow (`ScanToPdf` + `ScanViewModel`: scan → staged copy → OCR (temporary, 10a) →
-  `CreateDocument` → viewer).
+  Home "Scan" flow (`ScanToPdf` + `ScanViewModel`: scan → staged copy → "make it searchable?" → OCR in
+  the background (optional, cancellable) → `CreateDocument` → viewer). `ui/ocr/`: `OcrRunner` (state of one
+  background recognition, shared by the viewer and the scan flow), progress strip, error dialog.
 - `ui/annotate/`: annotation drawing (`AnnotationLayer`, `drawAnnotations`), text selection
   (`TextSelectionState`, handles, gestures), tool state and Style menu (`AnnotateTools.kt`), freehand
   on `androidx.ink` (`FreehandGestures`, `FreehandInk`, `ViewportInkLayer`).
@@ -101,7 +102,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   reader, geometry, eraser, markup factory, freehand geometry, `DocumentStrokes`. `pdf/ocr`: model
   (`OcrPage`/`OcrLine`/`OcrWord`, page points), `OcrGeometry` (boxes → text runs in user space),
   `TextRecognizer` (ML Kit bundled), `OcrProcessor` (detect, render, recognise, write); the writer is
-  `pdf/edit/OcrTextWriter` behind `PdfEditor.addTextLayer`.
+  `pdf/edit/OcrTextWriter` behind `PdfEditor.addTextLayer`. `data/ocr/`: `OcrWorker` (WorkManager, like
+  `SaveWorker`), `OcrJob` (copy → `OcrProcessor` → copy over the destination), `OcrScheduler`/`OcrQueue`.
 - `.github/workflows/`: short callers of the reusable workflows in
   [claude-skill-android-kit](https://github.com/Marcogn/claude-skill-android-kit) (`@v1`): CI, Build APK,
   Release, cleanup, `@claude`, PR review; only this project's values here (`docs/ci.md`).
@@ -121,7 +123,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   open document in place, materialises inheritable page attributes before detaching pages, and removes
   existing annotations **before** anything else touches `/Annots`.
 - **Saving**: copy of the source → result in `cacheDir/work/` → verified → copied over the destination
-  with mode `"wt"`, in `SaveWorker` (ADR 0003). The request is a JSON file, not WorkManager `Data`.
+  with mode `"wt"`, in `SaveWorker` (ADR 0003), or `OcrWorker` for text recognition. The request is a JSON file, not WorkManager `Data`.
   After an **overwrite** nothing may keep the old file open: navigate to the result with `popUpTo<Home>`.
 - **Viewer editing** (ADR 0005): `ViewerEditSession` never changes the page list (ids `p<index>`), so
   the viewer renders the saved file and draws pending edits on top. Tools need
@@ -166,7 +168,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   written and kept isolated.
 - If a requirement is unclear or not feasible, stop and ask.
 
-## Current status (2026-10-09)
+## Current status (2026-10-11)
 - Product phase 1 released as **1.0.0** (2026-10-04). Still open from it: the **baseline profile**
   (needs a device: `androidx.baselineprofile` plugin + a macrobenchmark module, startup / open viewer /
   open organize) and the **signing secrets** in the repository (Build APK and Release need them).
@@ -174,38 +176,33 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - **V-c Fill and sign in the viewer done (2026-10-08)**, PR #24; lint (0 errors), 440 unit tests,
   `assembleDebug` and CI green; device checks passed (author, 2026-10-08).
 - **9 Scan done (2026-10-09)**, PR #27; device checks passed (author, 2026-10-09) after an R8 fix.
-- **10a OCR core written (2026-10-09)**, PR #30; lint (0 errors), 461 unit tests, `assembleRelease` green;
-  OCR bundled (author); device checks pending. **Next: 10b OCR
-  complete (Sonnet)**, after the 10a device checks.
+- **10a OCR core done (2026-10-09)**, PR #30; device checks passed (author, 2026-10-11).
+- **10b OCR complete written (2026-10-11)**: `OcrWorker` background run with progress and cancel, "Recognise
+  text" in the viewer's no-text notice, the option dialog after a scan, closes #31; lint, unit tests and
+  `assembleRelease` green (see the PR); device checks pending. **Next: 11 ODF export (Sonnet)**, after the 10b
+  device checks; the ODG-or-ODT question must be answered first.
 - **Claude Code setup (2026-10-08)**, outside the sub-phases: skills, reviewer agent, SDK hook,
   `REVIEW.md`, `@claude`/review workflows, Dependabot, PR and issue templates, opt-in JaCoCo coverage
   (line coverage 16%; `pdf/edit` 0% in JVM tests) (`docs/claude.md`). Waiting
   on the author: the `CLAUDE_CODE_OAUTH_TOKEN` secret and the environment's setup script.
 - Open questions for later sub-phases (`docs/plan-v2.md`): ODG or ODT (11), release numbering.
 
-### Handoff 10a → 10b
-- Entry point: `OcrProcessor.run(source, output, onProgress)` → `Written(pages, lines)`, `AlreadyText` or
-  `NoTextFound` (output untouched); throws `TextExtractionException`, `IOException` (render/ML Kit),
-  `SaveException` (write). Cancellable between pages (`ensureActive`), not inside one page.
-- Today it runs in `ScanViewModel` (temporary): blocking dialog, no cancel, failure keeps the raw scan.
-  10b: make it an option after a scan and "Recognise text" from the viewer's no-text search notice, run it
-  in a worker like `SaveWorker` (request as a file, result in `cacheDir/work/`, ADR 0003), progress and
-  cancel; then remove the temporary dialog and the KDoc notes that say "temporary".
-- No password support: `run` opens the PDF without one (scans have none); a protected PDF fails.
-- Page detection: any non-blank glyph skips the page (`OcrProcessor.needsRecognition`). A page whose
-  extraction fails would be OCR'd again: issue #31, fix before OCR reaches arbitrary PDFs.
-- `pdf/ocr` on device only: `OcrProcessor`, `MlKitTextRecognizer` (no JVM test); geometry and writer are
-  tested (`OcrGeometryTest`, `PdfBoxOcrTest`: rotations 0–270, crop offset, search, invisibility).
-- Limits for README in 10b: time per page (measure on the 20-page check), memory (one bitmap ≤ 3000 px).
-
-### Device checks 10a (author)
-Scan 2–3 pages of printed text from Home: the "Recognising text" dialog shows progress, then the save
-picker; in the viewer, search finds a word and a phrase, the highlight sits on the words; long press selects
-on the right line; copy gives the text. Open the saved PDF in another reader (e.g. Google Drive's viewer,
-Adobe, Firefox): search and select work, nothing extra is visible. Airplane mode: OCR still works. A scan
-of a photo without text: saved as is. Release build ("Build APK"): same, no crash.
+### Device checks 10b (author)
+Scan 2–3 pages from Home: the "Make the scan searchable?" dialog; "Recognise text" shows progress, then the save
+picker; "Save without text" skips it; cancel from the progress dialog saves the raw scan. A 20-page scan:
+measure the time per page (README says only "depends on the phone") and watch memory; leave the app halfway
+and come back. Open a scan saved without text in the viewer: search → the notice has "Recognise text"; as
+copy (picker, result opens from the snackbar, searchable here and in another reader) and as overwrite (the
+viewer reopens on the result); cancel halfway on both (original untouched, no empty copy left); a PDF that
+already has text: "nothing changed" and no copy left; a protected PDF: no button. Airplane mode. Release build.
 
 ### Technical limits worth knowing
+- OCR: the scan flow's staged files live in the app cache and the run state in the view model, so killing the
+  app during a scan's recognition loses its save step (the raw scan stays in the cache for an hour). In the
+  viewer, a Cancel that lands just as the last copy over an overwrite destination starts can leave the file
+  replaced while the run reads as cancelled (the button is disabled from 96%, the window is a few ms); picking a copy and then leaving before the run ends can leave an empty copy behind (the view model that
+  deletes it is gone). A failed page (`PageText.failed`) still counts as "no text" for the search notice, so the
+  button may be offered on a document that OCR then reports as having text.
 - Form controls are recomposed on every scroll frame for the pages on screen; fine for usual forms,
   not measured on very dense ones. "Next" on the keyboard follows Compose focus order, which only
   reaches controls currently composed (pages on screen).

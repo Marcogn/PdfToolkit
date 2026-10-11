@@ -50,6 +50,11 @@ import com.marcogn.pdftoolkit.ui.edit.SaveUiState
 import com.marcogn.pdftoolkit.ui.edit.SavedSnackbar
 import com.marcogn.pdftoolkit.ui.edit.UnsavedChangesDialog
 import com.marcogn.pdftoolkit.ui.edit.shareCopy
+import com.marcogn.pdftoolkit.ui.ocr.OcrErrorDialog
+import com.marcogn.pdftoolkit.ui.ocr.OcrProgressStrip
+import com.marcogn.pdftoolkit.ui.ocr.OcrUiState
+import com.marcogn.pdftoolkit.ui.ocr.ocrNothingChangedMessage
+import com.marcogn.pdftoolkit.data.ocr.OcrResult
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -187,6 +192,7 @@ fun ReadyViewer(
     startTool: PdfTool?,
     onOpenPages: (uri: String, page: Int, reopenViewer: Boolean) -> Unit,
     save: ViewerSaveUi,
+    ocr: ViewerOcrUi,
     fill: ViewerFillUi,
     onBack: () -> Unit,
     onReopen: (uri: String) -> Unit,
@@ -506,6 +512,7 @@ fun ReadyViewer(
 
     // Saving from the viewer (plan V-a): the save dialog of the edit screen, the same engine (ADR 0005).
     val saving = save.state is SaveUiState.Saving
+    val ocrRunning = ocr.state is OcrUiState.Running
     var showSaveDialog by rememberSaveable { mutableStateOf(false) }
     var showUnsaved by rememberSaveable { mutableStateOf(false) }
     // What follows a save started from a dialog: leave (plan U3), or open "Pages" on the saved file (with changes
@@ -558,9 +565,48 @@ fun ReadyViewer(
             else -> Unit
         }
     }
+    // Text recognition (plan 10b): works on the saved file, so not with unsaved changes; the choice of copy or
+    // overwrite is the save dialog's, asked the same way.
+    var showOcrDialog by rememberSaveable { mutableStateOf(false) }
+    val ocrCopyLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        if (uri != null) ocr.onStart(uri, false)
+    }
+    val ocrCopySuffix = stringResource(R.string.ocr_copy_suffix)
+    val startOcr = {
+        showOcrDialog = false
+        if (save.overwriteChoice && save.canOverwrite) {
+            ocr.onStart(state.uri.toUri(), true)
+        } else {
+            ocrCopyLauncher.launch(save.suggestedCopyName(ocrCopySuffix))
+        }
+    }
+    val canRecognise = availability != EditAvailability.PROTECTED && !edits.hasUnsavedChanges && !saving && !ocrRunning
+    val recognisedMessage = stringResource(R.string.ocr_done)
+    val recognisedPendingMessage = stringResource(R.string.ocr_done_pending)
+    LaunchedEffect(ocr.state) {
+        val done = ocr.state as? OcrUiState.Done ?: return@LaunchedEffect
+        val nothing = ocrNothingChangedMessage(done.result)
+        when {
+            nothing != null -> {
+                Toast.makeText(context, nothing, Toast.LENGTH_LONG).show()
+                ocr.onDismissResult()
+            }
+            // The file on screen is the old one: show the new one in its place (ADR 0003).
+            // Changes made meanwhile would be lost by reopening: they are kept, and saving later includes the text.
+            done.overwrite -> {
+                val pending = edits.hasUnsavedChanges
+                Toast.makeText(context, if (pending) recognisedPendingMessage else recognisedMessage, Toast.LENGTH_LONG).show()
+                ocr.onDismissResult()
+                if (!pending) onReopen(done.destinationUri)
+            }
+            // A copy: the snackbar offers to open it.
+            else -> Unit
+        }
+    }
     // Pages works on the saved file: with changes pending the reader saves or discards first (plan V-b).
     val openPages: () -> Unit = {
-        if (edits.hasUnsavedChanges && !saving) showSaveFirst = true else onOpenPages(state.uri, currentPage, false)
+        // Not while a recognition may be rewriting the file the edit screen would open.
+        if (ocrRunning) Unit else if (edits.hasUnsavedChanges && !saving) showSaveFirst = true else onOpenPages(state.uri, currentPage, false)
     }
     val requestExit = {
         if (edits.hasUnsavedChanges && !saving) showUnsaved = true else onBack()
@@ -722,7 +768,7 @@ fun ReadyViewer(
                     actions = {
                         // "Save" as a word whenever there is something to save, as in the edit screen (plan U16).
                         if (edits.hasUnsavedChanges) {
-                            TextButton(onClick = { showSaveDialog = true }, enabled = !saving) { Text(stringResource(R.string.edit_save)) }
+                            TextButton(onClick = { showSaveDialog = true }, enabled = !saving && !ocrRunning) { Text(stringResource(R.string.edit_save)) }
                         }
                         IconButton(onClick = { searchOpen = true }) {
                             Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.cd_search))
@@ -757,6 +803,17 @@ fun ReadyViewer(
                         },
                         onShare = { shareCopy(context, saved.uri, shareTitle) },
                         onDismiss = save.onDismissResult,
+                    )
+                }
+                (ocr.state as? OcrUiState.Done)?.takeIf { !it.overwrite && it.result == OcrResult.WRITTEN }?.let { done ->
+                    SavedSnackbar(
+                        onOpen = {
+                            ocr.onDismissResult()
+                            onOpenCopy(done.destinationUri)
+                        },
+                        onShare = { shareCopy(context, done.destinationUri, shareTitle) },
+                        onDismiss = ocr.onDismissResult,
+                        message = R.string.ocr_done,
                     )
                 }
                 SnackbarHost(snackbarHostState)
@@ -809,6 +866,7 @@ fun ReadyViewer(
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     }
                 }
+                (ocr.state as? OcrUiState.Running)?.let { running -> OcrProgressStrip(running, ocr.onCancel, Modifier.fillMaxWidth()) }
                 if (searchOpen) {
                     if (searchState.isIndexing) {
                         val indexingDescription = stringResource(R.string.cd_search_indexing)
@@ -817,7 +875,7 @@ fun ReadyViewer(
                             modifier = Modifier.fillMaxWidth().semantics { contentDescription = indexingDescription },
                         )
                     }
-                    SearchNotice(searchState, Modifier.fillMaxWidth())
+                    SearchNotice(searchState, Modifier.fillMaxWidth(), onRecognise = if (canRecognise) ({ showOcrDialog = true }) else null)
                 }
             }
 
@@ -952,6 +1010,21 @@ fun ReadyViewer(
             flattenInk = if (edits.session.annotations.hasInk) save.flattenInk else null,
             onFlattenInkChange = save.onFlattenInkChange,
         )
+    }
+    if (showOcrDialog) {
+        SaveDialog(
+            overwrite = save.overwriteChoice && save.canOverwrite,
+            canOverwrite = save.canOverwrite,
+            onOverwriteChange = save.onOverwriteChange,
+            onConfirm = startOcr,
+            onDismiss = { showOcrDialog = false },
+            titleRes = R.string.ocr_dialog_title,
+            confirmRes = R.string.ocr_confirm,
+            introRes = R.string.ocr_dialog_message,
+        )
+    }
+    (ocr.state as? OcrUiState.Failed)?.let { failed ->
+        OcrErrorDialog(failed.failure, onDismiss = ocr.onDismissResult)
     }
     fillTools.textTarget?.let { target ->
         val existing = target.overlayId?.let { id -> fillContent.overlays.firstOrNull { it.id == id } as? TextOverlay }

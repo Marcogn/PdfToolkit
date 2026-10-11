@@ -159,4 +159,9 @@ class OcrGeometryTest {
         assertTrue(OcrProcessor.needsRecognition(PageText(0, listOf(glyph(" "), glyph("")))))
         assertFalse(OcrProcessor.needsRecognition(PageText(0, listOf(glyph(" "), glyph("1")))))
     }
+
+    @Test
+    fun `a page whose text could not be read is left alone`() {
+        assertFalse(OcrProcessor.needsRecognition(PageText(0, emptyList(), failed = true)))
+    }
 }
