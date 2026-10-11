@@ -46,6 +46,14 @@ decided or approved it.
   still alpha (stable versions only). Revisit at 2.0.0 stable.
 - 2026-10-03 · `CloudTarget` (spec §7.3) is a minimal interface (`displayName`, `suspend upload(...)`):
   the spec names it without a shape and nothing uses it yet.
+- 2026-10-11 · In-app updates and About planned (`docs/plan-updates.md`, author): one inserted sub-phase
+  **A** after 10b, before 11, porting ThePatientGamerHelper's update package (the pilot for all six apps)
+  instead of designing one here. Updates from this repository's GitHub Releases at startup only, frequency
+  Never / Every start / Daily / Weekly (default Weekly), "Not now" only closes, the dialog shows the
+  Release body; install through `PackageInstaller` with the system confirmation.
+- 2026-10-11 · `INTERNET` comes in with sub-phase A, for the update check only (author), ahead of phase 12:
+  amends the product phase 1 rule, the CI `forbidden-permissions` check and the README/About privacy
+  text. ADR 0006 is written in A, with a network audit of what else the APK contacts once it is allowed.
 
 ## Viewer and rendering (ADR 0001)
 

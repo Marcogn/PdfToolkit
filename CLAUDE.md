@@ -46,6 +46,7 @@ The cloud environment may fix the branch name: then use the one it gives.
 | 9 Scan | Sonnet | `docs/plan-v2.md` 9: ML Kit Document Scanner, availability, open/add pages | Plan 9; packaged manifest still without `INTERNET` | Scan, save, add to open PDF; airplane mode |
 | 10a OCR core | **Opus** | `docs/plan-v2.md` 10a: Text Recognition v2, invisible text layer in user space | Unit tests on line geometry and search after OCR; handoff written | OCR'd scan searchable in app and other reader |
 | 10b OCR complete | Sonnet | `docs/plan-v2.md` 10b: UI, progress, cancellation, background | Plan 10b | 20-page scan; cancel halfway |
+| A Updates and About (planned, `docs/plan-updates.md`) | Sonnet | Port of ThePatientGamerHelper's update package (its Phase 9); adds `INTERNET` + `REQUEST_INSTALL_PACKAGES`; About extended | Plan A; ADR 0006; network audit | Old release → update → install; airplane mode; "Never" |
 | 11 ODF export | Sonnet | `docs/plan-v2.md` 11 | Plan 11 | Result opens in LibreOffice / Collabora |
 | 12 Cloud (WebDAV) | Sonnet (Opus reviews the credential store) | `docs/plan-v2.md` 12; adds `INTERNET` | Plan 12 | Nextcloud upload, wrong password, no network |
 
@@ -176,6 +177,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   `REVIEW.md`, `@claude`/review workflows, Dependabot, PR and issue templates, opt-in JaCoCo coverage
   (line coverage 16%; `pdf/edit` 0% in JVM tests) (`docs/claude.md`). Waiting
   on the author: the `CLAUDE_CODE_OAUTH_TOKEN` secret and the environment's setup script.
+- **Planned (2026-10-11)**: sub-phase **A Updates and About** after 10b, before 11 (`docs/plan-updates.md`);
+  it brings `INTERNET` forward from phase 12 for the update check (author's decision).
 - Open questions for later sub-phases (`docs/plan-v2.md`): OCR bundled or not (10a), ODG or ODT (11),
   release numbering.
 
