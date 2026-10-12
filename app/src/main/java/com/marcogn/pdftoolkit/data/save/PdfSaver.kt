@@ -1,7 +1,6 @@
 package com.marcogn.pdftoolkit.data.save
 
 import android.content.Context
-import android.net.Uri
 import androidx.core.net.toUri
 import com.marcogn.pdftoolkit.domain.edit.DocRef
 import com.marcogn.pdftoolkit.domain.edit.EditSession
@@ -13,8 +12,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileNotFoundException
-import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
 
@@ -41,44 +38,17 @@ class PdfSaver @Inject constructor(
         val used = session.extraDocuments
         val extraCopies = request.extraSources.filter { DocRef(it.docId) in used }.associate { DocRef(it.docId) to (File(dir, "$id-doc${it.docId}.pdf") to it.uri) }
         try {
-            copyToFile(request.sourceUri.toUri(), sourceCopy)
-            extraCopies.values.forEach { (file, uri) -> copyToFile(uri.toUri(), file) }
+            context.copyUriToFile(request.sourceUri.toUri(), sourceCopy)
+            extraCopies.values.forEach { (file, uri) -> context.copyUriToFile(uri.toUri(), file) }
             onProgress(COPIED_SOURCE)
             val sources = mapOf(DocRef.MAIN to sourceCopy) + extraCopies.mapValues { it.value.first }
             editor.applySession(session, sources, result, WriteOptions(request.flattenForm, request.flattenInk)) { onProgress(COPIED_SOURCE + it * (WRITTEN - COPIED_SOURCE)) }
-            copyToDestination(result, request.destinationUri.toUri())
+            context.copyFileToUri(result, request.destinationUri.toUri())
             onProgress(1f)
         } finally {
             sourceCopy.delete()
             extraCopies.values.forEach { it.first.delete() }
             result.delete()
-        }
-    }
-
-    private fun copyToFile(uri: Uri, target: File) {
-        try {
-            val input = context.contentResolver.openInputStream(uri) ?: throw FileNotFoundException("No stream for $uri")
-            input.use { stream -> target.outputStream().use { stream.copyTo(it) } }
-        } catch (e: FileNotFoundException) {
-            throw SaveException(SaveFailure.SOURCE_UNREADABLE, e)
-        } catch (e: SecurityException) {
-            throw SaveException(SaveFailure.SOURCE_UNREADABLE, e)
-        } catch (e: IOException) {
-            throw SaveException(SaveFailure.SOURCE_UNREADABLE, e)
-        }
-    }
-
-    /** "wt" truncates: some providers keep the old tail of the file with plain "w". */
-    private fun copyToDestination(file: File, uri: Uri) {
-        try {
-            val output = context.contentResolver.openOutputStream(uri, "wt") ?: throw FileNotFoundException("No stream for $uri")
-            output.use { stream -> file.inputStream().use { it.copyTo(stream) } }
-        } catch (e: FileNotFoundException) {
-            throw SaveException(SaveFailure.DESTINATION_UNWRITABLE, e)
-        } catch (e: SecurityException) {
-            throw SaveException(SaveFailure.DESTINATION_UNWRITABLE, e)
-        } catch (e: IOException) {
-            throw SaveException(SaveFailure.DESTINATION_UNWRITABLE, e)
         }
     }
 

@@ -91,8 +91,12 @@ data class TextGlyph(
     }
 }
 
-/** The text of one page, glyph by glyph in PdfBox's extraction order. */
-data class PageText(val pageIndex: Int, val glyphs: List<TextGlyph>)
+/**
+ * The text of one page, glyph by glyph in PdfBox's extraction order. [failed]: PdfBox could not read the
+ * page's text (a font it can't parse), so empty [glyphs] mean "unknown", not "no text": OCR leaves such
+ * a page alone (issue #31).
+ */
+data class PageText(val pageIndex: Int, val glyphs: List<TextGlyph>, val failed: Boolean = false)
 
 /** A query folded like the index ([TextNormalizer]); null from [of] when there is nothing to look for. */
 class SearchQuery private constructor(val text: String) {

@@ -22,12 +22,12 @@ no cloud, no network access.
     signatures, which can be moved, resized and turned; signatures are drawn or imported into a private
     archive ("My signatures").
 - **Scanning** paper with the Google document scanner (needs Google Play services and 1.7 GB of RAM):
-  saved as a PDF, or added as pages to an open document. Scans from Home are made **searchable** with
-  text recognition on the phone (OCR, Latin script, offline).
+  saved as a PDF, or added as pages to an open document. Scans can be made **searchable** with text
+  recognition on the phone (OCR, Latin script, offline), after the scan or later from the viewer.
 - **Organizing pages**: select, rotate, remove, drag to reorder, add pages from another PDF, blank,
   from images or from the scanner. **Merging** several PDFs.
 
-Planned: OCR of any PDF from the viewer, export to OpenDocument and upload to a WebDAV server (Nextcloud).
+Planned: export to OpenDocument and upload to a WebDAV server (Nextcloud).
 They already show on Home as "Soon"; order and plan in [`docs/plan-v2.md`](docs/plan-v2.md).
 
 ## Requirements
@@ -110,7 +110,12 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   order in columns and tables; a hyphenated word is two words; right-to-left scripts aren't handled;
   scans have no text until OCR. The search index is rebuilt each time a document is opened.
 - **OCR** recognises Latin script only; the hidden text is placed word by word on the recognised boxes, good
-  for search and copy but not a copy of the layout. For now it runs only on scans from Home, with no cancel.
+  for search and copy but not a copy of the layout. It runs in the background (WorkManager) after a scan from Home
+  or from "Recognise text" in the viewer's no-text notice, and can be cancelled. Pages with any text are left
+  alone, so a mixed document is only partly recognised. Each page is rendered at about 200 dpi (at most 3000 px
+  on the long side), one at a time, so memory stays near one bitmap; the time per page depends on the phone and
+  grows with the page count. Password-protected PDFs are refused. Closing the app (not just leaving it) during
+  a scan's recognition loses that scan's save step.
 - **Annotations** are drawn by the app, because Android's renderer doesn't: one with a custom look may
   look plainer than in the app that made it, and notes, stamps and shapes aren't shown (the eraser can
   still remove them). Thumbnails don't show annotations. On Android 8 and 9 a highlight looks lighter

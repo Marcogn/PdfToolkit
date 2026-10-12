@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.marcogn.pdftoolkit.R
+import com.marcogn.pdftoolkit.ui.ocr.OcrUiState
 import com.marcogn.pdftoolkit.ui.viewer.takePersistableAccess
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -39,7 +40,8 @@ internal fun scanFileName(label: String, now: LocalDateTime = LocalDateTime.now(
  * "Scan" from Home (plan 9): the scanner makes a PDF, [ScanViewModel] keeps a copy, the user chooses where to
  * keep it (`CreateDocument`), and [onSaved] receives the saved file to open in the viewer. If the picker is
  * cancelled, or writing fails, a dialog offers to save again or discard, so the scan is not lost at once.
- * Before that the scan is made searchable (plan 10a, temporary: see [ScanViewModel]).
+ * Before that the user is asked whether to make the scan searchable (plan 10b): the text recognition runs in
+ * the background, with a progress dialog from which the scan can be saved without waiting for it.
  * Returns the scanner to start.
  */
 @Composable
@@ -51,6 +53,8 @@ fun rememberScanToPdf(onSaved: (Uri) -> Unit): DocumentScanner {
     // The app-owned copy waiting for a destination; a path, so it survives rotation and process death.
     var staged by rememberSaveable { mutableStateOf<String?>(null) }
     var askDiscard by rememberSaveable { mutableStateOf(false) }
+    // The scan as it came from the scanner, waiting for the answer to "make it searchable?".
+    var askOcr by rememberSaveable { mutableStateOf<String?>(null) }
     var scanError by remember { mutableStateOf<ScanOutcome.Unavailable?>(null) }
 
     val saveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(PDF_MIME)) { target ->
@@ -67,8 +71,14 @@ fun rememberScanToPdf(onSaved: (Uri) -> Unit): DocumentScanner {
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
+                is ScanEvent.Scanned -> askOcr = event.path
                 is ScanEvent.Staged -> {
                     staged = event.path
+                    when (event.notice) {
+                        ScanNotice.RECOGNITION_FAILED -> Toast.makeText(context, R.string.scan_ocr_failed, Toast.LENGTH_LONG).show()
+                        ScanNotice.NO_TEXT_FOUND -> Toast.makeText(context, R.string.ocr_no_text, Toast.LENGTH_LONG).show()
+                        null -> Unit
+                    }
                     startSave()
                 }
                 is ScanEvent.Saved -> {
@@ -92,19 +102,39 @@ fun rememberScanToPdf(onSaved: (Uri) -> Unit): DocumentScanner {
     }
 
     scanError?.let { ScanUnavailableDialog(it) { scanError = null } }
-    val recognising by viewModel.recognising.collectAsState()
-    recognising?.let { progress ->
-        // Temporary (plan 10a): no cancel yet, 10b adds it with the background run.
+    askOcr?.let { path ->
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.scan_ocr_title)) },
+            text = { Text(stringResource(R.string.scan_ocr_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    askOcr = null
+                    viewModel.recognise(path)
+                }) { Text(stringResource(R.string.scan_ocr_yes)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    askOcr = null
+                    viewModel.stageWithoutRecognition(path)
+                }) { Text(stringResource(R.string.scan_ocr_no)) }
+            },
+        )
+    }
+    (viewModel.recognising.collectAsState().value as? OcrUiState.Running)?.let { running ->
         AlertDialog(
             onDismissRequest = {},
             title = { Text(stringResource(R.string.scan_recognising_title)) },
             text = {
                 Column {
                     Text(stringResource(R.string.scan_recognising_message))
-                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                    LinearProgressIndicator(progress = { running.fraction }, modifier = Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = viewModel::skipRecognition, enabled = running.cancellable) { Text(stringResource(R.string.scan_recognising_skip)) }
+            },
         )
     }
     if (askDiscard && staged != null) {

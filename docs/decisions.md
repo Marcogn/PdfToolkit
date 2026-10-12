@@ -159,9 +159,23 @@ decided or approved it.
 - 2026-10-09 · Pages are rendered with `PdfRenderer` at 200 dpi (body text gets the 16–24 px per character
   ML Kit asks for), at most 3000 px on the long side; one bitmap at a time. A page with any non-blank
   character (visible or not, e.g. an earlier OCR) is not recognised again.
-- 2026-10-09 · Until 10b, Home "Scan" runs OCR on the staged scan before the save picker, with a progress
-  dialog and no cancel (author: temporary entry point for the 10a device check). If recognition fails, the scan
-  is saved as it came from the scanner.
+- 2026-10-09 · Until 10b, Home "Scan" ran OCR on the staged scan before the save picker, with a progress
+  dialog and no cancel (author: temporary entry point for the 10a device check). Replaced in 10b (below).
+- 2026-10-11 · Recognition runs as `OcrWorker` (WorkManager, expedited, `dataSync` foreground like the save, plan
+  10b, ADR 0003): the request is a JSON file, the source is copied to `cacheDir/work/`, `OcrProcessor` writes the
+  result there, and only a finished file is copied over the destination ("wt"). The destination is untouched
+  unless text was written. Cancel stops between pages (ML Kit finishes the page in hand); the last step, the copy
+  over the destination, always completes, so the UI disables Cancel from 96% and the job checks for a cancel just
+  before it starts.
+- 2026-10-11 · Viewer: the "no searchable text" notice gets a "Recognise text" button (hidden for password-protected
+  files and while there are unsaved edits, since it works on the saved file). Copy or overwrite is asked with the
+  save dialog; a copy picked with `CreateDocument` is deleted again if nothing was written (nothing to
+  recognise, failure, cancel). Overwrite reopens the viewer on the result, as a save does.
+- 2026-10-11 · Scan: after the scan the app asks "Make the scan searchable?" every time (no stored preference:
+  one more setting for something that costs one tap). The recognition output goes to a second staged file; if
+  there is none (cancel, nothing found, failure) the raw scan is kept and the user is told, except on cancel.
+- 2026-10-11 · `PageText.failed` marks a page whose text PdfBox could not read; `OcrProcessor.needsRecognition`
+  skips such pages, since empty glyphs there mean "unknown", not "scan" (issue #31). Search is unaffected.
 
 ## Fill and sign (spec §6.5)
 

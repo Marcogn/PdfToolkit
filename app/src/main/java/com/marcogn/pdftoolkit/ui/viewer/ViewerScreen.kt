@@ -54,6 +54,7 @@ fun ViewerScreen(
     val flattenInk by viewModel.flattenInkChoice.collectAsStateWithLifecycle()
     val flattenForm by viewModel.flattenFormChoice.collectAsStateWithLifecycle()
     val form by viewModel.form.collectAsStateWithLifecycle()
+    val ocrState by viewModel.ocrState.collectAsStateWithLifecycle()
 
     when (val state = uiState) {
         is ViewerUiState.Ready -> ReadyViewer(
@@ -76,6 +77,12 @@ fun ViewerScreen(
                 onSave = viewModel::save,
                 suggestedCopyName = viewModel::suggestedCopyName,
                 onDismissResult = viewModel::dismissSaveResult,
+            ),
+            ocr = ViewerOcrUi(
+                state = ocrState,
+                onStart = viewModel::recognise,
+                onCancel = viewModel::cancelOcr,
+                onDismissResult = viewModel::dismissOcrResult,
             ),
             fill = ViewerFillUi(
                 form = form,
