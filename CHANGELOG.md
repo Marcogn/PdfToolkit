@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-12
+
 - **Scan documents.** "Scan" on Home opens the Google document scanner (cropping, filters, shadow removal;
   the camera runs in Google Play services, the app asks for no camera permission). The result is a PDF:
   you choose where to save it and it opens in the viewer. In "Organize pages", Add → "From scanner" adds
