@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-12
+
 - **Freehand on some tablets.** The stroke being drawn now shows under the pen again on devices where it only
   appeared once the pen lifted (seen on a Galaxy Tab S7+): the drawing library moves to `androidx.ink`
   1.1.0-alpha09, which fixes how the area around the page is masked while drawing.
