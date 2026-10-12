@@ -46,12 +46,13 @@ The cloud environment may fix the branch name: then use the one it gives.
 | 9 Scan | Sonnet | `docs/plan-v2.md` 9: ML Kit Document Scanner, availability, open/add pages | Plan 9; packaged manifest still without `INTERNET` | Scan, save, add to open PDF; airplane mode |
 | 10a OCR core | **Opus** | `docs/plan-v2.md` 10a: Text Recognition v2, invisible text layer in user space | Unit tests on line geometry and search after OCR; handoff written | OCR'd scan searchable in app and other reader |
 | 10b OCR complete | Sonnet | `docs/plan-v2.md` 10b: UI, progress, cancellation, background | Plan 10b | 20-page scan; cancel halfway |
-| A Updates and About (planned, `docs/plan-updates.md`) | Sonnet | Port of ThePatientGamerHelper's update package (its Phase 9); adds `INTERNET` + `REQUEST_INSTALL_PACKAGES`; About extended | Plan A; ADR 0006; network audit | Old release → update → install; airplane mode; "Never" |
+| A Updates and About (`docs/plan-updates.md`) | Sonnet | Port of ThePatientGamerHelper's update package (its Phase 9); adds `INTERNET` + `REQUEST_INSTALL_PACKAGES`; About extended | Plan A; ADR 0006; network audit | Old release → update → install; airplane mode; "Never" |
 | 11 ODF export | Sonnet | `docs/plan-v2.md` 11 | Plan 11 | Result opens in LibreOffice / Collabora |
 | 12 Cloud (WebDAV) | Sonnet (Opus reviews the credential store) | `docs/plan-v2.md` 12; adds `INTERNET` | Plan 12 | Nextcloud upload, wrong password, no network |
 
 Done: 0, 1a, 1b, 2, 3, 4a, 4b, 5a, 5b, 6 (except the baseline profile), 7a, 7b, 8a, 8b, U-a, U-b,
-V-a, V-b, V-c, 9, 10a, 10b (device checks pending). Haiku is not recommended for code here.
+V-a, V-b, V-c, 9, 10a, 10b (device checks pending), A (written, device checks pending). Haiku is not
+recommended for code here.
 
 ## Commands
 ```bash
@@ -105,6 +106,12 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   `TextRecognizer` (ML Kit bundled), `OcrProcessor` (detect, render, recognise, write); the writer is
   `pdf/edit/OcrTextWriter` behind `PdfEditor.addTextLayer`. `data/ocr/`: `OcrWorker` (WorkManager, like
   `SaveWorker`), `OcrJob` (copy → `OcrProcessor` → copy over the destination), `OcrScheduler`/`OcrQueue`.
+- Updates (ported from ThePatientGamerHelper, plan A): `domain/update` (version, release parsing, APK pick,
+  release notes, `UpdateCheckPolicy`, states), `data/update` (`GitHubReleaseClient`, `ApkDownloader`,
+  `ApkVerifier`, `ApkInstaller`, `UpdateInstallReceiver`, `UpdateManager`, `FileWriteGate`;
+  `data/save/UserFileWrites` for in-process writes),
+  `data/settings/UpdatePreferences` (DataStore), `ui/update` (dialog host, view model, messages),
+  `ui/about` (About + `AboutViewModel`). Repository in `BuildConfig.UPDATE_GITHUB_OWNER`/`_REPO`.
 - `.github/workflows/`: short callers of the reusable workflows in
   [claude-skill-android-kit](https://github.com/Marcogn/claude-skill-android-kit) (`@v1`): CI, Build APK,
   Release, cleanup, `@claude`, PR review; only this project's values here (`docs/ci.md`).
@@ -145,8 +152,15 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - **Signatures, text, ticks, dates** are written into the page content stream, not as annotations;
   screen and writer share `OverlayGeometry`, `PdfPageSpace` and `TextBlock` (Noto Sans metrics).
 - Search highlights are overlay only, never written. Search is in the viewer only.
-- **No `INTERNET`** in product phase 1: the manifest removes it with `tools:node="remove"` and CI
-  checks the packaged manifest (`ACCESS_NETWORK_STATE` stays: WorkManager declares it). Don't add dependencies that need it (phase 12 is the exception).
+- **`INTERNET` only for the update check** (ADR 0006, since A): the app's one connection is GitHub
+  (`data/update`). ML Kit telemetry is off: the manifest removes datatransport's `cct` backend and
+  `TelemetryOffTest` guards it; after any ML Kit/datatransport update rerun it and capture traffic on a
+  device. Don't add dependencies or code that use the network (phase 12, WebDAV, is the exception).
+- **Updates** (plan A): `UpdateManager` is the single state (`UpdateState`), `UpdateDialogHost` above the nav
+  graph shows it. Installing ends the process, so `install()` waits while a job tagged `FILE_WRITE_WORK_TAG`
+  (save, OCR) is queued or running, or a write wrapped in `UserFileWrites.track` (scan copy) runs; a pending
+  confirmation is abandoned if one starts. Any new write of a user's file must do one of the two. APKs go to
+  `cacheDir/updates/`, never `cacheDir/work/`.
 - **Navigation**: every `navigate()`/`popBackStack()` goes through the owning entry's
   `lifecycleIsResumed()` guard, except navigation from an activity result (the picker). Transitions
   200–250 ms; `NavHost` needs both pop and `predictivePop*` transitions. Don't turn the edit screen into
@@ -169,7 +183,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   written and kept isolated.
 - If a requirement is unclear or not feasible, stop and ask.
 
-## Current status (2026-10-11)
+## Current status (2026-10-12)
 - Product phase 1 released as **1.0.0** (2026-10-04). Still open from it: the **baseline profile**
   (needs a device: `androidx.baselineprofile` plugin + a macrobenchmark module, startup / open viewer /
   open organize) and the **signing secrets** in the repository (Build APK and Release need them).
@@ -180,14 +194,15 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - **10a OCR core done (2026-10-09)**, PR #30; device checks passed (author, 2026-10-11).
 - **10b OCR complete written (2026-10-11)**: `OcrWorker` background run with progress and cancel, "Recognise
   text" in the viewer's no-text notice, the option dialog after a scan, closes #31; lint, unit tests and
-  `assembleRelease` green (see the PR); device checks pending. **Next: 11 ODF export (Sonnet)**, after the 10b
-  device checks; the ODG-or-ODT question must be answered first.
+  `assembleRelease` green (see the PR); device checks pending.
 - **Claude Code setup (2026-10-08)**, outside the sub-phases: skills, reviewer agent, SDK hook,
   `REVIEW.md`, `@claude`/review workflows, Dependabot, PR and issue templates, opt-in JaCoCo coverage
   (line coverage 16%; `pdf/edit` 0% in JVM tests) (`docs/claude.md`). Waiting
   on the author: the `CLAUDE_CODE_OAUTH_TOKEN` secret and the environment's setup script.
-- **Planned (2026-10-11)**: sub-phase **A Updates and About** after 10b, before 11 (`docs/plan-updates.md`);
-  it brings `INTERNET` forward from phase 12 for the update check (author's decision).
+- **A Updates and About written (2026-10-12)**, PR #35: update package ported from ThePatientGamerHelper
+  95f0b97, `INTERNET` + `REQUEST_INSTALL_PACKAGES`, ML Kit telemetry off (ADR 0006), About and Settings;
+  device checks pending. Opus for the network audit (author's switch). **Next: 11 ODF export (Sonnet)**,
+  after the 10b and A device checks; the ODG-or-ODT question must be answered first.
 - Open questions for later sub-phases (`docs/plan-v2.md`): ODG or ODT (11), release numbering.
 
 ### Device checks 10b (author)
@@ -199,7 +214,23 @@ copy (picker, result opens from the snackbar, searchable here and in another rea
 viewer reopens on the result); cancel halfway on both (original untouched, no empty copy left); a PDF that
 already has text: "nothing changed" and no copy left; a protected PDF: no button. Airplane mode. Release build.
 
+### Device checks A (author)
+Release builds only (debug never checks, and a debug build can't install a release APK). Install an older
+signed release (e.g. 1.1.1) after a newer one is published: start → dialog with the headlines and "Full
+changelog" → Download → progress, Cancel once → Download → "Ready to install" → "install unknown apps" the
+first time → system installer → the app reopens on the new version. Start a save (or an OCR) and open the
+ready dialog meanwhile: "Install after saving", disabled, enabled when it ends. With the system confirmation on
+screen, go back to the app and start a save: the confirmation must no longer install (session abandoned), the
+dialog is back at "Ready to install". Close the "Installing" dialog, then confirm from Recents: nothing installs. Airplane mode at startup: nothing
+shown, no crash; "Check for updates" in About says no connection. "Never": no prompt at startup, "Check for
+updates" still works. About and Settings → Updates in Italian and English. **Network audit**: PCAPdroid (or
+similar) on the release build during a scan, an OCR from the scan and an OCR from the viewer, plus a startup
+check: only `api.github.com` and GitHub's download hosts for the app's UID (the scanner's traffic belongs to
+Google Play services); OCR still works with the telemetry off.
+
 ### Technical limits worth knowing
+- Updates: installing restarts the app, so pending (unsaved) viewer edits are lost; the ready dialog says to save
+  first, but nothing enforces it. The ML Kit telemetry cut is not a documented Google switch (ADR 0006).
 - OCR: the scan flow's staged files live in the app cache and the run state in the view model, so killing the
   app during a scan's recognition loses its save step (the raw scan stays in the cache for an hour). In the
   viewer, a Cancel that lands just as the last copy over an overwrite destination starts can leave the file

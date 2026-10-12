@@ -24,7 +24,7 @@ Opus only for the cores where a wrong design is expensive later, with an **a** (
 | 9 | 12 Cloud (WebDAV) | Sonnet, Opus review of the credential store | §7.3 |
 
 Proposed releases: **1.1** now (annotations, drawing, usability, editing in the viewer), **1.2** after
-10b (scan + OCR), **1.3** after 11, **2.0** after 12 (the first build with `INTERNET`). To confirm with
+10b (scan + OCR), **1.3** after 11, **2.0** after 12. `INTERNET` came earlier, with sub-phase A (ADR 0006). To confirm with
 the author.
 
 ## Facts checked before planning (2026-10-04)
@@ -45,8 +45,8 @@ the author.
   (else `MlKitException.UNSUPPORTED`), ~300 KB on the APK
   ([guide](https://developers.google.com/ml-kit/vision/doc-scanner/android)). Its POM pulls
   `transport-backend-cct`, whose manifest declares **`INTERNET`** and `ACCESS_NETWORK_STATE`
-  (Firelog telemetry): our manifest's `tools:node="remove"` drops `INTERNET`, so the merged APK stays
-  without it. `ACCESS_NETWORK_STATE` was already merged in by `work-runtime` and stays (checked in the
+  (Firelog telemetry): our manifest's `tools:node="remove"` dropped `INTERNET`, so the merged APK stayed
+  without it until A; since A the app declares `INTERNET` and removes the `cct` backend instead (ADR 0006). `ACCESS_NETWORK_STATE` was already merged in by `work-runtime` and stays (checked in the
   merger report, 2026-10-09). Whether the scanner works with the app lacking
   `INTERNET` is expected (the flow runs in Play services) but **not verified**: device check of phase 9.
 - **ML Kit Text Recognition v2**: unbundled `play-services-mlkit-text-recognition` (19.0.1, model
@@ -109,6 +109,6 @@ Device check: open the result in LibreOffice (desktop and Collabora Office on An
 ### 12 Cloud (WebDAV) — Sonnet, credential store reviewed by Opus
 Scope: `CloudTarget` WebDAV implementation (PUT, optional MKCOL), settings screen (URL, user,
 password) with the password encrypted through Android Keystore, "Upload" from save snackbar and
-viewer; adds `INTERNET` (manifest, CI `FORBIDDEN_PERMISSIONS`, About, CHANGELOG as spec §7.3 asks);
+viewer; reuses `INTERNET` from sub-phase A (ADR 0006), so About and CHANGELOG say what the new connection is (spec §7.3);
 TLS only, no plain HTTP unless the author decides otherwise.
 Device check: Nextcloud upload, wrong password, no network, self-signed certificate behaviour.
