@@ -23,8 +23,10 @@ robolectric = "4.17"
 pdfboxAndroid = "2.0.27.0"
 reorderable = "3.1.0"
 work = "2.12.0"
-# androidx.ink: the stable line (1.0.0, 2025-12-17); 1.1.0 is still alpha (docs/plan-v2.md).
-ink = "1.0.0"
+# androidx.ink: 1.1.0 alpha, not the stable 1.0.0 (author, 2026-10-12): 1.1.0-alpha02 moved the maskPath
+# clear off the front buffer ("Fix flicker when using maskPath on certain devices"); with 1.0.0 the stroke
+# being drawn didn't show on a Galaxy Tab S7+ until the pen lifted (docs/decisions.md).
+ink = "1.1.0-alpha09"
 # ML Kit Document Scanner (plan 9): UI and models come from Google Play services.
 mlkitDocumentScanner = "16.0.0"
 # ML Kit Text Recognition v2, bundled (plan 10a): Latin model inside the APK, no Play services download.

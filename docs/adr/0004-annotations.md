@@ -74,7 +74,8 @@ axis-aligned box per glyph to stay small.
 
 ## Freehand ink (phase 8a, 2026-10-05)
 
-**Library.** `androidx.ink` 1.0.0, the stable line (`ink-authoring-compose`, `-brush`, `-geometry`,
+**Library.** `androidx.ink` 1.0.0, the stable line; 1.1.0-alpha09 since 2026-10-12 for a front-buffer
+mask fix (`docs/decisions.md`). Modules (`ink-authoring-compose`, `-brush`, `-geometry`,
 `-strokes`). Its `InProgressStrokes` composable draws the stroke under the finger with low latency
 (front-buffered); on lift it hands over a `Stroke` whose `PartitionedMesh` has the brush **outlines**
 (closed polygons, filled with the nonzero rule, which is how its own `CanvasStrokeRenderer` paths

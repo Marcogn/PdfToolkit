@@ -228,8 +228,14 @@ decided or approved it.
   underline and strikeout share one strong colour (red, blue, black, dark green).
 - 2026-10-05 · The eraser also takes annotations the app can't draw (notes, stamps) by their rectangle;
   undo brings them back.
-- 2026-10-05 · Freehand on `androidx.ink` 1.0.0, outline appearance, one Ink annotation per stroke,
+- 2026-10-05 · Freehand on `androidx.ink`, outline appearance, one Ink annotation per stroke,
   compact polyline encoding in saved state, "make final" as a save-dialog checkbox, off by default.
+- 2026-10-12 · `androidx.ink` on 1.1.0-alpha09 instead of the stable 1.0.0 (author), an exception to "latest
+  stable": on a Galaxy Tab S7+ the stroke being drawn didn't show until the pen lifted (a phone was fine).
+  1.0.0 clears `maskPath` directly in the front buffer; 1.1.0-alpha02 clears it off screen first ("Fix
+  flicker when using `InProgressStrokesView.maskPath` on certain devices", issuetracker 496920044). That this
+  fixes the tablet is the device check, not a certainty. Back to the stable line when 1.1.0 is released.
+  Brush versions stay pinned (`V1`), so saved outlines don't change shape.
 - 2026-10-05 · Draw vs zoom: one finger or a stylus draws, a second finger cancels the stroke and
   zooms/pans; the stylus ignores other touches while drawing; pages don't turn while a brush is armed.
   Strokes entirely off the page are dropped.
