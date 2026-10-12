@@ -11,8 +11,11 @@ sealed interface UpdateState {
     data class Downloading(val update: AvailableUpdate, val bytesRead: Long, val totalBytes: Long) : UpdateState
     /** Downloaded, checksum and signature verified: waiting for `UpdateManager.install()`. */
     data class ReadyToInstall(val update: AvailableUpdate, val apkFile: File) : UpdateState
-    /** Session committed; the system confirmation is on screen or about to be. */
-    data class Installing(val update: AvailableUpdate, val apkFile: File) : UpdateState
+    /**
+     * Handing the APK to the installer: [sessionId] is `null` while the session is being written, then the
+     * committed session whose system confirmation is on screen or about to be.
+     */
+    data class Installing(val update: AvailableUpdate, val apkFile: File, val sessionId: Int? = null) : UpdateState
     data class Failed(val failure: UpdateFailure) : UpdateState
 }
 

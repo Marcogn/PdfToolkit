@@ -29,9 +29,9 @@ class AboutMessagesTest {
             ReleaseAsset("app.apk", "https://example.com/app.apk", 10, null),
             ReleaseNotes(emptyList(), null),
         )
-        assertTrue(UpdateCheckResult.Available(update).toMessage(context).contains("1.1.0"))
-        assertTrue(UpdateCheckResult.UpToDate.toMessage(context).isNotBlank())
-        assertTrue(UpdateCheckResult.NoRelease.toMessage(context).isNotBlank())
-        assertTrue(UpdateCheckResult.Failed(UpdateFailure.Http(500)).toMessage(context).contains("500"))
+        assertTrue(UpdateCheckResult.Available(update).toMessage(context.resources).contains("1.1.0"))
+        assertTrue(UpdateCheckResult.UpToDate.toMessage(context.resources).isNotBlank())
+        assertTrue(UpdateCheckResult.NoRelease.toMessage(context.resources).isNotBlank())
+        assertTrue(UpdateCheckResult.Failed(UpdateFailure.Http(500)).toMessage(context.resources).contains("500"))
     }
 }

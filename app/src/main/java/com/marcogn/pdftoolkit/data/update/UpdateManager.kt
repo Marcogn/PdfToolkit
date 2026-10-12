@@ -24,6 +24,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -133,6 +134,12 @@ class UpdateManager @Inject constructor(
                 scope.launch { downloader.delete(current.apkFile) }
             }
             is UpdateState.Installing -> {
+                // Still writing the session: install() finishes it (closing now would delete the APK
+                // under the copy).
+                val sessionId = current.sessionId ?: return
+                // Plan A: a confirmation left pending in its own task could still be accepted later,
+                // maybe during a save; abandon it so it can't.
+                installer.abandon(sessionId)
                 _state.value = UpdateState.Idle
                 scope.launch { downloader.delete(current.apkFile) }
             }
@@ -213,8 +220,26 @@ class UpdateManager @Inject constructor(
         if (!installStarting.compareAndSet(false, true)) return null
         return try {
             if (fileWriteGate.busy.first()) return InstallStart.Busy
+            if (!installer.canInstall()) return InstallStart.PermissionRequired(installer.unknownSourcesSettingsIntent())
+            // Installing before the commit, not after: the session's status broadcast can reach
+            // onInstallerStatus before this coroutine resumes, and it only acts in Installing.
+            _state.value = UpdateState.Installing(ready.update, ready.apkFile)
             installer.install(ready.apkFile).also { start ->
-                if (start is InstallStart.Committed) _state.value = UpdateState.Installing(ready.update, ready.apkFile)
+                when (start) {
+                    is InstallStart.Committed -> {
+                        _state.update { current ->
+                            if (current is UpdateState.Installing && current.sessionId == null) {
+                                current.copy(sessionId = start.sessionId)
+                            } else {
+                                current
+                            }
+                        }
+                        abandonIfFileWriteStarts(start.sessionId)
+                    }
+                    // The permission was revoked in between: back to the dialog, which asks for it.
+                    is InstallStart.PermissionRequired -> _state.value = ready
+                    InstallStart.Busy -> _state.value = ready
+                }
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
@@ -224,6 +249,24 @@ class UpdateManager @Inject constructor(
             null
         } finally {
             installStarting.set(false)
+        }
+    }
+
+    /**
+     * Plan A: confirming the install ends the process. If a save, a recognition or the scan flow's copy
+     * starts while the system confirmation is pending (the user went back to the app), the session is
+     * abandoned and the flow goes back to [UpdateState.ReadyToInstall], whose dialog waits for the write.
+     * Ends on its own once the state leaves this session's [UpdateState.Installing].
+     */
+    private fun abandonIfFileWriteStarts(sessionId: Int) {
+        scope.launch {
+            val stillPending = { state: UpdateState -> state is UpdateState.Installing && state.sessionId == sessionId }
+            val (busy, state) = combine(fileWriteGate.busy, _state) { busy, state -> busy to state }
+                .first { (busy, state) -> busy || !stillPending(state) }
+            if (!busy || !stillPending(state)) return@launch
+            installer.abandon(sessionId)
+            val installing = state as UpdateState.Installing
+            _state.compareAndSet(installing, UpdateState.ReadyToInstall(installing.update, installing.apkFile))
         }
     }
 

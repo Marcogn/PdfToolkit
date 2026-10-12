@@ -1,6 +1,6 @@
 package com.marcogn.pdftoolkit.ui.about
 
-import android.content.Context
+import android.content.res.Resources
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,8 +20,8 @@ data class AboutUiState(
     val isChecking: Boolean = false,
     /**
      * Outcome of the last "Check for updates" tap; `null` before the first one. Kept as data and turned
-     * into text by the screen, with the activity's context: below API 33 an application context does
-     * not follow the per-app language.
+     * into text by the screen with `LocalResources` (CLAUDE.md): below API 33 an application context
+     * does not follow the per-app language.
      */
     val checkResult: UpdateCheckResult? = null,
 )
@@ -49,9 +49,9 @@ class AboutViewModel @Inject constructor(
     }
 }
 
-internal fun UpdateCheckResult.toMessage(context: Context): String = when (this) {
-    is UpdateCheckResult.Available -> context.getString(R.string.about_check_available, update.version.toString())
-    UpdateCheckResult.UpToDate -> context.getString(R.string.about_check_up_to_date)
-    UpdateCheckResult.NoRelease -> context.getString(R.string.about_check_no_release)
-    is UpdateCheckResult.Failed -> context.getString(R.string.about_check_failed, failure.toMessage(context))
+internal fun UpdateCheckResult.toMessage(resources: Resources): String = when (this) {
+    is UpdateCheckResult.Available -> resources.getString(R.string.about_check_available, update.version.toString())
+    UpdateCheckResult.UpToDate -> resources.getString(R.string.about_check_up_to_date)
+    UpdateCheckResult.NoRelease -> resources.getString(R.string.about_check_no_release)
+    is UpdateCheckResult.Failed -> resources.getString(R.string.about_check_failed, failure.toMessage(resources))
 }

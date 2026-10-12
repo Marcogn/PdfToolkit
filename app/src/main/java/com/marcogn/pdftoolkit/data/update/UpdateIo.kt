@@ -6,8 +6,7 @@ import java.io.IOException
 
 /**
  * GitHub's REST API rejects requests without a User-Agent and asks for the app's name in it (REST
- * docs, "User agent required") — the opposite of the desktop-browser User-Agent the TheGamesDB and
- * HowLongToBeat clients need against anti-bot filtering. Used for both the API call and the download.
+ * docs, "User agent required"). Used for both the API call and the download.
  */
 internal val UPDATE_USER_AGENT = "${BuildConfig.UPDATE_GITHUB_REPO}/${BuildConfig.VERSION_NAME} (Android)"
 

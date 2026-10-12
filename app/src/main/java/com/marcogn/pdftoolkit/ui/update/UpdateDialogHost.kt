@@ -15,14 +15,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.BuildConfig
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.update.AvailableUpdate
@@ -35,10 +35,10 @@ import com.marcogn.pdftoolkit.domain.update.UpdateState
  */
 @Composable
 fun UpdateDialogHost(viewModel: UpdateViewModel = hiltViewModel()) {
-    val state by viewModel.state.collectAsState()
-    val permissionIntent by viewModel.permissionIntent.collectAsState()
-    val installBlocked by viewModel.installBlocked.collectAsState()
-    val context = LocalContext.current
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val permissionIntent by viewModel.permissionIntent.collectAsStateWithLifecycle()
+    val installBlocked by viewModel.installBlocked.collectAsStateWithLifecycle()
+    val resources = LocalResources.current
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
@@ -106,7 +106,7 @@ fun UpdateDialogHost(viewModel: UpdateViewModel = hiltViewModel()) {
         is UpdateState.Failed -> AlertDialog(
             onDismissRequest = viewModel::onDismiss,
             title = { Text(stringResource(R.string.update_failed_title)) },
-            text = { Text(current.failure.toMessage(context)) },
+            text = { Text(current.failure.toMessage(resources)) },
             confirmButton = {
                 TextButton(onClick = viewModel::onDismiss) { Text(stringResource(R.string.update_close)) }
             },

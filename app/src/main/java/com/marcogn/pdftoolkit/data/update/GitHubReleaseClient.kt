@@ -21,8 +21,8 @@ private const val READ_TIMEOUT_MS = 15_000
 /**
  * Reads the latest published release of this app's own repository, unauthenticated: published
  * releases of a public repository need no token, and a startup check at most once per start is far
- * below the 60 requests/hour per-IP limit. Same hand-rolled `HttpURLConnection` style as
- * `TheGamesDbApiClient` — one GET endpoint does not justify an HTTP client dependency.
+ * below the 60 requests/hour per-IP limit. Hand-rolled `HttpURLConnection` (ported from ThePatientGamerHelper):
+ * one GET endpoint does not justify an HTTP client dependency.
  *
  * Owner and repository come from `BuildConfig` (`app/build.gradle.kts`), the one place a sibling app
  * changes when it copies this package.

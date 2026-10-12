@@ -23,7 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -46,7 +46,7 @@ private val GITHUB_URL = "https://github.com/${BuildConfig.UPDATE_GITHUB_OWNER}/
 fun AboutScreen(onMenuClick: () -> Unit, viewModel: AboutViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
-    val context = LocalContext.current
+    val resources = LocalResources.current
 
     Scaffold(
         topBar = {
@@ -88,7 +88,7 @@ fun AboutScreen(onMenuClick: () -> Unit, viewModel: AboutViewModel = hiltViewMod
                 }
                 Text(stringResource(R.string.about_check_updates))
             }
-            uiState.checkResult?.let { Text(it.toMessage(context), style = MaterialTheme.typography.bodyMedium) }
+            uiState.checkResult?.let { Text(it.toMessage(resources), style = MaterialTheme.typography.bodyMedium) }
 
             Text(
                 stringResource(R.string.about_made_with_love),

@@ -75,19 +75,19 @@ class UpdateUiTest {
             UpdateFailure.ChecksumMismatch, UpdateFailure.InstallFailed(1, null), UpdateFailure.InstallFailed(1, "boom"),
         ) + UnusableReleaseReason.entries.map { UpdateFailure.UnusableRelease(it) } +
             ApkRejection.entries.map { UpdateFailure.VerificationFailed(it) }
-        failures.forEach { assertTrue("$it", it.toMessage(context).isNotBlank()) }
+        failures.forEach { assertTrue("$it", it.toMessage(context.resources).isNotBlank()) }
     }
 
     @Test
     fun `http and install detail end up in the message`() {
-        assertTrue(UpdateFailure.Http(503).toMessage(context).contains("503"))
-        assertTrue(UpdateFailure.InstallFailed(1, "boom").toMessage(context).contains("boom"))
+        assertTrue(UpdateFailure.Http(503).toMessage(context.resources).contains("503"))
+        assertTrue(UpdateFailure.InstallFailed(1, "boom").toMessage(context.resources).contains("boom"))
     }
 
     @Test
     fun `different signature gets its own reason`() {
-        val signature = UpdateFailure.VerificationFailed(ApkRejection.DIFFERENT_SIGNATURE).toMessage(context)
-        val notNewer = UpdateFailure.VerificationFailed(ApkRejection.NOT_NEWER).toMessage(context)
+        val signature = UpdateFailure.VerificationFailed(ApkRejection.DIFFERENT_SIGNATURE).toMessage(context.resources)
+        val notNewer = UpdateFailure.VerificationFailed(ApkRejection.NOT_NEWER).toMessage(context.resources)
         assertTrue(signature != notNewer)
     }
 

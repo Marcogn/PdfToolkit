@@ -25,7 +25,7 @@ data class ReleaseAsset(
 )
 
 // coerceInputValues + nullable fields: GitHub sends explicit `null` for `body`/`name`/`digest`, and a
-// default value only covers a missing key (see CLAUDE.md, "Known gotchas").
+// default value only covers a missing key.
 private val releaseJson = Json { ignoreUnknownKeys = true; coerceInputValues = true }
 
 @Serializable

@@ -62,7 +62,7 @@
     <string name="about_title">Informazioni</string>
     <string name="about_version">Versione %1$s</string>
     <string name="about_privacy_title">Privacy</string>
-    <string name="about_privacy_body">PdfToolkit non ha account e i documenti restano sul telefono. L\'unica connessione che l\'app fa da sola è il controllo degli aggiornamenti su GitHub, che puoi spegnere con «Mai» in Impostazioni. La scansione è eseguita da Google Play services.</string>
+    <string name="about_privacy_body">PdfToolkit non ha account e i documenti restano sul telefono, anche il riconoscimento del testo avviene sul telefono. L\'unica connessione che l\'app fa è il controllo degli aggiornamenti su GitHub, che puoi spegnere con «Mai» in Impostazioni; le statistiche d\'uso che la libreria di riconoscimento testo di Google invierebbe sono disattivate. La scansione è eseguita da Google Play services, che segue le proprie regole.</string>
     <string name="about_signature_title">Firma</string>
     <string name="about_signature_body">La firma inserita è un\'immagine apposta sul documento. Non è una firma digitale con certificato e non ha il valore legale di una firma elettronica qualificata.</string>
     <string name="about_ai_title">Sviluppo</string>

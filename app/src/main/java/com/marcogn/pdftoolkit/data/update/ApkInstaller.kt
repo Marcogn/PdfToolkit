@@ -23,7 +23,7 @@ sealed interface InstallStart {
     data class PermissionRequired(val settingsIntent: Intent) : InstallStart
 
     /** Session committed: [UpdateInstallReceiver] gets the status, the system shows its confirmation. */
-    data object Committed : InstallStart
+    data class Committed(val sessionId: Int) : InstallStart
 
     /** A save or a text recognition is writing a document: installing would end the process mid-write. */
     data object Busy : InstallStart
@@ -46,7 +46,7 @@ class ApkInstaller @Inject constructor(@ApplicationContext private val context: 
 
     suspend fun install(apk: File): InstallStart {
         if (!canInstall()) return InstallStart.PermissionRequired(unknownSourcesSettingsIntent())
-        withContext(Dispatchers.IO) {
+        val sessionId = withContext(Dispatchers.IO) {
             val installer = context.packageManager.packageInstaller
             val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
                 setAppPackageName(context.packageName)
@@ -73,8 +73,18 @@ class ApkInstaller @Inject constructor(@ApplicationContext private val context: 
                 runCatching { installer.abandonSession(sessionId) }
                 throw e
             }
+            sessionId
         }
-        return InstallStart.Committed
+        return InstallStart.Committed(sessionId)
+    }
+
+    /**
+     * Gives up a committed session whose confirmation is still pending (plan A): the dialog was closed, or
+     * a save started, and confirming now would end the process mid-write. Failures are ignored: the
+     * session may already be finished.
+     */
+    fun abandon(sessionId: Int) {
+        runCatching { context.packageManager.packageInstaller.abandonSession(sessionId) }
     }
 
     /**

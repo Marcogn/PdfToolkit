@@ -45,6 +45,19 @@
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
 
+        <!-- ML Kit telemetry off (ADR 0006): its usage metrics go through datatransport's "cct"
+             backend, registered by this meta-data. Without it the runtime refuses those events
+             ("Transport backend 'cct' is not registered", DefaultScheduler) before storing them, and
+             the uploader drops any batch for an unknown backend. Not a documented Google switch:
+             TelemetryOffTest guards the merged manifest, the device check confirms the traffic. -->
+        <service
+            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+            tools:node="merge">
+            <meta-data
+                android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
+                tools:node="remove" />
+        </service>
+
         <!-- PackageInstaller session status (explicit PendingIntent from ApkInstaller). -->
         <receiver
             android:name=".data.update.UpdateInstallReceiver"
