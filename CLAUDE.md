@@ -136,7 +136,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   change is local until the fingers lift (one undo step).
 - **Freehand**: strokes in document points (`DocumentStrokes`), page = the one under the first point,
   then page display points → user space (`FreehandGeometry`). One stroke = one Ink annotation; the
-  outline is the appearance, `/InkList` the centre line. Ink brush versions pinned (`V1`).
+  outline is the appearance, `/InkList` the centre line. Ink brush versions pinned (`V1`); `androidx.ink` is
+  on 1.1.0-alpha09 on purpose (front-buffer mask fix), don't move it back to 1.0.0.
 - **Text selection** is one page at a time, in that page's display points, stored as (page, glyph
   range) and resolved again from the text (`ResolveTextSelection`).
 - **Annotations**: the renderer draws none, so the app draws them (`drawAnnotations`) from the same
@@ -182,6 +183,9 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   text" in the viewer's no-text notice, the option dialog after a scan, closes #31; lint, unit tests and
   `assembleRelease` green (see the PR); device checks pending. **Next: 11 ODF export (Sonnet)**, after the 10b
   device checks; the ODG-or-ODT question must be answered first.
+- **Freehand fix (2026-10-12)**, outside the sub-phases: `androidx.ink` 1.0.0 → 1.1.0-alpha09, because on the
+  author's Galaxy Tab S7+ the stroke being drawn only showed on lift (phone fine); device check pending
+  (`docs/decisions.md`). Return to the stable line when 1.1.0 ships.
 - **Claude Code setup (2026-10-08)**, outside the sub-phases: skills, reviewer agent, SDK hook,
   `REVIEW.md`, `@claude`/review workflows, Dependabot, PR and issue templates, opt-in JaCoCo coverage
   (line coverage 16%; `pdf/edit` 0% in JVM tests) (`docs/claude.md`). Waiting
