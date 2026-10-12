@@ -21,6 +21,11 @@ android {
         versionCode = 4
         versionName = "1.1.1"
 
+        // Plan A: the GitHub repository whose latest release is this app's update source
+        // (data/update/GitHubReleaseClient).
+        buildConfigField("String", "UPDATE_GITHUB_OWNER", "\"Marcogn\"")
+        buildConfigField("String", "UPDATE_GITHUB_REPO", "\"PdfToolkit\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

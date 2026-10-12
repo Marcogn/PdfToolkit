@@ -19,6 +19,12 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Tag on every WorkManager job that writes a document (save, text recognition): the update installer
+ * waits while one is queued or running, because installing ends the process (plan A).
+ */
+const val FILE_WRITE_WORK_TAG = "writes-user-file"
+
 /** Progress of a background save, as the UI sees it. */
 sealed interface SaveProgress {
     data class Running(val fraction: Float) : SaveProgress
@@ -37,6 +43,7 @@ class SaveScheduler @Inject constructor(@ApplicationContext private val context:
         }
         val work = OneTimeWorkRequestBuilder<SaveWorker>()
             .setInputData(workDataOf(SaveWorker.KEY_REQUEST to file.absolutePath))
+            .addTag(FILE_WRITE_WORK_TAG)
             .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(UNIQUE_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, work)
