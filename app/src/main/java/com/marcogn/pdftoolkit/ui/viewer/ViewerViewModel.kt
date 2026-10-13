@@ -17,6 +17,12 @@ import com.marcogn.pdftoolkit.data.ocr.OcrScheduler
 import com.marcogn.pdftoolkit.data.save.SaveScheduler
 import com.marcogn.pdftoolkit.data.settings.SavePreferences
 import com.marcogn.pdftoolkit.data.settings.ReadingPreferences
+import com.marcogn.pdftoolkit.data.settings.ViewerToolPreferences
+import com.marcogn.pdftoolkit.domain.tools.QuickSlots
+import com.marcogn.pdftoolkit.domain.tools.ToolPrefs
+import com.marcogn.pdftoolkit.domain.tools.ToolStyleSettings
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import com.marcogn.pdftoolkit.domain.fill.FormDocument
 import com.marcogn.pdftoolkit.domain.model.OpenFailure
 import com.marcogn.pdftoolkit.domain.model.PdfOpenException
@@ -127,6 +133,7 @@ class ViewerViewModel @Inject constructor(
     private val savePreferences: SavePreferences,
     private val recents: RecentsRepository,
     private val readingPreferences: ReadingPreferences,
+    private val toolPreferences: ViewerToolPreferences,
     private val textExtractor: PdfTextExtractor,
     private val annotationReader: AnnotationReader,
     private val formReader: FormReader,
@@ -151,6 +158,21 @@ class ViewerViewModel @Inject constructor(
     private val ocrRunner = OcrRunner(viewModelScope, ocrScheduler)
     /** The text recognition started from the viewer (plan 10b); runs in the background like a save. */
     val ocrState: StateFlow<OcrUiState> = ocrRunner.state
+
+    /** The tool drawer's kept state (plan T-b): quick slots, one-time teachings, colours and sizes; null until read. */
+    val toolPrefs: StateFlow<ToolPrefs?> = toolPreferences.prefs.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun setQuickSlots(slots: QuickSlots) {
+        viewModelScope.launch { toolPreferences.setSlots(slots) }
+    }
+
+    fun setToolTutorialSeen() {
+        viewModelScope.launch { toolPreferences.setTutorialSeen(true) }
+    }
+
+    fun setToolStyle(style: ToolStyleSettings) {
+        viewModelScope.launch { toolPreferences.setStyle(style) }
+    }
 
     private val _overwriteChoice = MutableStateFlow(false)
     /** Last choice in the save dialog (spec §8), shared with the edit screen. */

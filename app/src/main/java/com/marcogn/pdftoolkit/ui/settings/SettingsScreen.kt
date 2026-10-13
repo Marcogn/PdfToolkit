@@ -63,6 +63,7 @@ fun SettingsScreen(
     onMenuClick: () -> Unit,
     themeViewModel: ThemeViewModel = hiltViewModel(),
     settingsViewModel: SettingsViewModel = hiltViewModel(),
+    toolTutorial: ToolTutorialViewModel = hiltViewModel(),
 ) {
     val readingMode by settingsViewModel.readingMode.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -127,6 +128,15 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            ActionRow(
+                title = stringResource(R.string.tools_tutorial_replay),
+                summary = stringResource(R.string.tools_tutorial_replay_summary),
+                onClick = {
+                    toolTutorial.replay()
+                    showMessage(R.string.tools_tutorial_replay_done)
+                },
+            )
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
 

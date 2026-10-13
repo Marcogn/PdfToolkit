@@ -13,10 +13,12 @@ no cloud; the only connection is the check for app updates on GitHub.
   recent files. Opens PDFs from the picker, from "Open with" and from the share sheet; password-protected
   files open on Android 15 and later.
 - **Search**: case- and accent-insensitive, results highlighted while the text is read.
-- **Editing on the page**, from the viewer's tools bar (a rail at the side in landscape), with undo,
-  redo and saving as a copy or over the original:
+- **Editing on the page**, from the viewer's tools bar (a rail at the side in landscape; its places never
+  move: Tools, two quick slots, Undo, Redo, Pages), with saving as a copy or over the original. Tools opens
+  a fan of every tool: tap to use, hold for colour and size, hold and drag onto a dashed slot to keep it in the
+  bar:
   - highlight, underline and strike out text; select and copy it;
-  - draw with a pen or a marker, finger or stylus;
+  - draw with a pen, or highlight freehand with the marker, finger or stylus;
   - erase annotations, also those made by other apps, whole or only where the finger passes;
   - fill forms (text, check boxes, radio buttons, lists) and add text, the date, ticks, crosses and
     signatures, which can be moved, resized and turned; signatures are drawn or imported into a private

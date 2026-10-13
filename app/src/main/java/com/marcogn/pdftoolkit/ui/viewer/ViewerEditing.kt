@@ -96,6 +96,15 @@ class ViewerOcrUi(
     val onDismissResult: () -> Unit,
 )
 
+/** What the tool drawer keeps and asks of the view model (plan T-b); built by [ViewerScreen]. */
+class ViewerToolsUi(
+    /** Null until read from the preferences. */
+    val prefs: com.marcogn.pdftoolkit.domain.tools.ToolPrefs?,
+    val onSlots: (com.marcogn.pdftoolkit.domain.tools.QuickSlots) -> Unit,
+    val onTutorialSeen: () -> Unit,
+    val onStyle: (com.marcogn.pdftoolkit.domain.tools.ToolStyleSettings) -> Unit,
+)
+
 /** What "Fill and sign" in the viewer reads and asks of the view model (plan V-c); built by [ViewerScreen]. */
 class ViewerFillUi(
     /** The form, null until [load] is first called. */

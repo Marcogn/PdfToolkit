@@ -12,6 +12,8 @@ import com.marcogn.pdftoolkit.domain.annotate.AnnotationColor
 import com.marcogn.pdftoolkit.domain.annotate.FreehandKind
 import com.marcogn.pdftoolkit.domain.annotate.FreehandOptions
 import com.marcogn.pdftoolkit.domain.annotate.MarkupKind
+import com.marcogn.pdftoolkit.domain.tools.DrawerTool
+import com.marcogn.pdftoolkit.domain.tools.ToolStyleSettings
 import com.marcogn.pdftoolkit.ui.common.TransientHint
 import com.marcogn.pdftoolkit.ui.theme.PdfToolkitTheme
 import org.junit.Assert.assertEquals
@@ -29,12 +31,8 @@ class AnnotateToolsTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private fun setStyle(state: AnnotatePaneState) {
-        composeRule.setContent { PdfToolkitTheme { StyleButton(state) } }
-    }
-
-    private fun openStyle() {
-        composeRule.onNodeWithText("Stile").performClick()
+    private fun setBubble(state: AnnotatePaneState, tool: DrawerTool) {
+        composeRule.setContent { PdfToolkitTheme { ToolBubble(tool, state, expanded = true, onDismiss = {}) } }
         composeRule.waitForIdle()
     }
 
@@ -49,46 +47,80 @@ class AnnotateToolsTest {
     }
 
     @Test
-    fun `colours stay out of the way until the style button is tapped`() {
-        setStyle(AnnotatePaneState())
-        composeRule.onNodeWithContentDescription("Giallo").assertDoesNotExist()
-        openStyle()
+    fun `the bubble of a highlight shows its colours, the one chosen selected`() {
+        setBubble(AnnotatePaneState(), DrawerTool.HIGHLIGHT)
         composeRule.onNodeWithContentDescription("Giallo").assertIsSelected()
+        composeRule.onNodeWithText("Evidenzia").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Spessore 2 pt").assertDoesNotExist()
     }
 
     @Test
-    fun `the style menu picks the other tool of the family and lines get their own colours`() {
+    fun `lines get their own colours and the highlighter keeps its own`() {
         val state = AnnotatePaneState()
-        setStyle(state)
-        openStyle()
-        composeRule.onNodeWithContentDescription("Sottolinea").performClick()
-        composeRule.waitForIdle()
-        assertEquals(AnnotateTool.UNDERLINE, state.tool)
+        setBubble(state, DrawerTool.UNDERLINE)
         composeRule.onNodeWithContentDescription("Rosso").assertIsSelected()
         composeRule.onNodeWithContentDescription("Nero").performClick()
         composeRule.waitForIdle()
         assertEquals(AnnotationColor.BLACK, state.colorFor(MarkupKind.UNDERLINE))
-        // The highlighter keeps its own colour.
         assertEquals(AnnotationColor.YELLOW, state.colorFor(MarkupKind.HIGHLIGHT))
     }
 
     @Test
-    fun `the eraser's style picks whole or partial erasing, and the partial eraser's size`() {
+    fun `the partial eraser's bubble has its sizes and the stroke eraser's has none`() {
         val state = AnnotatePaneState(tool = AnnotateTool.ERASER)
         assertEquals(false, state.partialEraser)
         assertEquals(2f, state.eraserSize)
-        setStyle(state)
-        openStyle()
-        composeRule.onNodeWithContentDescription("Cancella annotazioni intere").assertIsSelected()
-        // Sizes only for the partial eraser.
-        composeRule.onNodeWithContentDescription("Spessore 6 pt").assertDoesNotExist()
-        composeRule.onNodeWithContentDescription("Cancella solo dove passi").performClick()
-        composeRule.waitForIdle()
-        assertTrue(state.partialEraser)
+        setBubble(state, DrawerTool.ERASER_PARTIAL)
         composeRule.onNodeWithContentDescription("Spessore 2 pt").assertIsSelected()
         composeRule.onNodeWithContentDescription("Spessore 6 pt").performClick()
         composeRule.waitForIdle()
         assertEquals(6f, state.eraserSize)
+    }
+
+    @Test
+    fun `the stroke eraser's bubble shows only its name`() {
+        setBubble(AnnotatePaneState(tool = AnnotateTool.ERASER), DrawerTool.ERASER_STROKE)
+        composeRule.onNodeWithText("Gomma").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Spessore 2 pt").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Nero").assertDoesNotExist()
+    }
+
+    @Test
+    fun `arming a drawer tool sets the eraser's mode and the tool`() {
+        val state = AnnotatePaneState()
+        state.arm(DrawerTool.ERASER_PARTIAL)
+        assertEquals(AnnotateTool.ERASER, state.tool)
+        assertTrue(state.partialEraser)
+        assertEquals(DrawerTool.ERASER_PARTIAL, state.tool.drawerTool(state.partialEraser))
+        state.arm(DrawerTool.ERASER_STROKE)
+        assertEquals(false, state.partialEraser)
+        state.arm(DrawerTool.MARKER)
+        assertEquals(FreehandKind.HIGHLIGHTER, state.tool.freehand)
+        // "Fill and sign" is not a tool of this state.
+        state.arm(DrawerTool.FILL)
+        assertEquals(AnnotateTool.MARKER, state.tool)
+    }
+
+    @Test
+    fun `the kept style round-trips without arming anything`() {
+        val kept = ToolStyleSettings(
+            highlightColor = 2, lineColor = 3, penColor = 4, penWidth = 1, markerColor = 2, markerWidth = 3,
+            partialEraser = true, eraserWidth = 3, lastMarkup = DrawerTool.STRIKEOUT, lastBrush = DrawerTool.MARKER,
+        )
+        val state = AnnotatePaneState(tool = AnnotateTool.ERASER)
+        state.restore(kept)
+        assertEquals(kept, state.style())
+        assertEquals(AnnotateTool.ERASER, state.tool)
+        assertEquals(AnnotateTool.STRIKEOUT, state.markupTool)
+        assertEquals(AnnotateTool.MARKER, state.brushTool)
+    }
+
+    @Test
+    fun `restoring while a tool is armed keeps that tool as the last of its group`() {
+        val state = AnnotatePaneState(tool = AnnotateTool.PEN)
+        state.restore(ToolStyleSettings(lastBrush = DrawerTool.MARKER))
+        assertEquals(AnnotateTool.PEN, state.tool)
+        assertEquals(AnnotateTool.PEN, state.brushTool)
     }
 
     @Test
@@ -111,8 +143,7 @@ class AnnotateToolsTest {
     @Test
     fun `the pen offers its colours and widths and remembers the choice`() {
         val state = AnnotatePaneState(tool = AnnotateTool.PEN)
-        setStyle(state)
-        openStyle()
+        setBubble(state, DrawerTool.PEN)
         composeRule.onNodeWithContentDescription("Nero").assertIsSelected()
         composeRule.onNodeWithContentDescription("Spessore 2 pt").assertIsSelected()
         composeRule.onNodeWithContentDescription("Rosso").performClick()

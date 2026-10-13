@@ -22,6 +22,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalUriHandler
@@ -34,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import com.marcogn.pdftoolkit.BuildConfig
 import com.marcogn.pdftoolkit.R
+import com.marcogn.pdftoolkit.ui.settings.ToolTutorialViewModel
 
 private val GITHUB_URL = "https://github.com/${BuildConfig.UPDATE_GITHUB_OWNER}/${BuildConfig.UPDATE_GITHUB_REPO}"
 
@@ -43,7 +47,12 @@ private val GITHUB_URL = "https://github.com/${BuildConfig.UPDATE_GITHUB_OWNER}/
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AboutScreen(onMenuClick: () -> Unit, viewModel: AboutViewModel = hiltViewModel()) {
+fun AboutScreen(
+    onMenuClick: () -> Unit,
+    viewModel: AboutViewModel = hiltViewModel(),
+    toolTutorial: ToolTutorialViewModel = hiltViewModel(),
+) {
+    var tutorialReplayed by rememberSaveable { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     val resources = LocalResources.current
@@ -101,6 +110,15 @@ fun AboutScreen(onMenuClick: () -> Unit, viewModel: AboutViewModel = hiltViewMod
             ) {
                 Text(stringResource(R.string.about_github))
             }
+
+            OutlinedButton(
+                onClick = {
+                    toolTutorial.replay()
+                    tutorialReplayed = true
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.tools_tutorial_replay)) }
+            if (tutorialReplayed) Text(stringResource(R.string.tools_tutorial_replay_done), style = MaterialTheme.typography.bodyMedium)
 
             Section(R.string.about_privacy_title, R.string.about_privacy_body)
             Section(R.string.about_signature_title, R.string.about_signature_body)

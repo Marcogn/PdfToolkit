@@ -276,7 +276,7 @@ decided or approved it.
 - 2026-10-07 · The stylus draws only with Pen/Marker armed; with the markup tools it selects like a
   finger (author).
 - 2026-10-07 · Pen colours black, red, blue, green, orange; marker colours = highlight palette. Sizes
-  1/2/4/6 pt (pen), 8/12/18/26 pt (marker). Not kept across app restarts.
+  1/2/4/6 pt (pen), 8/12/18/26 pt (marker). Not kept across app restarts (kept from T-b on).
 - 2026-10-13 · Planned (plan T, `docs/plan-tools.md`, author): a partial eraser that removes only what the
   finger passes over, on pen/marker strokes (also other apps' Ink) and on text markup; the cut pieces become
   new annotations, one undo step per gesture. Geometry in `pdf/annotations`, without Android's `Path.op`.
@@ -285,7 +285,7 @@ decided or approved it.
 - 2026-10-13 · T-a: polygon clipping with Clipper2-java 2.0.1b from JitPack, the repository limited to its group
   (author, ADR 0004 "Partial eraser"); integer coordinates in hundredths of a point. Until T-b the partial eraser is
   the Eraser's Style menu ("Whole annotations" / "Only where you pass", whole by default) with the pen's sizes,
-  not kept across restarts.
+  not kept across restarts (replaced by T-b: two drawer tools, the size in the bubble, kept).
 - 2026-10-13 · T-a: Ink with outlines or of one stroke becomes one annotation per piece; several strokes and text
   markup stay one annotation. The centre line of outlined ink is cut where the eraser crosses it and shortened by
   half the width; ink without outlines is cut by the swept area grown by half the width. An annotation is "the app's"
@@ -331,3 +331,16 @@ decided or approved it.
   the first drawer opening.
   No default quick tools: the drawer hints at dragging a tool onto the empty (dashed) slots, until one is filled.
   Colours and sizes are kept across restarts from T-b on (replaces "Not kept across app restarts").
+- 2026-10-13 · T-b: the pieces of the drawer as built. `DrawerTool` has eight tools (the two erasers are two tools
+  over one `AnnotateTool.ERASER` plus the `partialEraser` mode); `QuickSlots` holds the pins. "Hold still" opens the
+  bubble when the finger is **lifted** after the long-press time without moving; moving after the hold is the drag
+  (moving before it is neither, so the bar still scrolls). Dropping a quick tool on the other slot **swaps** the two
+  (plan said "replaces"; a swap loses nothing); a drop on the bar outside the slots leaves it. A tap on an empty
+  slot opens the drawer. The long press on the Tools button is swallowed. The fan is arcs around a point just
+  above the bar (beside the rail in landscape): items 64 dp, 72 dp apart along an arc, as many rings as needed
+  (`FanLayout`, pure); with the system's animations removed it only fades. The bubble is a `DropdownMenu` with
+  the tool's name, its colours and (pen, marker, partial eraser) sizes. The drawer and its scrim sit **under** the
+  bar. Kept in `ViewerToolPreferences` (DataStore `viewer_tool_prefs`): slots, "a tool was pinned once" (the hint
+  never returns), tutorial seen (Settings and About clear it), colours, sizes, eraser mode and size, last tool of
+  the text and drawing groups; applied once to `AnnotatePaneState` when read, without arming anything.
+

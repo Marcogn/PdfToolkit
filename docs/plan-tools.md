@@ -1,6 +1,6 @@
 # Tool drawer and partial eraser (T-a, T-b): plan
 
-Status on 2026-10-13: **planned**. Requested by the author on 2026-10-13, after testing 1.1.3 on a Galaxy
+Status on 2026-10-13: **T-a done; T-b written** (device checks pending). Requested by the author on 2026-10-13, after testing 1.1.3 on a Galaxy
 Tab S7+ (freehand now draws under the pen). Two inserted sub-phases, **T-a Partial eraser core** (Opus) and
 **T-b Tool drawer** (Sonnet), in that order, so the drawer is designed once with every tool in it. Code
 comments cite the items as "plan T-a", "plan T-b".
