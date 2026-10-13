@@ -129,8 +129,9 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   (translucent instead of blended). Annotations can't be restyled after adding: erase and redo.
 - **Drawing**: in the app a reopened drawing has an even width (other readers show the varying
   outline); the marker is translucent while drawing and blends with the text once lifted; double tap
-  doesn't zoom while drawing; in single-page mode pages don't turn while a brush is armed; only a stylus
+  doesn't zoom while drawing or with the eraser; in single-page mode pages don't turn while a brush is armed; only a stylus
   ignores a resting palm. The drawing library adds about 5 MB of native code to the APK.
+  The stroke under the pen is drawn by the app, not on a low-latency layer: about one frame behind the pen.
 - **Editing in the viewer** starts a moment after a document opens (its annotations are read first).
   After "save as copy" the viewer keeps showing the original with the changes on top ("Open" shows the
   copy). "Pages" asks to save or discard first. In landscape the rail covers the right edge of a page

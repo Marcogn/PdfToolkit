@@ -131,10 +131,12 @@ fun PdfViewport(
     /** A press and hold at [point] (page points) of document page [documentPage]: start a selection there. */
     onLongPress: (documentPage: Int, point: Offset) -> Unit = { _, _ -> },
     /**
-     * A single tap (after the double-tap timeout, so a double tap stays "zoom"): where it fell, or null
-     * off the pages. Full-screen reading (plan U20), the eraser (plan V-a).
+     * A single tap: where it fell, or null off the pages. Full-screen reading (plan U20), the eraser
+     * (plan V-a). With [doubleTapZoom] it comes after the double-tap timeout, so a double tap stays "zoom".
      */
     onTap: (PageTap?) -> Unit = {},
+    /** Double tap zooms; false makes [onTap] immediate (the eraser, where waiting out a double tap felt slow). */
+    doubleTapZoom: Boolean = true,
     /** The finger that was selecting text lifted (after a long press, or after dragging a handle). */
     onSelectionReleased: () -> Unit = {},
     /** The bar that floats by the selection (Copy, Highlight; plan U21); null for none. */
@@ -164,7 +166,7 @@ fun PdfViewport(
     val currentOnSelectionReleased by rememberUpdatedState(onSelectionReleased)
     val currentOnTap by rememberUpdatedState(onTap)
     val freehandGrab = remember { FreehandGrab() }
-    // Pointer → stroke space (document points), set as each stroke starts; the page the stroke starts on, for the mask.
+    // Pointer → stroke space (document points), set as each stroke starts; the page the stroke starts on, which clips it.
     val pointerToStroke = remember { Matrix() }
     var strokePage by remember { mutableIntStateOf(0) }
 
@@ -208,13 +210,13 @@ fun PdfViewport(
         modifier
             .clipToBounds()
             .onSizeChanged { state.setContent(pageSizes, it.toSize(), gapPx) }
-            .pointerInput(state) {
+            .pointerInput(state, doubleTapZoom) {
                 detectTapGestures(
                     onTap = { tap ->
                         val mapper = state.mapper
                         currentOnTap(mapper?.hitTest(tap)?.let { PageTap(pageIndexOffset + it.pageIndex, it.point, mapper.screenPxPerPoint) })
                     },
-                    onDoubleTap = { tap -> state.launchAnimation(scope) { state.animateDoubleTap(tap) } },
+                    onDoubleTap = if (doubleTapZoom) ({ tap -> state.launchAnimation(scope) { state.animateDoubleTap(tap) } }) else null,
                 )
             }
             .pointerInput(state, drawing != null) {
@@ -367,7 +369,7 @@ fun PdfViewport(
             color = drawing.color,
             width = drawing.width,
             pointerToStroke = pointerToStroke,
-            maskPage = strokePage,
+            clipPage = strokePage,
             onStroke = { local, stroke -> drawing.onStroke(pageIndexOffset + local, stroke) },
         )
     }

@@ -654,6 +654,8 @@ fun ReadyViewer(
         if (searchOpen) immersive = false
     }
     ImmersiveMode(immersive)
+    // The eraser acts on the tap at once, without waiting to see whether it is a double tap (zoom).
+    val doubleTapZoom = armedTool != AnnotateTool.ERASER
     val onTap: (PageTap?) -> Unit = { tap ->
         when {
             selection.isActive -> selection.clear()
@@ -847,8 +849,8 @@ fun ReadyViewer(
                 modifier = Modifier.fillMaxSize(),
             ) { mode ->
                 when (mode) {
-                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, pageSelectionBar, onSelectionReleased, drawing, viewportFill, reportPage)
-                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, pageSelectionBar, onSelectionReleased, drawing, viewportFill, reportPage)
+                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, doubleTapZoom, pageSelectionBar, onSelectionReleased, drawing, viewportFill, reportPage)
+                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, doubleTapZoom, pageSelectionBar, onSelectionReleased, drawing, viewportFill, reportPage)
                 }
             }
 
@@ -1193,6 +1195,7 @@ private fun ContinuousPages(
     selection: TextSelectionState?,
     onLongPress: (Int, Offset) -> Unit,
     onTap: (PageTap?) -> Unit,
+    doubleTapZoom: Boolean,
     selectionBar: (@Composable () -> Unit)?,
     onSelectionReleased: () -> Unit,
     drawing: ViewportDrawing?,
@@ -1222,6 +1225,7 @@ private fun ContinuousPages(
         selection = selection,
         onLongPress = onLongPress,
         onTap = onTap,
+        doubleTapZoom = doubleTapZoom,
         selectionBar = selectionBar,
         onSelectionReleased = onSelectionReleased,
         drawing = drawing,
@@ -1247,6 +1251,7 @@ private fun SinglePages(
     selection: TextSelectionState?,
     onLongPress: (Int, Offset) -> Unit,
     onTap: (PageTap?) -> Unit,
+    doubleTapZoom: Boolean,
     selectionBar: (@Composable () -> Unit)?,
     onSelectionReleased: () -> Unit,
     drawing: ViewportDrawing?,
@@ -1297,6 +1302,7 @@ private fun SinglePages(
             selection = selection,
             onLongPress = onLongPress,
             onTap = onTap,
+            doubleTapZoom = doubleTapZoom,
             selectionBar = selectionBar,
             onSelectionReleased = onSelectionReleased,
             // One ink layer at a time (the library's advice): only on the page that is shown.
