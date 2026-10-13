@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-13
+
 - **Tool drawer.** The viewer's bar now has fixed places that never move: **Tools**, two **quick slots**, Undo,
   Redo and Pages. Tools opens a fan of every tool (highlight, underline, strikeout, pen, marker, stroke eraser,
   partial eraser, fill and sign, and "Read" to put the tool down). Tap a tool to use it; hold it still for a

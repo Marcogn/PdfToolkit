@@ -18,8 +18,8 @@ android {
         applicationId = "com.marcogn.pdftoolkit"
         minSdk = 26
         targetSdk = 37
-        versionCode = 6
-        versionName = "1.1.3"
+        versionCode = 7
+        versionName = "1.2.0"
 
         // Plan A: the GitHub repository whose latest release is this app's update source
         // (data/update/GitHubReleaseClient).
