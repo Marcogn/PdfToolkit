@@ -1,6 +1,7 @@
 # In-app updates and About: plan
 
-Status on 2026-10-12: **written**, device checks pending (PR #35). Requested by the author on 2026-10-11 for all
+Status on 2026-10-13: **done** (PR #35, released in 1.1.3); device checks counted as done by the author, more
+test rounds to come (list in "Device checks as built" below). Requested by the author on 2026-10-11 for all
 six of their apps. One inserted sub-phase, **A Updates and About** (Sonnet for the port; the author switched to
 Opus for the network audit and the telemetry decision), placed **after 10b and before 11** (author's choice).
 
@@ -76,10 +77,7 @@ shared design, the facts checked before planning and their sources are in the pi
 - lint (0 errors), unit tests, `assembleDebug` and `assembleRelease` green; CI green; packaged release
   manifest checked by hand for the two new permissions and nothing else new.
 
-**Device checks:** install an older signed release, start → dialog → download → "install unknown
-apps" the first time → system installer → the app reopens on the new version; airplane mode at
-startup (nothing shown, no crash); "Never" (no prompt, "Check now" works); open document and a save
-in progress when the dialog appears; About texts in both languages; the network audit above.
+**Device checks:** see "Device checks as built" below.
 
 **Out of scope:** silent install, pre-releases, background checks, any other network feature (phase
 12 stays as planned).
@@ -90,14 +88,26 @@ Where the pilot and this plan differed the author chose (`docs/decisions.md`, "U
 preferences on DataStore (plan); one dialog host above the nav graph (pilot), with Install waiting for
 background saves and recognitions (new here); version without version code and the pilot's credits line.
 The network audit found ML Kit's telemetry (datatransport `cct`): turned off in the manifest (ADR 0006),
-with `TelemetryOffTest`; the traffic capture on a device is still a device check.
+with `TelemetryOffTest`; the traffic capture on a device is a device check.
+
+## Device checks as built
+
+Release builds only (debug never checks, and a debug build can't install a release APK). Install an older
+signed release (e.g. 1.1.1) after a newer one is published: start → dialog with the headlines and "Full
+changelog" → Download → progress, Cancel once → Download → "Ready to install" → "install unknown apps" the
+first time → system installer → the app reopens on the new version. Start a save (or an OCR) and open the
+ready dialog meanwhile: "Install after saving", disabled, enabled when it ends. With the system confirmation on
+screen, go back to the app and start a save: the confirmation must no longer install (session abandoned), the
+dialog is back at "Ready to install". Close the "Installing" dialog, then confirm from Recents: nothing installs. Airplane mode at startup: nothing
+shown, no crash; "Check for updates" in About says no connection. "Never": no prompt at startup, "Check for
+updates" still works. About and Settings → Updates in Italian and English. **Network audit**: PCAPdroid (or
+similar) on the release build during a scan, an OCR from the scan and an OCR from the viewer, plus a startup
+check: only `api.github.com` and GitHub's download hosts for the app's UID (the scanner's traffic belongs to
+Google Play services); OCR still works with the telemetry off.
 
 ## Open questions
 
-- Release numbering: plan-v2 proposed **2.0** as "the first build with `INTERNET`"; with this
-  sub-phase after 10b that would be the build with scan + OCR + updates. To confirm with the author.
-- ~~The result of the network audit~~: telemetry turned off (ADR 0006); capture on a device pending.
-- Disclaimer and Privacy wording: proposed above, to confirm in the PR.
+- The traffic capture on a device (network audit above): no result reported yet.
 
 ## Risks
 

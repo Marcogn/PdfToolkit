@@ -22,7 +22,7 @@ two save UIs.
 | Sub-phase | Model | What it did | Status |
 |---|---|---|---|
 | V-a Viewer editing core | Opus | Page-fixed `ViewerEditSession`; pending edits drawn in `PdfViewport`; markup, freehand on any page of the viewport (document points), eraser; save from the viewer; back guard; ADR 0005 | Done, device checks passed 2026-10-08 |
-| V-b Viewer tools UI | Sonnet | `ViewerToolBar` (bar / landscape rail): Highlight, Draw, Eraser, Fill, Pages; Style; "Pages" with save-first; FAB, hub and Annotate pane removed; Home Highlight/Draw open the viewer armed; markup applied on release with Undo | Done, device checks passed 2026-10-08 |
+| V-b Viewer tools UI (bar replaced in T-b, `docs/plan-tools.md`) | Sonnet | `ViewerToolBar` (bar / landscape rail): Highlight, Draw, Eraser, Fill, Pages; Style; "Pages" with save-first; FAB, hub and Annotate pane removed; Home Highlight/Draw open the viewer armed; markup applied on release with Undo | Done, device checks passed 2026-10-08 |
 | V-c Fill and sign in the viewer | Opus | Overlays and form controls in the viewport (continuous and single page, any zoom); overlay gestures vs scroll; corner handle; signature shortcut; date; "make final" in the viewer's save dialog; Fill pane removed; Home "Fill and sign" opens the viewer armed | Done, device checks passed 2026-10-08 |
 
 ## Open points settled

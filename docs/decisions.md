@@ -20,8 +20,9 @@ decided or approved it.
   the app and wasn't minified. "Build APK" (signed release, R8) is the APK for device checks. The
   workflows now come from the kit (see 2026-10-09), with the per-project values in the callers.
 - 2026-10-04 · Product phase 2 is numbered as development phases 7–12, so "phase 2" keeps meaning the
-  edit session. Order (author): highlight and draw, then scan, then OCR, ODF, cloud last (it brings
-  `INTERNET`). Usability (U-a, U-b) and viewer editing (V-a, V-b, V-c) were inserted before 9.
+  edit session. Order (author): highlight and draw, then scan, then OCR, ODF, cloud last. Inserted series:
+  usability (U-a, U-b) and viewer editing (V-a…V-c) before 9, updates (A) after 10b, partial eraser and tool
+  drawer (T-a, T-b) before 11.
 - 2026-10-08 · Claude Code setup shared by the author's Android projects (author): skills, a reviewer
   agent, a SessionStart hook that installs the Android SDK in cloud sessions, `@claude` and review
   workflows on the Claude subscription, Dependabot (`docs/claude.md`). The `.claude/` files are
@@ -38,25 +39,22 @@ decided or approved it.
 - 2026-10-09 · GitHub issues only for bugs and ideas, not for the plan (author): the plan stays in the
   docs, the single source Claude reads. `/next-phase` offers open `bug` issues, `/close-phase` closes
   fixed ones with `Fixes #n`. No epics or Projects board for now.
-- 2026-10-09 · Kit updated to 85b2e8a (from 76ea010): adds the `new-plan` skill, `release-build-args` input
-  (left empty here), `/next-phase` also takes issues assigned by a plan. Kept locally: the extra
-  `Read(./local.properties)` deny in `.claude/settings.json` (`INTERNET` was a forbidden permission here until A,
-  ADR 0006).
-- 2026-10-09 · Kit updated to 425e232: `architecture-reviewer` always runs on Opus (nothing adapted).
+- 2026-10-09 · Kit at 425e232 (`.claude/kit-version`). Kept locally on top of it: the extra
+  `Read(./local.properties)` deny in `.claude/settings.json`; `release-build-args` left empty.
 - 2026-10-08 · No detekt for now: only 2.0.0 supports Kotlin 2.4 with AGP 9 built-in Kotlin, and it is
   still alpha (stable versions only). Revisit at 2.0.0 stable.
 - 2026-10-03 · `CloudTarget` (spec §7.3) is a minimal interface (`displayName`, `suspend upload(...)`):
   the spec names it without a shape and nothing uses it yet.
-- 2026-10-11 · In-app updates and About planned (`docs/plan-updates.md`, author): one inserted sub-phase
-  **A** after 10b, before 11, porting ThePatientGamerHelper's update package (the pilot for all six apps)
-  instead of designing one here. Updates from this repository's GitHub Releases at startup only, frequency
-  Never / Every start / Daily / Weekly (default Weekly), "Not now" only closes, the dialog shows the
-  Release body; install through `PackageInstaller` with the system confirmation.
+
+## Updates and About (plan A, ADR 0006)
+
+- 2026-10-11 · ThePatientGamerHelper's update package is ported (the pilot for all six apps) instead of designing
+  one here (author). Updates from this repository's GitHub Releases at startup only, frequency Never / Every
+  start / Daily / Weekly (default Weekly), "Not now" only closes, the dialog shows the Release body; install
+  through `PackageInstaller` with the system confirmation.
 - 2026-10-11 · `INTERNET` comes in with sub-phase A, for the update check only (author), ahead of phase 12:
   amends the product phase 1 rule, the CI `forbidden-permissions` check (now empty) and the README/About
   privacy text (ADR 0006).
-
-## Updates and About (plan A, ADR 0006)
 
 - 2026-10-12 · Ported from ThePatientGamerHelper at 95f0b97 (release 1.1.2): `domain/update`, `data/update`,
   `ui/update`, `ui/about` and their tests. The pilot's fixes after its plan apply here: no version code in
@@ -191,8 +189,6 @@ decided or approved it.
 - 2026-10-09 · Pages are rendered with `PdfRenderer` at 200 dpi (body text gets the 16–24 px per character
   ML Kit asks for), at most 3000 px on the long side; one bitmap at a time. A page with any non-blank
   character (visible or not, e.g. an earlier OCR) is not recognised again.
-- 2026-10-09 · Until 10b, Home "Scan" ran OCR on the staged scan before the save picker, with a progress
-  dialog and no cancel (author: temporary entry point for the 10a device check). Replaced in 10b (below).
 - 2026-10-11 · Recognition runs as `OcrWorker` (WorkManager, expedited, `dataSync` foreground like the save, plan
   10b, ADR 0003): the request is a JSON file, the source is copied to `cacheDir/work/`, `OcrProcessor` writes the
   result there, and only a finished file is copied over the destination ("wt"). The destination is untouched
@@ -276,22 +272,17 @@ decided or approved it.
 - 2026-10-07 · The stylus draws only with Pen/Marker armed; with the markup tools it selects like a
   finger (author).
 - 2026-10-07 · Pen colours black, red, blue, green, orange; marker colours = highlight palette. Sizes
-  1/2/4/6 pt (pen), 8/12/18/26 pt (marker). Not kept across app restarts (kept from T-b on).
-- 2026-10-13 · Planned (plan T, `docs/plan-tools.md`, author): a partial eraser that removes only what the
-  finger passes over, on pen/marker strokes (also other apps' Ink) and on text markup; the cut pieces become
-  new annotations, one undo step per gesture. Geometry in `pdf/annotations`, without Android's `Path.op`.
-  Sizes = the pen's, default 2 pt. Cutting another app's annotation is allowed, with a one-time notice per
-  document. T-a and T-b come before 11.
+  1/2/4/6 pt (pen), 8/12/18/26 pt (marker). Kept across restarts since T-b (UI and usability, T-b).
+- 2026-10-13 · Partial eraser (plan T-a, `docs/plan-tools.md`, author): removes only what the finger passes over,
+  on pen/marker strokes (also other apps' Ink) and on text markup; the cut pieces become new annotations, one
+  undo step per gesture. Geometry in `pdf/annotations`, without Android's `Path.op`. Sizes = the pen's, default
+  2 pt. Cutting another app's annotation is allowed, with a one-time notice.
 - 2026-10-13 · T-a: polygon clipping with Clipper2-java 2.0.1b from JitPack, the repository limited to its group
-  (author, ADR 0004 "Partial eraser"); integer coordinates in hundredths of a point. Until T-b the partial eraser is
-  the Eraser's Style menu ("Whole annotations" / "Only where you pass", whole by default) with the pen's sizes,
-  not kept across restarts (replaced by T-b: two drawer tools, the size in the bubble, kept).
+  (author, ADR 0004 "Partial eraser"); integer coordinates in hundredths of a point.
 - 2026-10-13 · T-a: Ink with outlines or of one stroke becomes one annotation per piece; several strokes and text
   markup stay one annotation. The centre line of outlined ink is cut where the eraser crosses it and shortened by
   half the width; ink without outlines is cut by the swept area grown by half the width. An annotation is "the app's"
   when its `/NM` is an app id ("a" + 8 hex digits); others get the one-time notice (once per viewer session).
-- 2026-10-13 · T-a prerequisites: the author counts the 10b and A device checks as done for starting T-a (more
-  test rounds will follow).
 
 ## Editing in the viewer (ADR 0005)
 
@@ -316,21 +307,20 @@ decided or approved it.
 
 - 2026-10-01 · "Coming up" tools on Home with a "Soon" badge; a tap shows a snackbar.
 - 2026-10-03 · No in-app "reduce motion" switch: the system setting is followed (spec §9).
-- 2026-10-07 · Hints are transient messages over the page (4.5 s), not rows; style (colour, size) is one
-  menu button; in landscape the tool strip is a rail; touch targets at least 48 dp (U7, U18, U19).
+- 2026-10-07 · Hints are transient messages over the page (4.5 s), not rows; in landscape the tool strip is a
+  rail; touch targets at least 48 dp (U7, U18, U19). Colour and size are in each tool's bubble (T-b).
 - 2026-10-07 · A tap on the page toggles full screen, unless it clears a selection (U20). The bars float
   over the page, which never resizes (it flickered when it did).
 - 2026-10-01 · Icon in `mipmap-anydpi-v26/`: lint reports `ObsoleteSdkInt`, but aapt2 didn't find the
   icon in `mipmap-anydpi/`.
 - 2026-10-01 · Robolectric Compose tests set the Italian locale explicitly (`@Config(qualifiers = "it-...")`).
-- 2026-10-13 · Planned (plan T-b, author): the viewer's bar gets fixed places (Tools drawer, two quick slots
+- 2026-10-13 · Tool drawer (plan T-b, author): the viewer's bar has fixed places (Tools drawer, two quick slots
   the user pins, Undo, Redo, Pages) so nothing moves when a tool is armed; the freehand highlighter (Marker)
-  becomes a tool of its own. Touches (revised the same day): drawer button tap opens a fan-shaped drawer, long
-  press nothing; in the drawer tap = use, hold still = colour/size bubble, hold and move = drag to a quick
-  slot; quick slot tap = use, tap on the armed one = bubble; Back or "Leggi" puts the tool down; a tutorial on
-  the first drawer opening.
-  No default quick tools: the drawer hints at dragging a tool onto the empty (dashed) slots, until one is filled.
-  Colours and sizes are kept across restarts from T-b on (replaces "Not kept across app restarts").
+  is a tool of its own. Touches: drawer button tap opens a fan-shaped drawer, long press nothing; in the drawer
+  tap = use, hold still = colour/size bubble, hold and move = drag to a quick slot; quick slot tap = use, tap on
+  the armed one = bubble; Back or "Leggi" puts the tool down; a tutorial on the first drawer opening. No
+  default quick tools: the drawer hints at dragging a tool onto the empty (dashed) slots, until one is filled.
+  Colours and sizes are kept across restarts.
 - 2026-10-13 · T-b: the pieces of the drawer as built. `DrawerTool` has eight tools (the two erasers are two tools
   over one `AnnotateTool.ERASER` plus the `partialEraser` mode); `QuickSlots` holds the pins. "Hold still" opens the
   bubble when the finger is **lifted** after the long-press time without moving; moving after the hold is the drag

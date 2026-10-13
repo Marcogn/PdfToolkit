@@ -128,7 +128,7 @@ detector stands down through `FreehandGrab.active`, as with `SelectionGrab`.
 
 ## Partial eraser (plan T-a, 2026-10-13)
 
-**What it does.** With the eraser in "Partial" mode, one finger or a stylus drags an eraser of the pen's sizes
+**What it does.** With the Partial eraser tool (a mode of the eraser until T-b), one finger or a stylus drags an eraser of the pen's sizes
 (1, 2, 4, 6 pt across, 2 pt at first) over the page; only what it passes over goes, on Ink (the app's strokes
 and other apps') and text markup. A tap takes a dot. A second finger cancels the drag and zooms and pans, as for
 freehand. The cut is computed while dragging (`PartialEraseStroke`, move by move) and drawn in place of the

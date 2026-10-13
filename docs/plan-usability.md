@@ -16,7 +16,7 @@ page tools into the viewer, which replaced some of what is below (marked "→ V"
 | U4 | Rotate hidden in "Remove"; remove and reorder separate | One "Organize pages" tool: select, rotate, delete, drag handle, Add (spec §4.1 deviation) |
 | U5 | Highlighting from the viewer meant selecting twice | Highlight next to Copy → V: marks in place |
 | U6 | Overwrite asked twice | The save dialog's "Overwrite" button is the confirmation |
-| U7 | Annotate chrome took the page | Transient hints over the page, one Style button |
+| U7 | Annotate chrome took the page | Transient hints over the page, one Style button (→ T-b: a bubble per tool, `docs/plan-tools.md`) |
 | U8 | Signature picker even with 0 or 1 signatures | 0 → create, 1 → armed, many → picker; long press → picker; reminder in "My signatures" |
 | U9 | Home tools that pick twice explained it every time | Gone with U4 |
 | U10 | Misleading hint in Fill and sign | Fixed text |

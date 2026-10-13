@@ -1,6 +1,7 @@
 # Alignment with the reference projects and dependency upgrade
 
-Written in phase 0 (2026-10-01) after reading the two reference projects locally:
+Written in phase 0 (2026-10-01) after reading the two reference projects locally; the rows say what was set up
+then, with later changes noted (current versions: `gradle/libs.versions.toml`):
 [ThePatientGamerHelper](https://github.com/Marcogn/ThePatientGamerHelper) (TPGH) and
 [KartLog](https://github.com/Marcogn/KartLog). KartLog is itself aligned with TPGH and is the more
 recent of the two: where they differ, the table says which one was followed and why. Where the
@@ -14,7 +15,7 @@ specification (`docs/spec.md`) explicitly asks for something different, the spec
 | Gradle root | `settings.gradle.kts` with `FAIL_ON_PROJECT_REPOS`, `google()` + `mavenCentral()`; root `build.gradle.kts` with plugins `apply false` only (same in both) | Same, `rootProject.name = "PdfToolkit"`. No `kotlin-android` plugin: AGP 9 compiles Kotlin itself (see "Dependency upgrade") |
 | Gradle wrapper | Gradle 8.13 | Gradle 9.8.0, with `distributionSha256Sum` so the wrapper verifies the download |
 | `gradle.properties` | Same in both | Copied |
-| Version catalog | `gradle/libs.versions.toml` (same structure in both) | Same structure, latest stable versions (see "Dependency upgrade"). Libraries used only by the references are left out (WorkManager, Credential Manager, Play Services, Coil, Palette). Room became a dependency in phase 1b (`RecentDocument`) |
+| Version catalog | `gradle/libs.versions.toml` (same structure in both) | Same structure, latest stable versions (see "Dependency upgrade"). Libraries used only by the references were left out (Credential Manager, Coil, Palette). Later additions came with their phase: Room (1b), WorkManager (2, ADR 0003), Play services ML Kit (9) |
 | Toolchain | `compileSdk`/`targetSdk` 36, `minSdk` 26, Java/Kotlin 17 | `compileSdk`/`targetSdk` 37, the highest API level supported by AGP 9.4 (spec §3.3). `minSdk` 26 (spec: as the reference, not below 26). Java/Kotlin bytecode 17 |
 | Signing | `signingConfigs.release` from the environment variables `RELEASE_KEYSTORE_PATH`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`; release left unsigned when missing | Same, same names. Dedicated keystore for this app, like TPGH (RSA 2048, 10,000 days, alias = app name), never committed |
 | Build types | `release` with `isMinifyEnabled = false` | R8 and resource shrinking on since phase 6; PdfBox-Android ships its own consumer rules, `proguard-rules.pro` only silences the optional JPEG 2000 decoder |
@@ -28,11 +29,8 @@ specification (`docs/spec.md`) explicitly asks for something different, the spec
 | Palette | TPGH: Compose's default purple palette + dynamic colour. KartLog: custom bright palette | Own petrol blue palette with amber accent (spec §9, **[ASSUMPTION]**, approved by the author), isolated in `ui/theme/Color.kt` |
 | Language | `values/` Italian + `values-en/`, `locales_config.xml`, `AppLanguage` + `setApplicationLocales()`, `autoStoreLocales` in the manifest, `MainActivity : AppCompatActivity`, AppCompat XML theme | Same |
 | Icon | Adaptive icon with a raster foreground | Vector adaptive icon (sheet with folded corner and a pen) with `monochrome` for Android 13+ (spec §9 asks for it, the references don't have it) |
-| CI | `android-ci.yml`: lint, tests, assembleDebug on push/PR to `main`; KartLog also uploads the debug APK | Generic and verification-only: lint, tests, R8 release build, check that the packaged manifest has no `INTERNET`; no APK (`docs/ci.md`) |
-| Build APK | `build-apk.yml`: manual, keystore from a base64 secret, `assembleRelease` | Copied from KartLog (without TPGH's `signingReport` step, which was there for Google OAuth). Phase 6: secrets check, signature check, `mapping.txt` upload, generic |
-| Release | `release.yml`: manual with a `version` input, cuts CHANGELOG and version, signed build, publishes the release, then commits the bump to `main` | Copied from KartLog. Phase 6: generic (asset name and title from the repository name), secrets check, signature check, `mapping.txt` attached to the release |
-| Actions cleanup | KartLog only: manual `cleanup-runs.yml` | Copied, translated to English |
-| Dependabot | TPGH only; KartLog removed it on purpose | Not included, like KartLog |
+| CI, Build APK, Release, cleanup | `android-ci.yml`, `build-apk.yml`, `release.yml`, KartLog's `cleanup-runs.yml` | First copied from KartLog and made generic; since 2026-10-09 short callers of the reusable workflows in the kit ([claude-skill-android-kit](https://github.com/Marcogn/claude-skill-android-kit), `docs/ci.md`). CI is verification-only, no APK |
+| Dependabot | TPGH only; KartLog removed it on purpose | Left out at first, like KartLog; added with the Claude Code setup (2026-10-08, `docs/claude.md`) |
 | `.gitignore` | Standard Android + keystores and credentials | Like KartLog, without its seed/Python entries |
 | Robolectric | `sdk=34` in `robolectric.properties` (CI runs on JDK 17) | Same |
 | Docs language | TPGH in English, KartLog in Italian | **English** for all documentation and code comments (author's decision). App UI stays Italian with English translation |
@@ -42,12 +40,12 @@ specification (`docs/spec.md`) explicitly asks for something different, the spec
 
 ## Not from the references
 
-- No `INTERNET` permission (spec §1): the manifest has `tools:node="remove"` and CI checks the
-  packaged manifest. Both references declare it.
+- No `INTERNET` permission in product phase 1 (spec §1); since sub-phase A (1.1.3) it is declared for the
+  update check only (ADR 0006).
 - Backup rules: `data_extraction_rules.xml` and `backup_rules.xml` exclude `filesDir/signatures/`
   (spec §6.5) and the recents database.
 
-## Dependency upgrade (2026-10-01)
+## Dependency upgrade (2026-10-01, a record: Dependabot keeps versions current since 2026-10-08)
 
 The reference projects pin versions from late 2024. At the author's request PdfToolkit moves to
 the latest stable versions, and the same upgrade will later be applied to TPGH and KartLog, so the
@@ -129,8 +127,6 @@ From the official release notes (checked on 2026-10-01):
 - Lint `ObsoleteSdkInt`: with `minSdk` 26 the icon could live in `mipmap-anydpi/` instead of
   `mipmap-anydpi-v26/`, but after moving it aapt2 no longer found `@mipmap/ic_launcher`. Left as
   in the references.
-- The manifest merger warns that `tools:node="remove"` on `INTERNET` has nothing to remove.
-  Expected: it is a safeguard.
 
 ## Notes
 

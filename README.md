@@ -72,17 +72,18 @@ GitHub once the `CLAUDE_CODE_OAUTH_TOKEN` secret is set ([`docs/claude.md`](docs
 
 ```
 app/src/main/java/com/marcogn/pdftoolkit/
-  ui/        Compose screens (viewer and page tools in ui/viewer), navigation, theme
-  domain/    models with no Android dependencies (edit session, fill, annotations)
-  data/      preferences (DataStore), recents and signatures (Room), background save, picked images
-  pdf/       rendering, editing (PdfBox), forms, text and search, annotations
+  ui/        Compose screens (viewer, page tools and tool drawer in ui/viewer), scan, OCR, updates, navigation, theme
+  domain/    models with no Android dependencies (edit session, fill, annotations, tools, updates)
+  data/      preferences (DataStore), recents and signatures (Room), background save and OCR (WorkManager),
+             update check and install
+  pdf/       rendering, editing (PdfBox), forms, text and search, annotations and partial eraser, OCR
   di/        Hilt modules
 docs/        specification, plans, decisions, ADRs, CI
 ```
 
 ## Privacy
 
-Files stay on the phone, and text recognition runs on the phone too. Since sub-phase A the app declares
+Files stay on the phone, and text recognition runs on the phone too. Since version 1.1.3 the app declares
 `INTERNET` for one thing: the update check on GitHub (`api.github.com`) and the download of the new APK
 (turn the check off with "Never" in Settings). ML Kit's usage statistics, which its libraries would send to
 Google, are turned off in the manifest ([ADR 0006](docs/adr/0006-internet-for-updates.md); a unit test
@@ -153,9 +154,11 @@ Clipper2), under the Boost Software License 1.0.
 - [`docs/spec.md`](docs/spec.md): specification (Italian), with notes where the app deviates from it
 - [`docs/decisions.md`](docs/decisions.md): decisions in force, by topic; [`docs/adr/`](docs/adr/): the big ones
 - [`docs/plan-v2.md`](docs/plan-v2.md): plan of product phase 2 (scan, OCR, ODF, cloud)
-- [`docs/plan-usability.md`](docs/plan-usability.md), [`docs/plan-viewer-editing.md`](docs/plan-viewer-editing.md):
-  records of the usability review and of moving the page tools into the viewer
-- [`docs/plan.md`](docs/plan.md): what comes from the reference projects, and how dependencies were upgraded
+- Records of the inserted series: [`docs/plan-usability.md`](docs/plan-usability.md) (usability review),
+  [`docs/plan-viewer-editing.md`](docs/plan-viewer-editing.md) (page tools in the viewer),
+  [`docs/plan-updates.md`](docs/plan-updates.md) (in-app updates and About),
+  [`docs/plan-tools.md`](docs/plan-tools.md) (partial eraser and tool drawer)
+- [`docs/plan.md`](docs/plan.md): what comes from the reference projects, and how the toolchain was upgraded
 - [`docs/ci.md`](docs/ci.md): CI and releases
 - [`docs/claude.md`](docs/claude.md): how the repository is set up for Claude Code (skills, agent,
   hooks, GitHub workflows) and how to reuse that setup in another project

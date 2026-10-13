@@ -135,11 +135,13 @@ Struttura come KartLog: griglia di pulsanti quadrati grandi.
   - Le mie firme
 - Gli strumenti di Fase 2 compaiono già, **disabilitati** con etichetta "Presto": Scansiona, Carica su cloud, Evidenzia, Disegna, Esporta in ODF. Tap → snackbar breve, nessuna navigazione.
 
+> **Nota (2026-10-13):** Scansiona, Evidenzia e Disegna sono attivi (sotto-fasi 7a–9); restano "Presto" Carica su cloud ed Esporta in ODF. Rimuovi, Riordina, Aggiungi pagine e Inserisci immagini sono uno strumento unico, «Organizza pagine» (U4).
+
 Tap su uno strumento senza documento aperto: si apre il selettore PDF e, scelto il file, si va **direttamente allo strumento**, non al viewer.
 
 ### 4.2 Viewer
 
-> **Nota (2026-10-08):** evidenziare, disegnare, cancellare e compilare e firmare avvengono nel viewer, sulla pagina in lettura, da una barra strumenti (Evidenzia, Disegna, Gomma, Compila, Pagine) con salvataggio proprio (ADR 0005, `docs/plan-viewer-editing.md`). "Pagine" apre la schermata di modifica (organizza, aggiungi, unisci).
+> **Nota (2026-10-08, aggiornata 2026-10-13):** evidenziare, disegnare, cancellare e compilare e firmare avvengono nel viewer, sulla pagina in lettura, con salvataggio proprio (ADR 0005, `docs/plan-viewer-editing.md`). Dalla T-b la barra ha posti fissi: Strumenti (cassetto a ventaglio con tutti gli strumenti), due slot rapidi, Annulla, Ripeti, Pagine (`docs/plan-tools.md`). "Pagine" apre la schermata di modifica (organizza, aggiungi, unisci).
 
 - Top bar: nome file (ellissi al centro se lungo), indicatore "pagina X di N", icona **Cerca** (§5.1), menu con: modalità di scorrimento, vai a pagina, condividi, informazioni documento.
 - **Modalità continua** (default): scorrimento verticale di tutte le pagine.
@@ -190,7 +192,7 @@ Criterio di prestazione: apertura di un PDF di 200 pagine e prima pagina visibil
 - Chiudere la ricerca (indietro o X) rimuove le evidenziazioni.
 
 **Limiti da gestire**
-- PDF scansionati (solo immagini): nessun testo da cercare. Se l'indice è vuoto, messaggio esplicito: "Questo documento non contiene testo ricercabile. Potrebbe essere una scansione." L'OCR della Fase 2 risolverà questo caso.
+- PDF scansionati (solo immagini): nessun testo da cercare. Se l'indice è vuoto, messaggio esplicito: "Questo documento non contiene testo ricercabile. Potrebbe essere una scansione." L'OCR della Fase 2 risolverà questo caso. *(Fatto in 10b: il messaggio offre "Riconosci testo".)*
 - Pagine ruotate e testo con trasformazioni: verificare il sistema di coordinate di `TextPosition` e coprire con test la conversione verso lo schermo tramite `PageCoordinateMapper`, incluse pagine ruotate di 90° e 180°.
 - L'ordine di estrazione di PdfBox può non coincidere con l'ordine di lettura (colonne, tabelle). È accettabile: va scritto nei limiti noti del README.
 - Ricerca disponibile solo nel viewer. Nelle schermate di modifica no.
@@ -323,6 +325,8 @@ Al termine di qualsiasi modifica:
 ---
 
 ## 7. Fase 2 (pianificata, non implementare)
+
+> **Nota (2026-10-13):** la Fase 2 è in corso secondo `docs/plan-v2.md`: §7.1, §7.2 e §7.4 sono implementati (1.1.0–1.2.0); restano §7.5 (11) e §7.3 (12).
 
 Nel codice di Fase 1 servono solo: le voci disabilitate in Home/Hub e le interfacce già pronte dove indicato. Niente dipendenze di Fase 2 nel progetto.
 

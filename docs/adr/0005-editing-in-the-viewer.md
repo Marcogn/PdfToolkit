@@ -1,6 +1,7 @@
 # ADR 0005 — Editing in the viewer: a page-fixed session drawn over the saved file
 
-Date: 2026-10-08. Status: accepted. Amends ADR 0003 ("one edit screen on one session").
+Date: 2026-10-08. Status: accepted; the V-b tools bar is superseded by T-b (below). Amends ADR 0003 ("one edit
+screen on one session").
 
 ## Context
 
@@ -20,7 +21,8 @@ session's. Since the pages are the file's, the viewer keeps rendering the file a
 draws what is pending on top: `AnnotationLayer.of(document, edits)` is the file's annotations minus
 the removed ones plus the added ones, drawn by `PdfViewport` (clipped to each page). Organizing pages
 stays in `EditScreen`, which works on the saved file; the two sessions are never open on the same
-unsaved changes: "Pages" and "Fill" in the viewer's tools bar ask to save (or discard) first (V-b).
+unsaved changes: "Pages" in the viewer's tools bar asks to save (or discard) first (V-b; Fill joined the
+viewer session in V-c).
 
 **Editing waits for the annotations.** The page tools need every page's user space (`PageBox`), which
 `AnnotationReader` reads with the annotations; the tools are available once the read succeeds and has a
