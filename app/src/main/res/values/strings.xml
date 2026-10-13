@@ -335,6 +335,10 @@
     <string name="annotate_hint_select">Tieni premuto su una parola e, senza staccare il dito, trascina per estendere: al rilascio viene applicato</string>
     <string name="annotate_style">Stile</string>
     <string name="annotate_hint_erase">Tocca un\'annotazione per rimuoverla</string>
+    <string name="annotate_hint_erase_partial">Passa il dito dove vuoi cancellare: va via solo quello che tocchi. Con due dita sposti e ingrandisci</string>
+    <string name="annotate_eraser_whole">Cancella annotazioni intere</string>
+    <string name="annotate_eraser_partial">Cancella solo dove passi</string>
+    <string name="annotate_eraser_foreign">Questa annotazione è stata creata da un\'altra app: i pezzi rimasti saranno salvati come annotazioni di PdfToolkit, senza autore e date originali</string>
     <string name="annotate_hint_draw">Disegna con un dito o con la penna; con due dita sposti e ingrandisci. Colore e spessore: pulsante Stile</string>
     <string name="annotate_load_failed">Impossibile leggere le annotazioni del documento</string>
     <string name="color_yellow">Giallo</string>

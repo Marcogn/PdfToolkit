@@ -73,9 +73,28 @@ class AnnotateToolsTest {
     }
 
     @Test
-    fun `the eraser has no style`() {
-        setStyle(AnnotatePaneState(tool = AnnotateTool.ERASER))
-        composeRule.onNodeWithText("Stile").assertDoesNotExist()
+    fun `the eraser's style picks whole or partial erasing, and the partial eraser's size`() {
+        val state = AnnotatePaneState(tool = AnnotateTool.ERASER)
+        assertEquals(false, state.partialEraser)
+        assertEquals(2f, state.eraserSize)
+        setStyle(state)
+        openStyle()
+        composeRule.onNodeWithContentDescription("Cancella annotazioni intere").assertIsSelected()
+        // Sizes only for the partial eraser.
+        composeRule.onNodeWithContentDescription("Spessore 6 pt").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Cancella solo dove passi").performClick()
+        composeRule.waitForIdle()
+        assertTrue(state.partialEraser)
+        composeRule.onNodeWithContentDescription("Spessore 2 pt").assertIsSelected()
+        composeRule.onNodeWithContentDescription("Spessore 6 pt").performClick()
+        composeRule.waitForIdle()
+        assertEquals(6f, state.eraserSize)
+    }
+
+    @Test
+    fun `the partial eraser has its own hint`() {
+        composeRule.setContent { PdfToolkitTheme { Box { TransientHint(AnnotateTool.ERASER.hint(partialEraser = true), key = 1) } } }
+        composeRule.onNodeWithText("Passa il dito dove vuoi cancellare: va via solo quello che tocchi. Con due dita sposti e ingrandisci").assertIsDisplayed()
     }
 
     @Test

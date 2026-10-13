@@ -4,7 +4,10 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.ui.geometry.Offset
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationColor
+import com.marcogn.pdftoolkit.domain.annotate.AnnotationEdits
+import com.marcogn.pdftoolkit.domain.annotate.AnnotationRef
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationStyle
+import com.marcogn.pdftoolkit.domain.annotate.ExistingAnnotation
 import com.marcogn.pdftoolkit.domain.annotate.FreehandKind
 import com.marcogn.pdftoolkit.domain.annotate.MarkupKind
 import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
@@ -18,10 +21,12 @@ import com.marcogn.pdftoolkit.domain.fill.TextBlock
 import com.marcogn.pdftoolkit.domain.fill.TextOverlay
 import com.marcogn.pdftoolkit.pdf.annotations.AnnotationEraser
 import com.marcogn.pdftoolkit.pdf.annotations.DocumentAnnotations
+import com.marcogn.pdftoolkit.pdf.annotations.EraseTarget
 import com.marcogn.pdftoolkit.pdf.annotations.ErasePick
 import com.marcogn.pdftoolkit.pdf.annotations.FreehandGeometry
 import com.marcogn.pdftoolkit.pdf.annotations.FreehandStroke
 import com.marcogn.pdftoolkit.pdf.annotations.MarkupFactory
+import com.marcogn.pdftoolkit.pdf.annotations.PartialEraseStroke
 import com.marcogn.pdftoolkit.pdf.render.OverlayGeometry
 import com.marcogn.pdftoolkit.pdf.render.PdfPageSpace
 import com.marcogn.pdftoolkit.pdf.render.toPageSpace
@@ -155,6 +160,19 @@ class ViewerPageTools(private val session: ViewerEditSession, private val docume
         }
     }
 
+    /**
+     * A drag of the partial eraser starting on [page] (plan T-a), [sizePt] points across: it may cut every
+     * annotation of the page that the app draws (strokes and text markup), added in this session or in the
+     * file. Null outside the document.
+     */
+    fun startPartialErase(page: Int, sizePt: Float): ViewerPartialErase? {
+        val space = spaceOf(page) ?: return null
+        val edits = session.session.annotations
+        val pageId = ViewerEditSession.pageId(page)
+        val existing = document.on(page).filter { it.ref !in edits.removed && it.shape != null }
+        return ViewerPartialErase(session, space, pageId, edits.addedOn(pageId), existing, sizePt / 2)
+    }
+
     /** The topmost of [overlays] at [point] of [page] (the one drawn last), or null. */
     fun overlayAt(page: Int, point: Offset, overlays: List<Overlay>): Overlay? {
         val space = spaceOf(page) ?: return null
@@ -198,5 +216,78 @@ class ViewerPageTools(private val session: ViewerEditSession, private val docume
     private companion object {
         const val IMAGE_WIDTH_PT = 150f
         const val IMAGE_PAGE_FRACTION = 0.4f
+    }
+}
+
+/**
+ * One drag of the partial eraser in the viewer (plan T-a), on the page whose user space is [space]: the
+ * geometry ([PartialEraseStroke]) on the annotations of the page, [added] in this session or [existing] in
+ * the file, [radius] points around the finger. Nothing reaches the session until [commit], one undo step.
+ */
+class ViewerPartialErase internal constructor(
+    private val session: ViewerEditSession,
+    private val space: PdfPageSpace,
+    private val pageId: String,
+    private val added: List<NewAnnotation>,
+    private val existing: List<ExistingAnnotation>,
+    radius: Float,
+) {
+    private val stroke = PartialEraseStroke(
+        added.map { EraseTarget(ErasePick.Added(it.id), it.shape) } +
+            existing.mapNotNull { a -> a.shape?.let { EraseTarget(ErasePick.Existing(a.ref), it) } },
+        radius,
+    )
+
+    /** The finger went through [points] (display points of the page). True if that cut something. */
+    fun moveTo(points: List<Offset>): Boolean = stroke.moveTo(
+        points.map { point -> space.displayToUser.map(point).let { UserPoint(it.x, it.y) } },
+    )
+
+    /**
+     * It left pieces of an annotation of the file that another app made, which become this app's (one erased
+     * altogether is just gone, as with the whole eraser).
+     */
+    val cutForeign: Boolean
+        get() = stroke.left.any { (pick, pieces) ->
+            pieces.isNotEmpty() && pick is ErasePick.Existing && existing.any { it.ref == pick.ref && !it.madeHere }
+        }
+
+    /** The session's annotations as [commit] would leave them, for the screen while the finger is down. */
+    fun preview(): AnnotationEdits {
+        var next = 0
+        return replaced { PREVIEW_ID + next++ }.let { (onAdded, onExisting) ->
+            session.session.replaceAnnotations(onAdded, onExisting).annotations
+        }
+    }
+
+    /** Puts what the drag left into the session as one undo step. True if it changed anything. */
+    fun commit(): Boolean {
+        if (stroke.isEmpty) return false
+        val (onAdded, onExisting) = replaced { session.newAnnotationId() }
+        return session.replaceAnnotations(onAdded, onExisting)
+    }
+
+    /** The pieces of each annotation touched, as new annotations with ids from [newId], in the session's terms. */
+    private fun replaced(newId: () -> String): Pair<Map<String, List<NewAnnotation>>, Map<AnnotationRef, List<NewAnnotation>>> {
+        val onAdded = HashMap<String, List<NewAnnotation>>()
+        val onExisting = LinkedHashMap<AnnotationRef, List<NewAnnotation>>()
+        for ((pick, shapes) in stroke.left) {
+            when (pick) {
+                is ErasePick.Added -> {
+                    val style = added.firstOrNull { it.id == pick.id }?.style ?: continue
+                    onAdded[pick.id] = shapes.map { NewAnnotation(newId(), pageId, it, style) }
+                }
+                is ErasePick.Existing -> {
+                    val style = existing.firstOrNull { it.ref == pick.ref }?.style ?: continue
+                    onExisting[pick.ref] = shapes.map { NewAnnotation(newId(), pageId, it, style) }
+                }
+            }
+        }
+        return onAdded to onExisting
+    }
+
+    private companion object {
+        /** Ids of pieces only drawn, never stored: not one of the session's ("a" and hex digits). */
+        const val PREVIEW_ID = "erasing-"
     }
 }

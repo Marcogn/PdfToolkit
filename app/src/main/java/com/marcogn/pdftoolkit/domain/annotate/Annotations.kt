@@ -206,7 +206,8 @@ data class AnnotationRef(val docId: Int, val pageIndex: Int, val index: Int, val
 /**
  * An annotation found in a source PDF. [shape] is null for the kinds the app doesn't draw (notes,
  * stamps, shapes...): they are still listed, so the eraser can tell they exist and saving keeps
- * them. [bounds] is the annotation's `/Rect`.
+ * them. [bounds] is the annotation's `/Rect`. [madeHere]: written by this app (its `/NM` is one of the app's
+ * annotation ids), so cutting it with the partial eraser loses nothing of another app's (plan T-a).
  */
 data class ExistingAnnotation(
     val ref: AnnotationRef,
@@ -214,6 +215,7 @@ data class ExistingAnnotation(
     val shape: AnnotationShape?,
     val style: AnnotationStyle,
     val bounds: UserRect,
+    val madeHere: Boolean = false,
 )
 
 /**

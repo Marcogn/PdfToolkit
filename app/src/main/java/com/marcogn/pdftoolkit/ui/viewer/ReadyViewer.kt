@@ -38,6 +38,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import com.marcogn.pdftoolkit.domain.annotate.MarkupKind
+import com.marcogn.pdftoolkit.domain.annotate.AnnotationEdits
 import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
 import com.marcogn.pdftoolkit.ui.annotate.AnnotateTool
 import com.marcogn.pdftoolkit.ui.annotate.appliedLabel
@@ -318,6 +319,61 @@ fun ReadyViewer(
     }
     val density = LocalDensity.current
     val eraseTolerancePx = with(density) { ERASE_TOLERANCE.toPx() }
+    // The partial eraser (plan T-a): the drag under way and what the annotations look like with it, drawn until
+    // the session (a state flow, a frame later) has the result.
+    val partialErasing = armedTool == AnnotateTool.ERASER && annotateTools.partialEraser
+    var erase by remember { mutableStateOf<ViewerPartialErase?>(null) }
+    var erasePreview by remember { mutableStateOf<AnnotationEdits?>(null) }
+    LaunchedEffect(edits) { if (erase == null) erasePreview = null }
+    // Put down mid-drag (Back, search...): the gesture is cancelled without reaching us, nothing was committed.
+    LaunchedEffect(partialErasing) {
+        if (!partialErasing) {
+            erase = null
+            erasePreview = null
+        }
+    }
+    // Once per viewer session (survives rotation): cutting another app's annotation makes it ours (plan T-a).
+    var foreignCutNoticed by rememberSaveable { mutableStateOf(false) }
+    val foreignCutMessage = stringResource(R.string.annotate_eraser_foreign)
+    val eraseUndoLabel = stringResource(R.string.edit_undo)
+    val eraserSize = annotateTools.eraserSize
+    val erasing = remember(pageTools, partialErasing, eraserSize) {
+        val tools = pageTools
+        if (tools == null || !partialErasing) {
+            null
+        } else {
+            ViewportErasing(
+                sizePt = eraserSize,
+                onStart = { page, point ->
+                    erase = tools.startPartialErase(page, eraserSize)?.also { if (it.moveTo(listOf(point))) erasePreview = it.preview() }
+                },
+                onMove = { points -> erase?.let { if (it.moveTo(points)) erasePreview = it.preview() } },
+                onEnd = {
+                    val done = erase
+                    erase = null
+                    if (done != null && done.commit()) {
+                        erasePreview = editing.session.annotations
+                        if (done.cutForeign && !foreignCutNoticed) {
+                            foreignCutNoticed = true
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                            val cut = editing.session
+                            scope.launch {
+                                val result = snackbarHostState.showSnackbar(foreignCutMessage, actionLabel = eraseUndoLabel, duration = SnackbarDuration.Long)
+                                // Only that cut: after another edit, Undo here would take back the wrong one.
+                                if (result == SnackbarResult.ActionPerformed && editing.session === cut) editing.undo()
+                            }
+                        }
+                    } else {
+                        erasePreview = null
+                    }
+                },
+                onCancel = {
+                    erase = null
+                    erasePreview = null
+                },
+            )
+        }
+    }
     val unavailableMessage = stringResource(
         when (availability) {
             EditAvailability.PROTECTED -> R.string.edit_error_protected
@@ -638,8 +694,8 @@ fun ReadyViewer(
     val highlights = remember(searchOpen, searchState.matches, searchState.current) {
         if (searchOpen) SearchHighlights.of(searchState.matches, searchState.current) else SearchHighlights.None
     }
-    val annotations = remember(documentAnnotations, edits.session.annotations, pending.toList()) {
-        val session = edits.session.annotations
+    val annotations = remember(documentAnnotations, edits.session.annotations, pending.toList(), erasePreview) {
+        val session = erasePreview ?: edits.session.annotations
         val waiting = pending.filter { p -> session.added.none { it.id == p.id } }
         AnnotationLayer.of(documentAnnotations, session.copy(added = session.added + waiting), ViewerEditSession::pageId)
     }
@@ -667,7 +723,8 @@ fun ReadyViewer(
                 immersive = !immersive
             }
             // The eraser takes what is under the finger; a tap beside everything does nothing.
-            armedTool == AnnotateTool.ERASER -> tap?.let { pageTools?.erase(it.documentPage, it.point, eraseTolerancePx / it.screenPxPerPoint) }
+            // The partial eraser takes its taps itself (a dot), so only the whole-annotation one gets here.
+            armedTool == AnnotateTool.ERASER -> if (!partialErasing) tap?.let { pageTools?.erase(it.documentPage, it.point, eraseTolerancePx / it.screenPxPerPoint) }
             // A tap with a brush is a dot, not a request for full screen.
             armedTool?.freehand != null -> Unit
             !searchOpen -> immersive = !immersive
@@ -849,8 +906,8 @@ fun ReadyViewer(
                 modifier = Modifier.fillMaxSize(),
             ) { mode ->
                 when (mode) {
-                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, doubleTapZoom, pageSelectionBar, onSelectionReleased, drawing, viewportFill, reportPage)
-                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, doubleTapZoom, pageSelectionBar, onSelectionReleased, drawing, viewportFill, reportPage)
+                    ReadingMode.CONTINUOUS -> ContinuousPages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, doubleTapZoom, pageSelectionBar, onSelectionReleased, drawing, viewportFill, erasing, reportPage)
+                    ReadingMode.SINGLE_PAGE -> SinglePages(state, budget, currentPage, jumps, reveals, highlights, annotations, pageSelection, onLongPress, onTap, doubleTapZoom, pageSelectionBar, onSelectionReleased, drawing, viewportFill, erasing, reportPage)
                 }
             }
 
@@ -912,7 +969,7 @@ fun ReadyViewer(
                         action = if (signatureArmed) stringResource(R.string.fill_change_signature) to { showSignatureSheet = true } else null,
                     )
                 } else {
-                    TransientHint(armedTool?.hint(), key = armedTool)
+                    TransientHint(armedTool?.hint(partialErasing), key = armedTool to partialErasing)
                 }
             }
 
@@ -1200,6 +1257,7 @@ private fun ContinuousPages(
     onSelectionReleased: () -> Unit,
     drawing: ViewportDrawing?,
     fill: ViewportFillContent?,
+    erasing: ViewportErasing?,
     onPageChanged: (Int) -> Unit,
 ) {
     val viewportState = rememberSaveable(saver = PdfViewportState.Saver) {
@@ -1230,6 +1288,7 @@ private fun ContinuousPages(
         onSelectionReleased = onSelectionReleased,
         drawing = drawing,
         fill = fill,
+        erasing = erasing,
         modifier = Modifier.fillMaxSize(),
     )
 }
@@ -1256,6 +1315,7 @@ private fun SinglePages(
     onSelectionReleased: () -> Unit,
     drawing: ViewportDrawing?,
     fill: ViewportFillContent?,
+    erasing: ViewportErasing?,
     onPageChanged: (Int) -> Unit,
 ) {
     // A search result waits here until its page is composed and has a layout, then it is centred.
@@ -1277,8 +1337,8 @@ private fun SinglePages(
         state = pagerState,
         beyondViewportPageCount = 1,
         key = { it },
-        // A brush takes every one-finger drag, so the pages don't turn under it.
-        userScrollEnabled = drawing == null,
+        // A brush or the partial eraser takes every one-finger drag, so the pages don't turn under it.
+        userScrollEnabled = drawing == null && erasing == null,
         modifier = Modifier.fillMaxSize(),
     ) { page ->
         val viewportState = rememberSaveable(page, saver = PdfViewportState.Saver) { PdfViewportState() }
@@ -1308,6 +1368,7 @@ private fun SinglePages(
             // One ink layer at a time (the library's advice): only on the page that is shown.
             drawing = drawing?.takeIf { pagerState.settledPage == page },
             fill = fill,
+            erasing = erasing,
             modifier = Modifier.fillMaxSize(),
         )
     }

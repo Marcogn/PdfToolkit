@@ -49,6 +49,10 @@ class ViewerEditSession(private val handle: SavedStateHandle, private val pageCo
 
     fun removeExistingAnnotation(ref: AnnotationRef) = apply { it.removeExistingAnnotation(ref) }
 
+    /** What the partial eraser left, one undo step (plan T-a); see [EditSession.replaceAnnotations]. */
+    fun replaceAnnotations(added: Map<String, List<NewAnnotation>>, existing: Map<AnnotationRef, List<NewAnnotation>>) =
+        apply { it.replaceAnnotations(added, existing) }
+
     fun newOverlayId(): String = "o" + UUID.randomUUID().toString().take(ID_LENGTH)
 
     fun addOverlay(overlay: Overlay) = apply { it.addOverlay(overlay) }

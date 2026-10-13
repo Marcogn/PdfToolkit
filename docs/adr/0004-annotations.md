@@ -125,3 +125,68 @@ detector stands down through `FreehandGrab.active`, as with `SelectionGrab`.
 - The ink classes need their native library, so the unit tests cover everything after the `Stroke`
   (`FreehandGeometry`, writer, serialization); the step from `Stroke` to `FreehandStroke` is checked
   on the device.
+
+## Partial eraser (plan T-a, 2026-10-13)
+
+**What it does.** With the eraser in "Partial" mode, one finger or a stylus drags an eraser of the pen's sizes
+(1, 2, 4, 6 pt across, 2 pt at first) over the page; only what it passes over goes, on Ink (the app's strokes
+and other apps') and text markup. A tap takes a dot. A second finger cancels the drag and zooms and pans, as for
+freehand. The cut is computed while dragging (`PartialEraseStroke`, move by move) and drawn in place of the
+originals; on lift it goes into the session as **one** undo step (`EditSession.replaceAnnotations`): the original
+goes (an added one is replaced where it was in the drawing order, one of the file is removed by reference) and the
+pieces are ordinary `NewAnnotation`s, written by `AnnotationWriter` like any other. Nothing new in the save path.
+
+**Geometry** (`pdf/annotations/PartialEraser`, user space, no Android):
+- The swept area is the drag path inflated by the eraser's radius with round joins and ends: a chain of capsules,
+  a circle for a tap.
+- *Ink with outlines* (drawn in the app): outlines minus swept area, nonzero, as they are filled. Each connected
+  part left (an outer polygon with its holes) is a piece. The centre line (`/InkList`) is cut where the eraser
+  crosses it and shortened by half the stroke width at each cut, so a reader that strokes `/InkList` (and this
+  app, which reads back only the centre line) ends the line where the eraser passed, while a nick in the edge of
+  a wide stroke leaves it whole; each part gets the stretches of centre line inside it. A
+  part with no centre line in it (a narrow eraser along the middle of a wide marker, or a short stroke cut in the
+  middle) gets the stretch of the original centre line that drew it, which may lie partly outside it: other
+  readers draw the appearance, so only an `/InkList`-based reader shows more there.
+- *Ink without outlines* (read from a file, drawn as its centre line stroked): the centre line is cut by the swept
+  area grown by half the width, so wherever the eraser touches the line as drawn, it is cut through.
+- Ink with outlines (only the app draws them, one stroke each) and ink of **one** stroke become one annotation per
+  piece, so the stroke eraser still works piece by piece; ink of several strokes without outlines (another app's
+  handwriting) stays one annotation with all its pieces. Pieces keep their original's rule, so later drags split
+  them the same way.
+- *Text markup*: each quad is intersected with the swept area and loses, on the quad's own axes (along the bottom
+  edge, up the left edge: exact for the parallelograms text makes, rotated pages included), the stretch of text
+  the intersection covers, at full line height: a quad is a line of text, so the rest of the line keeps its markup.
+  A quad that isn't a parallelogram (some other apps') is cut on an approximation of its axes.
+- Leftovers are dropped: outline parts thinner than half of min(eraser, line width) (2 × area / perimeter) or
+  under 0.3 pt across, quads shorter than the eraser's radius, centre stubs under 0.3 pt.
+- Coordinates are Clipper2's 64-bit integers in hundredths of a point, the resolution the session stores
+  (`CompactPolylineSerializer.STEP`), so what is computed is exactly what is stored and written; round ends are
+  polygons within 0.02 pt of the circle.
+
+**Library: Clipper2-java** (`com.github.micycle1:Clipper2-java` 2.0.1b, author's choice among the options below,
+2026-10-13). Java port (by GitHub user micycle1) of Angus Johnson's Clipper2, Boost Software License 1.0, a 120 KB jar
+with no runtime dependencies, Java 8 bytecode, pure computation (no I/O, no network). It does what is needed in
+one place: boolean operations with the **nonzero** fill rule (the outlines' rule), clipping of **open** paths (the
+centre line) and offsetting with round ends (the swept area). Published only on JitPack, so
+`settings.gradle.kts` adds JitPack as an `exclusiveContent` repository for the group `com.github.micycle1` only:
+no other dependency can resolve from it. Rejected: an own "outline minus capsules" (a robust difference of
+non-convex, self-overlapping polygons is the fragile part the plan names as a risk); JTS
+(`org.locationtech.jts`, EPL-2.0/EDL-1.0, well maintained, but 1.2 MB, no nonzero rule: the marker's
+self-overlapping outlines would need repairing first); copying Clipper2-java's sources in (no JitPack, but about
+80 classes to update by hand); Android's `Path.op` (not in JVM tests, and `pdf/annotations` has no Android).
+Sources: [Clipper2](https://github.com/AngusJohnson/Clipper2) (fill rules, open paths, `InflatePaths`),
+[Clipper2-java](https://github.com/micycle1/Clipper2-java), JitPack build
+`https://jitpack.io/com/github/micycle1/Clipper2-java/2.0.1b/`.
+
+**Another app's annotation.** Cutting it replaces it with pieces made by this app (author: acceptable): its
+author, dates, pop-up, replies and any custom appearance are lost on the pieces, as when the stroke eraser removes
+it. The first cut of one in a viewer session says so once, with Undo. An annotation counts as the app's when its
+`/NM` is one of the app's annotation ids ("a" and eight hex digits, written since 7a), so files saved by earlier
+versions are recognised too.
+
+**Consequences.**
+- The cut runs on the main thread, for the annotations of the page whose box the move touches; a drag over many
+  long strokes may cost frames. Not measured on a device yet (the plan's fallback: cut on lift only).
+- A drag is on the page it starts on; going past its edge keeps erasing that page's annotations.
+- Cut pieces of a reopened stroke have outlines again only for what the app drew in this session: a stroke read
+  from a file is cut on its centre line and stays without outlines.

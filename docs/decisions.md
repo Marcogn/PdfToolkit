@@ -282,6 +282,16 @@ decided or approved it.
   new annotations, one undo step per gesture. Geometry in `pdf/annotations`, without Android's `Path.op`.
   Sizes = the pen's, default 2 pt. Cutting another app's annotation is allowed, with a one-time notice per
   document. T-a and T-b come before 11.
+- 2026-10-13 · T-a: polygon clipping with Clipper2-java 2.0.1b from JitPack, the repository limited to its group
+  (author, ADR 0004 "Partial eraser"); integer coordinates in hundredths of a point. Until T-b the partial eraser is
+  the Eraser's Style menu ("Whole annotations" / "Only where you pass", whole by default) with the pen's sizes,
+  not kept across restarts.
+- 2026-10-13 · T-a: Ink with outlines or of one stroke becomes one annotation per piece; several strokes and text
+  markup stay one annotation. The centre line of outlined ink is cut where the eraser crosses it and shortened by
+  half the width; ink without outlines is cut by the swept area grown by half the width. An annotation is "the app's"
+  when its `/NM` is an app id ("a" + 8 hex digits); others get the one-time notice (once per viewer session).
+- 2026-10-13 · T-a prerequisites: the author counts the 10b and A device checks as done for starting T-a (more
+  test rounds will follow).
 
 ## Editing in the viewer (ADR 0005)
 

@@ -119,4 +119,29 @@ class EditSessionAnnotationTest {
         // Compact: about 9 characters per outline point rather than ~25.
         assertTrue(session.encodeAnnotations().length < outline.size * 12)
     }
+
+    @Test
+    fun `a partial erase is one undo step, pieces in place of the original, a file's annotation removed`() {
+        val pen = ink.copy(id = "a3")
+        val session = EditSession.of(3).addAnnotation(ink).addAnnotation(highlight).addAnnotation(pen)
+        val left = ink.copy(id = "a4")
+        val right = ink.copy(id = "a5")
+        val onFile = highlight.copy(id = "a6", pageId = "p2")
+        val cut = session.replaceAnnotations(added = mapOf("a2" to listOf(left, right), "a1" to emptyList()), existing = mapOf(foreign to listOf(onFile)))
+        // The pieces keep the original's place in the drawing order; a file's pieces go on top.
+        assertEquals(listOf("a4", "a5", "a3", "a6"), cut.annotations.added.map { it.id })
+        assertEquals(setOf(foreign), cut.annotations.removed)
+        val undone = cut.undo()
+        assertEquals(session.annotations, undone.annotations)
+        assertEquals(cut.annotations, undone.redo().annotations)
+    }
+
+    @Test
+    fun `a partial erase ignores what isn't there and pieces that can't go in`() {
+        val session = EditSession.of(2).addAnnotation(ink).removeExistingAnnotation(foreign)
+        assertSame(session, session.replaceAnnotations(mapOf("unknown" to emptyList()), mapOf(foreign to listOf(highlight))))
+        val cut = session.replaceAnnotations(mapOf("a2" to listOf(ink.copy(id = "a2"), highlight.copy(id = "x", pageId = "nope"), highlight)), emptyMap())
+        // The original's id is taken; "nope" isn't a page of the session.
+        assertEquals(listOf(highlight), cut.annotations.added)
+    }
 }

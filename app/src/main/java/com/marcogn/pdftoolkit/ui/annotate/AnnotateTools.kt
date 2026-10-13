@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.outlined.BorderColor
 import androidx.compose.material.icons.outlined.AutoFixNormal
 import androidx.compose.material.icons.outlined.Brush
+import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
@@ -76,6 +77,8 @@ class AnnotatePaneState(
     penWidth: Int = FreehandOptions.defaultWidthIndex(FreehandKind.PEN),
     markerColor: Int = FreehandOptions.defaultColorIndex(FreehandKind.HIGHLIGHTER),
     markerWidth: Int = FreehandOptions.defaultWidthIndex(FreehandKind.HIGHLIGHTER),
+    partialEraser: Boolean = false,
+    eraserWidth: Int = FreehandOptions.defaultWidthIndex(FreehandKind.PEN),
 ) {
     var tool by mutableStateOf(tool)
     var highlightColor by mutableIntStateOf(highlightColor)
@@ -84,6 +87,12 @@ class AnnotatePaneState(
     var penWidth by mutableIntStateOf(penWidth)
     var markerColor by mutableIntStateOf(markerColor)
     var markerWidth by mutableIntStateOf(markerWidth)
+
+    /** The eraser takes only what the finger passes over (plan T-a), not whole annotations. */
+    var partialEraser by mutableStateOf(partialEraser)
+
+    /** The partial eraser's size, a position in the pen's sizes ([eraserWidths]). */
+    var eraserWidth by mutableIntStateOf(eraserWidth)
 
     /** The text markup tool last used, which the "Highlight" button of the viewer arms again. */
     var markupTool by mutableStateOf(AnnotateTool.HIGHLIGHT)
@@ -136,16 +145,27 @@ class AnnotatePaneState(
         if (kind == FreehandKind.PEN) penWidth = index else markerWidth = index
     }
 
+    /** How wide the partial eraser is, in points of the page: one of the pen's sizes, 2 pt at first (plan T-a). */
+    val eraserSize: Float get() = eraserWidths.let { it[eraserWidth.coerceIn(it.indices)] }
+
     companion object {
+        /** The partial eraser's sizes: the pen's (author, plan T-a). */
+        val eraserWidths: List<Float> = FreehandOptions.widths(FreehandKind.PEN)
+
         val Saver = listSaver<AnnotatePaneState, Any>(
             save = {
                 listOf(
                     it.tool.name, it.highlightColor, it.lineColor, it.penColor, it.penWidth, it.markerColor, it.markerWidth,
-                    it.markupTool.name, it.brushTool.name,
+                    it.markupTool.name, it.brushTool.name, it.partialEraser, it.eraserWidth,
                 )
             },
             restore = {
-                AnnotatePaneState(AnnotateTool.valueOf(it[0] as String), it[1] as Int, it[2] as Int, it[3] as Int, it[4] as Int, it[5] as Int, it[6] as Int)
+                AnnotatePaneState(
+                    AnnotateTool.valueOf(it[0] as String), it[1] as Int, it[2] as Int, it[3] as Int, it[4] as Int, it[5] as Int, it[6] as Int,
+                    // Absent from a state saved before plan T-a.
+                    it.getOrNull(9) as? Boolean ?: false,
+                    it.getOrNull(10) as? Int ?: FreehandOptions.defaultWidthIndex(FreehandKind.PEN),
+                )
                     .also { state ->
                         state.choose(AnnotateTool.valueOf(it[7] as String))
                         state.choose(AnnotateTool.valueOf(it[8] as String))
@@ -160,12 +180,16 @@ class AnnotatePaneState(
 fun rememberAnnotatePaneState(initialTool: AnnotateTool = AnnotateTool.HIGHLIGHT): AnnotatePaneState =
     rememberSaveable(saver = AnnotatePaneState.Saver) { AnnotatePaneState().also { it.choose(initialTool) } }
 
-/** What the viewer tells the reader when this tool is armed; shown over the page for a few seconds (plan U7). */
+/**
+ * What the viewer tells the reader when this tool is armed; shown over the page for a few seconds (plan U7).
+ * [partialEraser]: the eraser takes only what the finger passes over (plan T-a).
+ */
 @Composable
-fun AnnotateTool.hint(): String = stringResource(
+fun AnnotateTool.hint(partialEraser: Boolean = false): String = stringResource(
     when {
         kind != null -> R.string.annotate_hint_select
         freehand != null -> R.string.annotate_hint_draw
+        partialEraser -> R.string.annotate_hint_erase_partial
         else -> R.string.annotate_hint_erase
     },
 )
@@ -173,12 +197,17 @@ fun AnnotateTool.hint(): String = stringResource(
 /**
  * The button that shows the colour (and the size of a brush) the armed tool has and opens a small menu
  * to change them, and to pick the other tool of its group (underline for highlight, marker for pen).
- * Nothing for the eraser, which has no style.
+ * For the eraser: whole annotations or only what the finger passes over, and the partial eraser's size
+ * (plan T-a, until the drawer of plan T-b).
  */
 @Composable
 fun StyleButton(state: AnnotatePaneState) {
     val kind = state.tool.kind
     val brush = state.tool.freehand
+    if (state.tool == AnnotateTool.ERASER) {
+        EraserStyleButton(state)
+        return
+    }
     if (kind == null && brush == null) return
     var open by remember { mutableStateOf(false) }
     val palette = if (kind != null) AnnotationPalette.of(kind) else FreehandOptions.colors(brush!!)
@@ -201,6 +230,52 @@ fun StyleButton(state: AnnotatePaneState) {
             }
         }
     }
+}
+
+@Composable
+private fun EraserStyleButton(state: AnnotatePaneState) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        ToolButtonFrame(R.string.annotate_style, open, onClick = { open = true }) {
+            Icon(eraserModeIcon(state.partialEraser), contentDescription = null)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            Column(Modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    for (partial in listOf(false, true)) {
+                        ChoiceButton(
+                            selected = state.partialEraser == partial,
+                            name = stringResource(if (partial) R.string.annotate_eraser_partial else R.string.annotate_eraser_whole),
+                            onClick = { state.partialEraser = partial },
+                        ) { Icon(eraserModeIcon(partial), contentDescription = null) }
+                    }
+                }
+                if (state.partialEraser) {
+                    SizeRow(AnnotatePaneState.eraserWidths, state.eraserSize) { state.eraserWidth = it }
+                }
+            }
+        }
+    }
+}
+
+/** Whole annotations (the stroke eraser) or only what the finger passes over (the partial one). */
+private fun eraserModeIcon(partial: Boolean): ImageVector = if (partial) Icons.Outlined.ContentCut else Icons.Outlined.AutoFixNormal
+
+/** A round 48 dp choice in a row of the Style menu, filled when [selected]. */
+@Composable
+private fun ChoiceButton(selected: Boolean, name: String, onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        Modifier
+            .size(TOUCH_TARGET)
+            .clip(CircleShape)
+            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+            .clickable(role = Role.RadioButton, onClick = onClick)
+            .semantics {
+                this.selected = selected
+                contentDescription = name
+            },
+        contentAlignment = Alignment.Center,
+    ) { content() }
 }
 
 /** The tools of the armed tool's group, one to pick: highlight / underline / strikeout, or pen / marker. */
@@ -260,27 +335,18 @@ private fun ColorRow(palette: List<AnnotationColor>, chosen: AnnotationColor, on
     }
 }
 
-/** The brush sizes of [kind]: a dot as wide as the stroke would be (capped to fit), one to pick. */
+/** The brush sizes of [kind], one to pick. */
 @Composable
 private fun WidthRow(kind: FreehandKind, state: AnnotatePaneState) {
-    val widths = FreehandOptions.widths(kind)
-    val chosen = state.widthFor(kind)
+    SizeRow(FreehandOptions.widths(kind), state.widthFor(kind)) { state.setWidth(kind, it) }
+}
+
+/** Sizes in points of the page: a dot as wide as the stroke would be (capped to fit), one to pick. */
+@Composable
+private fun SizeRow(widths: List<Float>, chosen: Float, onPick: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         widths.forEachIndexed { index, width ->
-            val selected = width == chosen
-            val name = stringResource(R.string.annotate_width, width.toInt())
-            Box(
-                Modifier
-                    .size(TOUCH_TARGET)
-                    .clip(CircleShape)
-                    .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                    .clickable(role = Role.RadioButton) { state.setWidth(kind, index) }
-                    .semantics {
-                        this.selected = selected
-                        contentDescription = name
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
+            ChoiceButton(selected = width == chosen, name = stringResource(R.string.annotate_width, width.toInt()), onClick = { onPick(index) }) {
                 val dot = (width * WIDTH_DOT_PER_POINT).coerceIn(MIN_DOT, MAX_DOT)
                 Box(Modifier.size(dot.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface))
             }

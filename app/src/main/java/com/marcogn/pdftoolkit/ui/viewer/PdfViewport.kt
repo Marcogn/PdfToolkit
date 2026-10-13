@@ -31,6 +31,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
@@ -67,6 +68,7 @@ import com.marcogn.pdftoolkit.pdf.annotations.DocumentStrokes
 import com.marcogn.pdftoolkit.pdf.annotations.FreehandStroke
 import com.marcogn.pdftoolkit.ui.annotate.FreehandGrab
 import com.marcogn.pdftoolkit.ui.annotate.ViewportInkLayer
+import com.marcogn.pdftoolkit.ui.annotate.detectEraserGestures
 import com.marcogn.pdftoolkit.ui.annotate.detectFreehandGestures
 import com.marcogn.pdftoolkit.ui.annotate.setAffine
 import com.marcogn.pdftoolkit.pdf.render.PageCoordinateMapper
@@ -145,6 +147,8 @@ fun PdfViewport(
     drawing: ViewportDrawing? = null,
     /** Fill and sign (plan V-c): overlays, form controls and their gestures. Null for none. */
     fill: ViewportFillContent? = null,
+    /** The partial eraser armed (plan T-a): one finger or a stylus erases where it passes. Null for none. */
+    erasing: ViewportErasing? = null,
 ) {
     val scope = rememberCoroutineScope()
     val decay = rememberSplineBasedDecay<Float>()
@@ -169,6 +173,11 @@ fun PdfViewport(
     // Pointer → stroke space (document points), set as each stroke starts; the page the stroke starts on, which clips it.
     val pointerToStroke = remember { Matrix() }
     var strokePage by remember { mutableIntStateOf(0) }
+    // The partial eraser: the page it started on (its points are that page's) and where it is, for its circle.
+    val currentErasing by rememberUpdatedState(erasing)
+    var erasePage by remember { mutableIntStateOf(0) }
+    var eraserAt by remember { mutableStateOf<Offset?>(null) }
+    val eraserMinRadiusPx = with(LocalDensity.current) { ERASER_MIN_RADIUS.toPx() }
 
     // Fill and sign (plan V-c): the overlay under the fingers is shown from here until they lift, so a
     // gesture is one undo step; the overlay detector tells zoom and pan to stand down while it holds one.
@@ -227,6 +236,37 @@ fun PdfViewport(
                         strokePage = mapper.layout.pageAt(mapper.screenToLayout(down).y)
                     }
                 }
+            }
+            .pointerInput(state, erasing != null) {
+                if (erasing == null) return@pointerInput
+                detectEraserGestures(
+                    state,
+                    freehandGrab,
+                    onStart = { screen ->
+                        val mapper = state.mapper
+                        val target = currentErasing
+                        if (mapper == null || target == null) {
+                            false
+                        } else {
+                            erasePage = mapper.layout.pageAt(mapper.screenToLayout(screen).y)
+                            eraserAt = screen
+                            target.onStart(pageIndexOffset + erasePage, mapper.screenToPage(erasePage, screen))
+                            true
+                        }
+                    },
+                    onMove = { points ->
+                        eraserAt = points.last()
+                        state.mapper?.let { mapper -> currentErasing?.onMove(points.map { mapper.screenToPage(erasePage, it) }) }
+                    },
+                    onEnd = {
+                        eraserAt = null
+                        currentErasing?.onEnd?.invoke()
+                    },
+                    onCancel = {
+                        eraserAt = null
+                        currentErasing?.onCancel?.invoke()
+                    },
+                )
             }
             .pointerInput(state, yieldHorizontalToParent) {
                 detectZoomPanFling(state, scope, decay, yieldHorizontalToParent, suppressed = { selectionGrab.active || freehandGrab.active || overlayGrab.active })
@@ -351,6 +391,13 @@ fun PdfViewport(
                 drawTextSelection(selection.runs, mapper.pageToScreenTransform(index), selectionFill, handleColor, handleMetrics)
             }
         }
+        // The partial eraser's size where it is (plan T-a): a ring dark and light enough for any page.
+        val eraserCentre = eraserAt
+        if (erasing != null && eraserCentre != null) {
+            val radius = maxOf(erasing.sizePt / 2 * mapper.screenPxPerPoint, eraserMinRadiusPx)
+            drawCircle(Color.White, radius, eraserCentre, style = Stroke(ERASER_RING_PX * 2))
+            drawCircle(Color.Black.copy(alpha = ERASER_RING_ALPHA), radius, eraserCentre, style = Stroke(ERASER_RING_PX))
+        }
         // The handle that scales and turns the selected overlay with one finger (plan U11).
         if (fill != null && fill.grabbing) {
             shownOverlays.firstOrNull { it.id == fill.selected }?.let { selected ->
@@ -433,6 +480,25 @@ private const val MAX_OVERLAY_PAGES = 1.5f
 
 /** Room kept between a focused field and the keyboard. */
 private val FOCUSED_FIELD_MARGIN = 16.dp
+
+/** The partial eraser's ring is drawn at least this big, so a thin eraser zoomed out stays visible. */
+private val ERASER_MIN_RADIUS = 4.dp
+private const val ERASER_RING_PX = 2f
+private const val ERASER_RING_ALPHA = 0.7f
+
+/**
+ * The partial eraser armed in the viewport (plan T-a): [sizePt] across, in points of the page. [onStart]
+ * gets the document page the finger went down on and the point there (its display points); [onMove] the
+ * next points, in the same page's display points, wherever the finger goes; then [onEnd] when it lifts, or
+ * [onCancel] when the drag turns into zoom and pan.
+ */
+data class ViewportErasing(
+    val sizePt: Float,
+    val onStart: (documentPage: Int, point: Offset) -> Unit,
+    val onMove: (points: List<Offset>) -> Unit,
+    val onEnd: () -> Unit,
+    val onCancel: () -> Unit,
+)
 
 /** A single tap on a page: document page [documentPage], [point] in its page points, at [screenPxPerPoint] (the zoom). */
 data class PageTap(val documentPage: Int, val point: Offset, val screenPxPerPoint: Float)

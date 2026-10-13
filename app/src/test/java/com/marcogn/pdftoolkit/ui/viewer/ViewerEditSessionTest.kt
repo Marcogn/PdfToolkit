@@ -195,6 +195,46 @@ class ViewerEditSessionTest {
     }
 
     @Test
+    fun `a partial erase previews without touching the session and commits as one undo step`() {
+        val editing = ViewerEditSession(SavedStateHandle(), pageCount = 2)
+        val tools = ViewerPageTools(editing, document)
+        val space = document.pageBoxes[1].toPageSpace()
+        // Across the foreign highlight (x 50..90 of the turned page's user space) at x 70, in display points.
+        val path = listOf(UserPoint(70f, 95f), UserPoint(70f, 125f)).map { space.userToDisplay.map(Offset(it.x, it.y)) }
+        val erase = tools.startPartialErase(1, sizePt = 2f)!!
+        assertTrue(erase.moveTo(path))
+        assertTrue(erase.cutForeign)
+        val preview = erase.preview()
+        assertEquals(setOf(foreign), preview.removed)
+        assertEquals(2, (preview.added.single().shape as AnnotationShape.TextMarkup).quads.size)
+        assertTrue(editing.session.annotations.isEmpty)
+
+        assertTrue(erase.commit())
+        val cut = editing.session.annotations
+        assertEquals(preview.removed, cut.removed)
+        assertEquals(preview.added.map { it.shape to it.style }, cut.added.map { it.shape to it.style })
+        assertEquals("p1", cut.added.single().pageId)
+        editing.undo()
+        assertTrue(editing.session.annotations.isEmpty)
+    }
+
+    @Test
+    fun `a partial erase beside everything changes nothing, and the app's own annotations need no notice`() {
+        val editing = ViewerEditSession(SavedStateHandle(), pageCount = 2)
+        val own = document.copy(pages = listOf(emptyList(), document.pages[1].map { it.copy(madeHere = true) }))
+        val tools = ViewerPageTools(editing, own)
+        val space = own.pageBoxes[1].toPageSpace()
+        val beside = tools.startPartialErase(1, 2f)!!
+        assertFalse(beside.moveTo(listOf(space.userToDisplay.map(Offset(150f, 150f)))))
+        assertFalse(beside.commit())
+        assertFalse(editing.session.canUndo)
+        val across = tools.startPartialErase(1, 2f)!!
+        assertTrue(across.moveTo(listOf(UserPoint(70f, 95f), UserPoint(70f, 125f)).map { space.userToDisplay.map(Offset(it.x, it.y)) }))
+        assertFalse(across.cutForeign)
+        assertNull(tools.startPartialErase(7, 2f))
+    }
+
+    @Test
     fun `the selection becomes a markup annotation of its page`() {
         val editing = ViewerEditSession(SavedStateHandle(), pageCount = 2)
         val tools = ViewerPageTools(editing, document)

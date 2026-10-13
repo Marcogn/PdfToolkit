@@ -116,7 +116,8 @@ class PdfBoxAnnotationReader @Inject constructor() : AnnotationReader {
             // No colour means transparent (ISO 32000-1 §12.5.2): nothing to draw.
             val shape = if (color == null) null else shape(dictionary, subtype, bounds)
             val ref = AnnotationRef(at.docId, at.pageIndex, at.index, AnnotationFingerprint.of(subtype, bounds))
-            return ExistingAnnotation(ref, subtype, shape, style, bounds)
+            val madeHere = dictionary.getString(COSName.NM)?.let(APP_NAME::matches) == true
+            return ExistingAnnotation(ref, subtype, shape, style, bounds, madeHere)
         }
 
         private fun shape(dictionary: COSDictionary, subtype: String, bounds: UserRect): AnnotationShape? {
@@ -159,6 +160,9 @@ class PdfBoxAnnotationReader @Inject constructor() : AnnotationReader {
         }
 
         private val MULTIPLY: COSName = COSName.getPDFName("Multiply")
+
+        /** The `/NM` this app writes: its annotation ids, "a" and eight hex digits (`ViewerEditSession.newAnnotationId`). */
+        private val APP_NAME = Regex("a[0-9a-f]{8}")
 
         private fun quadOf(r: UserRect) = Quad(
             upperLeft = UserPoint(r.left, r.top),

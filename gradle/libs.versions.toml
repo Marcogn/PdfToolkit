@@ -30,6 +30,9 @@ ink = "1.0.0"
 mlkitDocumentScanner = "16.0.0"
 # ML Kit Text Recognition v2, bundled (plan 10a): Latin model inside the APK, no Play services download.
 mlkitTextRecognition = "16.0.1"
+# Clipper2-java (Java port of Angus Johnson's Clipper2, BSL-1.0), JitPack only: polygon clipping for the partial
+# eraser (plan T-a, ADR 0004 addendum).
+clipper2 = "2.0.1b"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -72,6 +75,7 @@ ink-geometry = { group = "androidx.ink", name = "ink-geometry", version.ref = "i
 ink-strokes = { group = "androidx.ink", name = "ink-strokes", version.ref = "ink" }
 mlkit-document-scanner = { group = "com.google.android.gms", name = "play-services-mlkit-document-scanner", version.ref = "mlkitDocumentScanner" }
 mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitTextRecognition" }
+clipper2 = { group = "com.github.micycle1", name = "Clipper2-java", version.ref = "clipper2" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 
 [plugins]
