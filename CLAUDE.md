@@ -209,10 +209,10 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   on the author: the `CLAUDE_CODE_OAUTH_TOKEN` secret and the environment's setup script.
 - **A Updates and About written (2026-10-12)**, PR #35: update package ported from ThePatientGamerHelper
   95f0b97, `INTERNET` + `REQUEST_INSTALL_PACKAGES`, ML Kit telemetry off (ADR 0006), About and Settings;
-  device checks pending. Opus for the network audit (author's switch). **Next: 11 ODF export (Sonnet)**,
-  after the 10b and A device checks; the ODG-or-ODT question must be answered first.
+  device checks pending. Opus for the network audit (author's switch). **Next: T-a Partial eraser core
+  (Opus)**, after the 10b and A device checks (then T-b, then 11 if kept).
 - **Planned (2026-10-13)**: **T-a Partial eraser core** (Opus) then **T-b Tool drawer** (Sonnet),
-  `docs/plan-tools.md`; place in the order relative to 11 to be decided by the author.
+  `docs/plan-tools.md`, **before 11** (author). The author is considering dropping 11 (ODF export): open.
 - Open questions for later sub-phases (`docs/plan-v2.md`): ODG or ODT (11), release numbering.
 
 ### Device checks 10b (author)

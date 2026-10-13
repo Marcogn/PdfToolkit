@@ -8,7 +8,7 @@ comments cite the items as "plan T-a", "plan T-b".
 | Sub-phase | Model | Scope | Done when | Check on the device |
 |---|---|---|---|---|
 | T-a Partial eraser core | **Opus** | An eraser that removes only what the finger passes over: pen and marker strokes (also Ink from other apps) and text markup (highlight, underline, strikeout); the cut pieces stay as annotations; one undo step per gesture | Unit tests below; ADR 0004 addendum; lint, unit tests, `assembleDebug` green | Cut strokes and highlights in the middle and at an end, on turned pages, undo; save and reopen here and in another reader |
-| T-b Tool drawer | Sonnet | Fixed bottom bar: "Tools" drawer with every tool, two quick slots the author picks, Undo/Redo, Pages; long press on a tool opens a bubble with colour and size; freehand highlighter as a tool of its own; stroke eraser and partial eraser as two tools | Tests below; lint, unit tests, `assembleDebug` green | Nothing in the bar moves when arming a tool; pin/unpin quick tools, kept after restart; bubble; landscape rail; Home "Highlight"/"Draw" |
+| T-b Tool drawer | Sonnet | Fixed bottom bar: "Tools" drawer with every tool, two quick slots filled by drag and drop, Undo/Redo, Pages; long press on a tool opens a bubble with colour and size; freehand highlighter as a tool of its own; stroke eraser and partial eraser as two tools | Tests below; lint, unit tests, `assembleDebug` green | Nothing in the bar moves when arming a tool; drag tools onto the dashed quick slots, kept after restart; bubble; landscape rail; Home "Highlight"/"Draw" |
 
 ## What the author asked for (2026-10-13)
 
@@ -49,7 +49,8 @@ that multiplies like a highlight), reached through Draw → Style. It is hard to
 **Scope**
 - Gesture: with the partial eraser armed, one finger or the stylus drags (like a brush: a second finger zooms
   and pans, through the freehand detector's rules), with a circle showing the eraser's size. A tap erases a
-  dot. The eraser's width is in screen size (stays the same at any zoom), like `ERASE_TOLERANCE` today.
+  dot. The eraser's sizes are the pen's (1, 2, 4, 6 points of the page), default the pen's default, 2 pt
+  (author); the bubble offers the four (T-b; in T-a the Style button).
 - Geometry, in `pdf/annotations` (no Android, unit-tested), in user space of the page:
   - **Ink** (`AnnotationShape.Ink`): the swept eraser (a capsule chain of the drag path, eraser radius)
     is subtracted from the stroke's **outlines** (the appearance, `/AP`), and the **centre line**
@@ -60,6 +61,10 @@ that multiplies like a highlight), reached through Draw → Style. It is hard to
     swept area crosses it (a quad is a line of text: cutting across it keeps the rest of the line). Pieces
     that are left make one markup annotation per original, with the remaining quads.
   - Tiny leftovers (shorter than the eraser radius, or a sliver of a quad) are dropped.
+- Another app's annotation: cutting it replaces it with pieces made by this app, so its author, dates and any
+  custom appearance are lost on the pieces (author: acceptable). The first time this happens in a document, a
+  one-time notice says so ("Questa annotazione è stata creata da un'altra app: i pezzi rimasti saranno
+  salvati come annotazioni di PdfToolkit", wording in T-a), with Undo at hand.
 - Model and session: the original goes (`removeAnnotation` for this session's, `removeExistingAnnotation`
   for the file's) and the pieces are added, as **one** undo step per gesture (a new `EditSession` operation,
   so undo restores the original whole). Nothing new in the save path: the pieces are ordinary
@@ -105,13 +110,20 @@ bar.
   when it isn't pinned).
 - **Drawer** (a panel above the bar, Material bottom sheet or anchored panel: decided in the sub-phase), in
   groups: Text (Highlight, Underline, Strikeout), Draw (Pen, Marker = freehand highlighter), Erase (Stroke
-  eraser, Partial eraser), Fill and sign. A tap arms the tool and closes the drawer. Each tool has a pin
-  toggle; pinning a third tool replaces the older pin.
+  eraser, Partial eraser), Fill and sign. A tap arms the tool and closes the drawer.
+- **Quick slots by drag and drop** (author): no tool is pinned at first, the two slots are empty. While a slot
+  is empty, opening the drawer shows a hint ("Tieni premuto uno strumento e trascinalo in basso per averlo
+  sempre a portata di mano", wording in T-b). Holding a tool in the drawer and moving the finger starts a
+  drag: the empty slots appear as dashed rectangles ("qui va uno strumento"); dropping on one pins the tool,
+  dropping anywhere else does nothing and the hint shows again next time. The hint goes away for good once a
+  slot is filled. A held tool released without moving opens the bubble instead. Dragging a quick tool off the
+  bar unpins it; dropping a tool on a full slot replaces it.
 - **Bubble** on long press (quick slot or drawer entry): colour row and, for Pen and Marker, size row, plus
   the partial eraser's size; replaces `StyleButton` and its `DropdownMenu`. Choices stay per tool as today
   (`AnnotatePaneState`).
-- Quick slots and the last tool per group kept across restarts (DataStore, `ViewerToolPreferences`); colours
-  and sizes stay session-only as today (decisions 2026-10-07) unless the author says otherwise.
+- Quick slots, the hint's state, the last tool per group, and **colours and sizes** kept across restarts
+  (DataStore, `ViewerToolPreferences`; author: yes if cheap, and it is, the same store as the pins). This
+  replaces the 2026-10-07 decision "Not kept across app restarts".
 - Fill and sign keeps its own strip (`fillTools`) once armed, as today; the bar's Tools button brings back the
   drawer.
 - Home "Highlight" / "Draw" still open the viewer with that tool armed.
@@ -122,26 +134,29 @@ bar.
 
 **Done when**
 - Robolectric tests: arming a tool or making Undo available does not move any bar button (bounds compared);
-  pin/unpin and replacement of the older pin; pins restored from preferences; long press opens the bubble,
-  tap arms and a second tap puts down; Marker armed from the drawer draws as a highlighter; the bubble's
+  hint shown while a slot is empty and gone for good once one is filled; drop on an empty slot pins, drop
+  elsewhere does nothing, drop on a full slot replaces, drag off the bar unpins; pins, colours and sizes
+  restored from preferences; long press without moving opens the bubble, tap arms and a second tap puts down; Marker armed from the drawer draws as a highlighter; the bubble's
   choices reach `AnnotatePaneState`.
 - README (tools section) and CLAUDE.md updated; lint, unit tests, `assembleDebug` green; CI green.
 
-**Device checks**: arm each tool from the drawer and from the quick slots: no button moves; pin two tools,
-restart the app, they are still there; long press on a quick slot and in the drawer → bubble, colour and size
+**Device checks**: arm each tool from the drawer and from the quick slots: no button moves; first open of the drawer
+shows the hint; drag a tool onto a dashed slot, drop one elsewhere (hint again), fill both, swap one, drag one
+off; restart the app: slots, colours and sizes are still there; long press on a quick slot and in the drawer → bubble, colour and size
 apply to the next stroke; landscape rail; Home "Highlight" and "Draw"; Fill and sign in and out; a protected
 PDF (tools dimmed, a tap explains why); TalkBack reads the slots.
 
-**Out of scope**: a floating, draggable palette; more than two quick slots; keeping colours and sizes across
-restarts (unless decided above); new tools.
+**Out of scope**: a floating, draggable palette; more than two quick slots; new tools.
 
-## Open questions
+## Questions answered (author, 2026-10-13)
 
-1. Default quick slots on first use: Pen and Stroke eraser? Highlight and Pen? (To ask at the start of T-b.)
-2. Should colours and sizes now be kept across restarts, given the bar remembers the pins?
-3. What the partial eraser's default size is, and whether the bubble offers sizes (e.g. 3 sizes).
-4. Cutting another app's annotation replaces it with annotations made by this app: its author, dates and any
-   custom appearance are lost on the pieces. Acceptable? (The stroke eraser already removes them whole.)
+1. Default quick slots: **none**; the drawer teaches drag and drop to the dashed slots (T-b scope above).
+2. Colours and sizes kept across restarts: **yes**, it costs little (T-b).
+3. Partial eraser size: **the pen's default**, 2 pt, with the pen's four sizes on offer (T-a). It may feel
+   thin for large areas: the device check judges it, and the bubble has 6 pt.
+4. Cutting another app's annotation: **yes**, with a one-time notice per document (T-a).
+5. Order: **T-a and T-b before 11**. The author is considering dropping 11 (ODF export) because it doesn't
+   look doable well on Android; not decided in this plan.
 
 ## Risks
 

@@ -280,6 +280,8 @@ decided or approved it.
 - 2026-10-13 · Planned (plan T, `docs/plan-tools.md`, author): a partial eraser that removes only what the
   finger passes over, on pen/marker strokes (also other apps' Ink) and on text markup; the cut pieces become
   new annotations, one undo step per gesture. Geometry in `pdf/annotations`, without Android's `Path.op`.
+  Sizes = the pen's, default 2 pt. Cutting another app's annotation is allowed, with a one-time notice per
+  document. T-a and T-b come before 11.
 
 ## Editing in the viewer (ADR 0005)
 
@@ -314,3 +316,5 @@ decided or approved it.
 - 2026-10-13 · Planned (plan T-b, author): the viewer's bar gets fixed places (Tools drawer, two quick slots
   the user pins, Undo, Redo, Pages) so nothing moves when a tool is armed; long press on a tool opens a bubble
   with colour and size (not a second tap); the freehand highlighter (Marker) becomes a tool of its own.
+  No default quick tools: the drawer hints at dragging a tool onto the empty (dashed) slots, until one is filled.
+  Colours and sizes are kept across restarts from T-b on (replaces "Not kept across app restarts").
