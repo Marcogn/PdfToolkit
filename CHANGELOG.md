@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-10-13
+
 - **Freehand shows while drawing on every device.** The app now draws the stroke under the pen itself,
   instead of through the drawing library's low-latency layer, which on some tablets (a Galaxy Tab S7+)
   showed nothing until the pen lifted; 1.1.2's library update didn't fix it and is undone. The saved stroke
