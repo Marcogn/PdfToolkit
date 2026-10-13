@@ -150,6 +150,8 @@ dependencies {
     implementation(libs.mlkit.document.scanner)
     // OCR (spec §7.2, plan 10a): bundled model, works offline from the first use.
     implementation(libs.mlkit.text.recognition)
+    // Partial eraser (plan T-a): strokes and markup minus the swept area.
+    implementation(libs.clipper2)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

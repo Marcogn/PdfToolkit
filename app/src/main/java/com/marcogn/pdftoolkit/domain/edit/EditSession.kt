@@ -145,6 +145,25 @@ class EditSession private constructor(
         return change(state.copy(annotations = annotations.copy(removed = annotations.removed + ref)))
     }
 
+    /**
+     * What the partial eraser left of some annotations, as **one** undo step (plan T-a): each annotation added
+     * in this session with an id in [added] is replaced, where it was in the drawing order, by its pieces;
+     * each annotation of a source file in [existing] is removed and its pieces go on top. No pieces: it just
+     * goes. Unknown ids, refs already removed, pieces with a taken id or on a page not in the session are
+     * ignored.
+     */
+    fun replaceAnnotations(added: Map<String, List<NewAnnotation>>, existing: Map<AnnotationRef, List<NewAnnotation>>): EditSession {
+        val known = added.filterKeys { id -> annotations.added.any { it.id == id } }
+        val fresh = existing.filterKeys { it !in annotations.removed }
+        if (known.isEmpty() && fresh.isEmpty()) return this
+        val pageIds = pages.mapTo(HashSet()) { it.id }
+        val taken = annotations.added.mapTo(HashSet()) { it.id }
+        fun usable(pieces: List<NewAnnotation>) = pieces.filter { it.pageId in pageIds && taken.add(it.id) }
+        val kept = annotations.added.flatMap { annotation -> known[annotation.id]?.let(::usable) ?: listOf(annotation) }
+        val onTop = fresh.values.flatMap(::usable)
+        return change(state.copy(annotations = AnnotationEdits(added = kept + onTop, removed = annotations.removed + fresh.keys)))
+    }
+
     /** The annotation edits as JSON, alongside [encode]. */
     fun encodeAnnotations(): String =
         if (annotations.isEmpty) "" else json.encodeToString(AnnotationEdits.serializer(), annotations)

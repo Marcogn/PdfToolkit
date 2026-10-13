@@ -14,6 +14,8 @@ import com.marcogn.pdftoolkit.domain.edit.EditSession
 import com.marcogn.pdftoolkit.domain.edit.PageItem
 import com.marcogn.pdftoolkit.pdf.annotations.AnnotationGeometry
 import com.marcogn.pdftoolkit.pdf.annotations.DocumentAnnotations
+import com.marcogn.pdftoolkit.pdf.annotations.EraserSweep
+import com.marcogn.pdftoolkit.pdf.annotations.PartialEraser
 import com.marcogn.pdftoolkit.pdf.annotations.PdfBoxAnnotationReader
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.cos.COSArray
@@ -369,6 +371,35 @@ class PdfBoxAnnotationTest {
             assertEquals(COSName.getPDFName("Multiply"), state.cosObject.getDictionaryObject(COSName.BM))
         }
         assertTrue((read(output).on(0).single().shape as AnnotationShape.Ink).highlighter)
+    }
+
+    @Test
+    fun `what the partial eraser leaves is written as annotations of their own and reads back as cut`() {
+        writeSource { foreignHighlight(page = 0, x = 30f) }
+        val foreign = read(source).on(0).first()
+        assertFalse(foreign.madeHere)
+        // A stroke of this session cut in the middle, and the other app's highlight (x 30..80) cut at x 55.
+        val pen = drawnInk.copy(strokes = listOf(listOf(UserPoint(50f, 60f), UserPoint(70f, 70f), UserPoint(90f, 80f))))
+        val sweep = EraserSweep.along(listOf(UserPoint(70f, 90f), UserPoint(70f, 50f)), 1f)!!
+        val strokePieces = PartialEraser.cut(pen, sweep)!!
+        val markupPieces = PartialEraser.cut(foreign.shape!!, EraserSweep.along(listOf(UserPoint(55f, 115f), UserPoint(55f, 95f)), 1f)!!)!!
+        assertEquals(2, strokePieces.size)
+        val session = EditSession.of(4).addAnnotation(NewAnnotation("a00000001", "p0", pen, AnnotationStyle(AnnotationColor.BLACK)))
+            .replaceAnnotations(
+                added = mapOf("a00000001" to strokePieces.mapIndexed { i, shape -> NewAnnotation("a0000001$i", "p0", shape, AnnotationStyle(AnnotationColor.BLACK)) }),
+                existing = mapOf(foreign.ref to markupPieces.map { NewAnnotation("a000000ff", "p0", it, foreign.style) }),
+            )
+        apply(session)
+        val back = read(output).on(0)
+        // The other app's highlight is gone (with its pop-up and reply, as for the stroke eraser), replaced by ours.
+        assertEquals(listOf("Ink", "Ink", "Highlight"), back.map { it.subtype })
+        assertTrue(back.all { it.madeHere })
+        val inks = back.filter { it.subtype == "Ink" }.map { it.shape as AnnotationShape.Ink }
+        assertEquals(strokePieces.map { (it as AnnotationShape.Ink).strokes }, inks.map { it.strokes })
+        val quads = (back.last().shape as AnnotationShape.TextMarkup).quads
+        assertEquals(2, quads.size)
+        assertEquals(54f, quads[0].upperRight.x, 0.05f)
+        assertEquals(56f, quads[1].upperLeft.x, 0.05f)
     }
 
     @Test

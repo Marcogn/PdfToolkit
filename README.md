@@ -17,7 +17,7 @@ no cloud; the only connection is the check for app updates on GitHub.
   redo and saving as a copy or over the original:
   - highlight, underline and strike out text; select and copy it;
   - draw with a pen or a marker, finger or stylus;
-  - erase annotations, also those made by other apps;
+  - erase annotations, also those made by other apps, whole or only where the finger passes;
   - fill forms (text, check boxes, radio buttons, lists) and add text, the date, ticks, crosses and
     signatures, which can be moved, resized and turned; signatures are drawn or imported into a private
     archive ("My signatures").
@@ -95,7 +95,9 @@ Text Recognition v2 (model bundled in the app; ML Kit terms), Jetpack Compose an
 (editing), and Reorderable (page drag and drop), all under the Apache 2.0 licence; the viewer uses Android's
 `PdfRenderer`. The reasons are in [`docs/adr/`](docs/adr/). Text written into PDFs uses the Noto Sans
 font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1: it is bundled in
-`app/src/main/assets/fonts/` with its licence (`OFL.txt`) and embedded in the PDFs the app writes.
+`app/src/main/assets/fonts/` with its licence (`OFL.txt`) and embedded in the PDFs the app writes. The partial
+eraser cuts shapes with [Clipper2-java](https://github.com/micycle1/Clipper2-java) (a Java port of Angus Johnson's
+Clipper2), under the Boost Software License 1.0.
 
 ## Known limits
 
@@ -132,6 +134,10 @@ font (Regular 2.015, from the Noto project), under the SIL Open Font License 1.1
   doesn't zoom while drawing or with the eraser; in single-page mode pages don't turn while a brush is armed; only a stylus
   ignores a resting palm. The drawing library adds about 5 MB of native code to the APK.
   The stroke under the pen is drawn by the app, not on a low-latency layer: about one frame behind the pen.
+- **Partial eraser**: pieces of another app's annotation become PdfToolkit's (author, dates, pop-ups and replies
+  are lost, as with the whole eraser). A highlight is cut across the full line height. A stroke reopened from a
+  file is cut on its centre line, so the cut edge is round rather than following the eraser. A drag erases on the
+  page where it starts.
 - **Editing in the viewer** starts a moment after a document opens (its annotations are read first).
   After "save as copy" the viewer keeps showing the original with the changes on top ("Open" shows the
   copy). "Pages" asks to save or discard first. In landscape the rail covers the right edge of a page

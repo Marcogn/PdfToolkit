@@ -331,6 +331,10 @@
     <string name="annotate_hint_select">Press and hold a word and, without lifting, drag to extend it: it is applied on release</string>
     <string name="annotate_style">Style</string>
     <string name="annotate_hint_erase">Tap an annotation to remove it</string>
+    <string name="annotate_hint_erase_partial">Run your finger where you want to erase: only what you touch goes. Two fingers move and zoom</string>
+    <string name="annotate_eraser_whole">Erase whole annotations</string>
+    <string name="annotate_eraser_partial">Erase only where you pass</string>
+    <string name="annotate_eraser_foreign">This annotation was made by another app: the pieces left will be saved as PdfToolkit annotations, without the original author and dates</string>
     <string name="annotate_hint_draw">Draw with a finger or a stylus; two fingers move and zoom. Colour and size: Style button</string>
     <string name="annotate_load_failed">Couldn\'t read the document\'s annotations</string>
     <string name="color_yellow">Yellow</string>

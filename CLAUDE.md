@@ -54,7 +54,8 @@ The cloud environment may fix the branch name: then use the one it gives.
 | 12 Cloud (WebDAV) | Sonnet (Opus reviews the credential store) | `docs/plan-v2.md` 12; adds `INTERNET` | Plan 12 | Nextcloud upload, wrong password, no network |
 
 Done: 0, 1a, 1b, 2, 3, 4a, 4b, 5a, 5b, 6 (except the baseline profile), 7a, 7b, 8a, 8b, U-a, U-b,
-V-a, V-b, V-c, 9, 10a, 10b (device checks pending), A (written, device checks pending). Haiku is not
+V-a, V-b, V-c, 9, 10a, 10b, A (device checks of 10b and A counted as done by the author to start T-a), T-a
+(written, device checks pending). Haiku is not
 recommended for code here.
 
 ## Commands
@@ -90,7 +91,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   background recognition, shared by the viewer and the scan flow), progress strip, error dialog.
 - `ui/annotate/`: annotation drawing (`AnnotationLayer`, `drawAnnotations`), text selection
   (`TextSelectionState`, handles, gestures), tool state and Style menu (`AnnotateTools.kt`), freehand
-  on `androidx.ink` (`FreehandGestures`, `FreehandInk`, `ViewportInkLayer` + `WetStroke`).
+  on `androidx.ink` (`FreehandGestures`, `FreehandInk`, `ViewportInkLayer` + `WetStroke`), the partial eraser's
+  touch (`EraserGestures`).
 - `ui/fill/`: fill tools state and buttons (`FillTools.kt`), form controls (`FormFieldControls.kt`),
   `OverlayPainter`, overlay gestures, text dialog. `ui/signatures/`: "My signatures", creation (draw,
   import), picker sheet. `ui/search/`: search bar, notices, highlights.
@@ -104,7 +106,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   (`DocumentLayout`, `Viewport`, `PageCoordinateMapper`, `PdfPageSpace`, `OverlayGeometry`).
   `pdf/edit`: `PdfEditor`/`PdfBoxEditor`, `FillWriter`, `AnnotationWriter`, fonts. `pdf/forms`:
   `FormReader`. `pdf/text`: extraction, normalisation, index, search, selection. `pdf/annotations`:
-  reader, geometry, eraser, markup factory, freehand geometry, `DocumentStrokes`. `pdf/ocr`: model
+  reader, geometry, eraser, markup factory, freehand geometry, `DocumentStrokes`, `PartialEraser` (plan T-a:
+  `EraserSweep`, the cut, `PartialEraseStroke` for one drag; Clipper2-java). `pdf/ocr`: model
   (`OcrPage`/`OcrLine`/`OcrWord`, page points), `OcrGeometry` (boxes → text runs in user space),
   `TextRecognizer` (ML Kit bundled), `OcrProcessor` (detect, render, recognise, write); the writer is
   `pdf/edit/OcrTextWriter` behind `PdfEditor.addTextLayer`. `data/ocr/`: `OcrWorker` (WorkManager, like
@@ -149,6 +152,11 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   outline is the appearance, `/InkList` the centre line. Ink brush versions pinned (`V1`). The stroke being
   drawn is the app's (`WetStroke` in `ViewportInkLayer`), **not** `ink-authoring`'s `InProgressStrokes`, whose
   front-buffered layer stays blank until lift on some devices (Galaxy Tab S7+); don't bring it back.
+- **Partial eraser** (plan T-a, ADR 0004): geometry only in `PartialEraser` (Clipper2 integer paths in hundredths
+  of a point = the stored resolution); one drag = one `EditSession.replaceAnnotations` step on lift, the preview is
+  `ViewerPartialErase.preview()` drawn in place of the session's annotations. Its gesture consumes everything
+  (taps included) and shares `FreehandGrab`. JitPack is an `exclusiveContent` repository for `com.github.micycle1`
+  only: don't widen it.
 - **Text selection** is one page at a time, in that page's display points, stored as (page, glyph
   range) and resolved again from the text (`ResolveTextSelection`).
 - **Annotations**: the renderer draws none, so the app draws them (`drawAnnotations`) from the same
@@ -188,7 +196,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   written and kept isolated.
 - If a requirement is unclear or not feasible, stop and ask.
 
-## Current status (2026-10-12)
+## Current status (2026-10-13)
 - Product phase 1 released as **1.0.0** (2026-10-04). Still open from it: the **baseline profile**
   (needs a device: `androidx.baselineprofile` plugin + a macrobenchmark module, startup / open viewer /
   open organize) and the **signing secrets** in the repository (Build APK and Release need them).
@@ -199,7 +207,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - **10a OCR core done (2026-10-09)**, PR #30; device checks passed (author, 2026-10-11).
 - **10b OCR complete written (2026-10-11)**: `OcrWorker` background run with progress and cancel, "Recognise
   text" in the viewer's no-text notice, the option dialog after a scan, closes #31; lint, unit tests and
-  `assembleRelease` green (see the PR); device checks pending.
+  `assembleRelease` green (see the PR); device checks counted as done by the author (2026-10-13).
 - **Freehand fix (2026-10-13)**, outside the sub-phases: 1.1.2's `androidx.ink` 1.1.0-alpha09 didn't fix the
   Galaxy Tab S7+ (stroke only shown on lift); the app now draws the stroke being drawn itself (`WetStroke`), back on
   ink 1.0.0 without `ink-authoring`; the eraser acts on tap without the double-tap wait. Device check pending.
@@ -209,10 +217,23 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   on the author: the `CLAUDE_CODE_OAUTH_TOKEN` secret and the environment's setup script.
 - **A Updates and About written (2026-10-12)**, PR #35: update package ported from ThePatientGamerHelper
   95f0b97, `INTERNET` + `REQUEST_INSTALL_PACKAGES`, ML Kit telemetry off (ADR 0006), About and Settings;
-  device checks pending. Opus for the network audit (author's switch). **Next: T-a Partial eraser core
-  (Opus)**, after the 10b and A device checks (then T-b, then 11 if kept).
+  device checks counted as done by the author (2026-10-13, more test rounds to come). Opus for the network audit
+  (author's switch).
 - **Planned (2026-10-13)**: **T-a Partial eraser core** (Opus) then **T-b Tool drawer** (Sonnet),
   `docs/plan-tools.md`, **before 11** (author). The author is considering dropping 11 (ODF export): open.
+- **T-a Partial eraser core written (2026-10-13)**: Clipper2-java 2.0.1b (JitPack, filtered), ADR 0004 addendum;
+  device checks pending. **Next: T-b Tool drawer (Sonnet).**
+
+### Handoff T-a → T-b
+- The partial eraser is `AnnotateTool.ERASER` with `AnnotatePaneState.partialEraser` (and `eraserWidth`, an index
+  into `AnnotatePaneState.eraserWidths` = the pen's sizes); T-b splits it into two drawer tools (stroke eraser,
+  partial eraser) and moves the mode and size from `EraserStyleButton` (in `StyleButton`) to the bubble.
+- In the viewer: `ReadyViewer` builds `ViewportErasing` while it is armed; `PdfViewport` runs
+  `detectEraserGestures` and draws the ring. A pager doesn't scroll while it is armed (as for brushes).
+- `TransientHint(armedTool?.hint(partialErasing), …)`: the partial eraser has its own hint string.
+- The one-time "another app's annotation" snackbar is per viewer session (`rememberSaveable`), not per file.
+- Nothing kept across restarts yet: T-b's `ViewerToolPreferences` should store the eraser mode and size too.
+- Not measured on a device: cost of the live cut on long strokes (the plan's fallback is cutting on lift).
 - Open questions for later sub-phases (`docs/plan-v2.md`): ODG or ODT (11), release numbering.
 
 ### Device checks 10b (author)

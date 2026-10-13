@@ -6,6 +6,13 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Partial eraser.** The eraser can now take away only what your finger passes over, instead of whole
+  annotations: pick "Only where you pass" in the eraser's Style menu and drag over pen and marker strokes or over
+  highlights, underlines and strikeouts. What is left stays as annotations of its own (a stroke cut in the middle
+  becomes two); a tap takes a dot; a ring shows the eraser's size (1, 2, 4 or 6 pt); two fingers still zoom and
+  pan. Each drag is one undo step. It also works on annotations made by other apps: they become PdfToolkit's
+  annotations (losing their author and dates), and the app says so the first time.
+
 ## [1.1.3] - 2026-10-13
 
 - **Freehand shows while drawing on every device.** The app now draws the stroke under the pen itself,
