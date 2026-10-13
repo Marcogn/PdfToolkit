@@ -221,8 +221,11 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   (author's switch).
 - **Planned (2026-10-13)**: **T-a Partial eraser core** (Opus) then **T-b Tool drawer** (Sonnet),
   `docs/plan-tools.md`, **before 11** (author). The author is considering dropping 11 (ODF export): open.
-- **T-a Partial eraser core written (2026-10-13)**: Clipper2-java 2.0.1b (JitPack, filtered), ADR 0004 addendum;
-  device checks pending. **Next: T-b Tool drawer (Sonnet).**
+- **T-a Partial eraser core written (2026-10-13)**, PR #39, CI green: Clipper2-java 2.0.1b (JitPack, filtered), ADR
+  0004 addendum. Device checks (author, 2026-10-13): cuts on phone and tablet, undo/redo, turned page, make final and
+  save passed; not reported yet: another app's annotation (notice), reopening in another reader. Author's feedback for
+  T-b: the eraser's mode behind Style is not intuitive, and the freehand highlighter (Marker, Draw → Style) wasn't
+  found: both are T-b scope (drawer tools, bubble). **Next: T-b Tool drawer (Sonnet).**
 
 ### Handoff T-a → T-b
 - The partial eraser is `AnnotateTool.ERASER` with `AnnotatePaneState.partialEraser` (and `eraserWidth`, an index
