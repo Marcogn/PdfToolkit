@@ -277,6 +277,9 @@ decided or approved it.
   finger (author).
 - 2026-10-07 · Pen colours black, red, blue, green, orange; marker colours = highlight palette. Sizes
   1/2/4/6 pt (pen), 8/12/18/26 pt (marker). Not kept across app restarts.
+- 2026-10-13 · Planned (plan T, `docs/plan-tools.md`, author): a partial eraser that removes only what the
+  finger passes over, on pen/marker strokes (also other apps' Ink) and on text markup; the cut pieces become
+  new annotations, one undo step per gesture. Geometry in `pdf/annotations`, without Android's `Path.op`.
 
 ## Editing in the viewer (ADR 0005)
 
@@ -308,3 +311,6 @@ decided or approved it.
 - 2026-10-01 · Icon in `mipmap-anydpi-v26/`: lint reports `ObsoleteSdkInt`, but aapt2 didn't find the
   icon in `mipmap-anydpi/`.
 - 2026-10-01 · Robolectric Compose tests set the Italian locale explicitly (`@Config(qualifiers = "it-...")`).
+- 2026-10-13 · Planned (plan T-b, author): the viewer's bar gets fixed places (Tools drawer, two quick slots
+  the user pins, Undo, Redo, Pages) so nothing moves when a tool is armed; long press on a tool opens a bubble
+  with colour and size (not a second tap); the freehand highlighter (Marker) becomes a tool of its own.

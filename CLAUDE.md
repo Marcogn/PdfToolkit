@@ -13,13 +13,14 @@ into `docs/decisions.md`.
 ## Phases
 - **Development phases** are the order the code is written in: 0–6 (spec §13, product phase 1,
   released as 1.0.0), then 7–12 for product phase 2 (`docs/plan-v2.md`), with two inserted series:
-  U-a/U-b (usability, `docs/plan-usability.md`) and V-a/V-b/V-c (editing in the viewer,
-  `docs/plan-viewer-editing.md`). "Next phase" means the next development sub-phase.
+  U-a/U-b (usability, `docs/plan-usability.md`), V-a/V-b/V-c (editing in the viewer,
+  `docs/plan-viewer-editing.md`), A (updates, `docs/plan-updates.md`) and T-a/T-b (tool drawer and
+  partial eraser, `docs/plan-tools.md`). "Next phase" means the next development sub-phase.
 - **Product phase 1 / 2** (spec §1, §7, §14): the feature sets. Spec lines like "Fase 2 (pianificata,
   non implementare)" or "in Fase 1 nessun permesso INTERNET" refer to the product. Implement a product
   phase 2 feature only inside its own sub-phase.
 - Code comments cite plan items as "plan U7", "plan V-b": U-items are in `docs/plan-usability.md`,
-  V-items in `docs/plan-viewer-editing.md`.
+  V-items in `docs/plan-viewer-editing.md`, T-items in `docs/plan-tools.md`.
 
 ## Session protocol
 The `/next-phase` and `/close-phase` skills (`.claude/skills/`) run these steps; this list is the source.
@@ -47,6 +48,8 @@ The cloud environment may fix the branch name: then use the one it gives.
 | 10a OCR core | **Opus** | `docs/plan-v2.md` 10a: Text Recognition v2, invisible text layer in user space | Unit tests on line geometry and search after OCR; handoff written | OCR'd scan searchable in app and other reader |
 | 10b OCR complete | Sonnet | `docs/plan-v2.md` 10b: UI, progress, cancellation, background | Plan 10b | 20-page scan; cancel halfway |
 | A Updates and About (`docs/plan-updates.md`) | Sonnet | Port of ThePatientGamerHelper's update package (its Phase 9); adds `INTERNET` + `REQUEST_INSTALL_PACKAGES`; About extended | Plan A; ADR 0006; network audit | Old release → update → install; airplane mode; "Never" |
+| T-a Partial eraser core (planned, `docs/plan-tools.md`) | **Opus** | Eraser that removes only what the finger passes over: pen/marker strokes (also other apps' Ink) and text markup; pieces stay as annotations; one undo step | Plan T-a; ADR 0004 addendum | Cut strokes and highlights, turned page, undo; reopen in another reader |
+| T-b Tool drawer (planned, `docs/plan-tools.md`) | Sonnet | Fixed bar: Tools drawer, two pinned quick slots, Undo/Redo, Pages; long press → colour/size bubble; Marker as its own tool; stroke and partial eraser | Plan T-b | Nothing moves when arming; pins kept after restart; bubble; landscape |
 | 11 ODF export | Sonnet | `docs/plan-v2.md` 11 | Plan 11 | Result opens in LibreOffice / Collabora |
 | 12 Cloud (WebDAV) | Sonnet (Opus reviews the credential store) | `docs/plan-v2.md` 12; adds `INTERNET` | Plan 12 | Nextcloud upload, wrong password, no network |
 
@@ -208,6 +211,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   95f0b97, `INTERNET` + `REQUEST_INSTALL_PACKAGES`, ML Kit telemetry off (ADR 0006), About and Settings;
   device checks pending. Opus for the network audit (author's switch). **Next: 11 ODF export (Sonnet)**,
   after the 10b and A device checks; the ODG-or-ODT question must be answered first.
+- **Planned (2026-10-13)**: **T-a Partial eraser core** (Opus) then **T-b Tool drawer** (Sonnet),
+  `docs/plan-tools.md`; place in the order relative to 11 to be decided by the author.
 - Open questions for later sub-phases (`docs/plan-v2.md`): ODG or ODT (11), release numbering.
 
 ### Device checks 10b (author)
