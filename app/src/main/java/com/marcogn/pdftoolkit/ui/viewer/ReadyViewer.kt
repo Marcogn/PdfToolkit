@@ -40,7 +40,11 @@ import androidx.compose.ui.platform.LocalDensity
 import com.marcogn.pdftoolkit.domain.annotate.MarkupKind
 import com.marcogn.pdftoolkit.domain.annotate.AnnotationEdits
 import com.marcogn.pdftoolkit.domain.annotate.NewAnnotation
+import com.marcogn.pdftoolkit.domain.tools.DrawerTool
+import com.marcogn.pdftoolkit.domain.tools.QuickSlots
 import com.marcogn.pdftoolkit.ui.annotate.AnnotateTool
+import com.marcogn.pdftoolkit.ui.annotate.arm
+import com.marcogn.pdftoolkit.ui.annotate.drawerTool
 import com.marcogn.pdftoolkit.ui.annotate.appliedLabel
 import com.marcogn.pdftoolkit.ui.annotate.applyLabel
 import com.marcogn.pdftoolkit.ui.annotate.rememberAnnotatePaneState
@@ -116,6 +120,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -155,6 +160,8 @@ import com.marcogn.pdftoolkit.ui.search.SearchNotice
 import com.marcogn.pdftoolkit.ui.search.SearchTopBar
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
@@ -195,6 +202,7 @@ fun ReadyViewer(
     save: ViewerSaveUi,
     ocr: ViewerOcrUi,
     fill: ViewerFillUi,
+    tools: ViewerToolsUi,
     onBack: () -> Unit,
     onReopen: (uri: String) -> Unit,
     onOpenCopy: (uri: String) -> Unit,
@@ -279,6 +287,24 @@ fun ReadyViewer(
     // Opened from Home on Highlight or Draw: that tool is armed as soon as the document can take it.
     val annotateTools = rememberAnnotatePaneState(if (startTool == PdfTool.DRAW) AnnotateTool.PEN else AnnotateTool.HIGHLIGHT)
     var annotating by rememberSaveable { mutableStateOf(startTool == PdfTool.HIGHLIGHT || startTool == PdfTool.DRAW) }
+    // Colours, sizes and the eraser's mode are kept across restarts (plan T-b): applied once they are read, then written back.
+    val toolPrefs = tools.prefs
+    var stylePrefsApplied by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(toolPrefs != null) {
+        if (toolPrefs != null && !stylePrefsApplied) {
+            annotateTools.restore(toolPrefs.style)
+            stylePrefsApplied = true
+        }
+    }
+    val saveStyle by rememberUpdatedState(tools.onStyle)
+    LaunchedEffect(stylePrefsApplied) {
+        if (stylePrefsApplied) snapshotFlow { annotateTools.style() }.distinctUntilChanged().drop(1).collect { saveStyle(it) }
+    }
+    val quickSlots = toolPrefs?.slots ?: QuickSlots()
+    var drawerOpen by rememberSaveable { mutableStateOf(false) }
+    var drawerOrigin by remember { mutableStateOf<Offset?>(null) }
+    val toolDrag = remember { ToolDragState() }
+    val barGeometry = remember { ToolBarGeometry() }
     // "Fill and sign" (plan V-c): its own family of tools, never armed together with a markup or drawing tool.
     var filling by rememberSaveable { mutableStateOf(startTool == PdfTool.FILL_AND_SIGN) }
     val fillTools = rememberFillToolsState()
@@ -295,6 +321,7 @@ fun ReadyViewer(
         // Search and the tools don't mix (plan V-a): opening search puts the tool down.
         if (searchOpen) {
             annotating = false
+            drawerOpen = false
             putFillDown()
         }
     }
@@ -386,20 +413,6 @@ fun ReadyViewer(
         scope.launch { snackbarHostState.showSnackbar(unavailableMessage) }
         Unit
     }
-    // A tap on the button of the armed family puts the tool down; on another one arms its last tool (plan V-b).
-    val onGroup: (ViewerToolGroup) -> Unit = { group ->
-        if (pageTools == null) {
-            showUnavailable()
-        } else if (annotating && annotateTools.tool.group() == group) {
-            annotating = false
-        } else {
-            annotateTools.choose(annotateTools.toolOf(group))
-            annotating = true
-            putFillDown()
-            showThumbnails = false
-            immersive = false
-        }
-    }
     val onFill: () -> Unit = {
         if (pageTools == null) {
             showUnavailable()
@@ -412,6 +425,34 @@ fun ReadyViewer(
             showThumbnails = false
             immersive = false
         }
+    }
+    // A tool of the drawer or of a quick slot (plan T-b): arms it and closes the drawer; "Leggi" puts it down.
+    val onArm: (DrawerTool) -> Unit = { tool ->
+        drawerOpen = false
+        if (pageTools == null) {
+            showUnavailable()
+        } else if (tool == DrawerTool.FILL) {
+            if (!filling) onFill()
+        } else {
+            annotateTools.arm(tool)
+            annotating = true
+            putFillDown()
+            showThumbnails = false
+            immersive = false
+        }
+    }
+    val onRead: () -> Unit = {
+        drawerOpen = false
+        annotating = false
+        putFillDown()
+    }
+    val armedDrawerTool: DrawerTool? = when {
+        fillArmed -> DrawerTool.FILL
+        armedTool != null -> armedTool.drawerTool(annotateTools.partialEraser)
+        else -> null
+    }
+    val toolBarCallbacks = remember(barGeometry, toolDrag, quickSlots, tools.onSlots) {
+        ToolBarCallbacks(barGeometry, toolDrag) { tool, from, to, overBar -> tools.onSlots(quickSlots.drop(tool, from, to, overBar)) }
     }
     // Opened on a tool that this document can't take (protected, unreadable): say so once, nothing is armed.
     var startToolChecked by rememberSaveable { mutableStateOf(false) }
@@ -973,6 +1014,24 @@ fun ReadyViewer(
                 }
             }
 
+            // The tool drawer (plan T-b): under the bar, so the bar stays usable while it is open.
+            LaunchedEffect(toolBarVisible) { if (!toolBarVisible) drawerOpen = false }
+            ToolDrawerHost(
+                open = drawerOpen && toolBarVisible,
+                onClose = { drawerOpen = false },
+                origin = drawerOrigin,
+                side = railed,
+                state = annotateTools,
+                armed = armedDrawerTool,
+                editable = pageTools != null,
+                showPinHint = toolPrefs != null && !toolPrefs.pinHintDone && !quickSlots.anyFilled,
+                showTutorial = toolPrefs != null && !toolPrefs.tutorialSeen,
+                onTutorialDone = tools.onTutorialSeen,
+                callbacks = toolBarCallbacks,
+                onArm = onArm,
+                onRead = onRead,
+            )
+
             // The tools (plan V-b): over the pages, a bar at the bottom or a rail at the end in landscape; gone in full screen.
             AnimatedVisibility(
                 visible = toolBarVisible,
@@ -993,18 +1052,19 @@ fun ReadyViewer(
                 ) {
                     ViewerToolBar(
                         state = annotateTools,
-                        armed = armed,
+                        armed = armedDrawerTool,
+                        slots = quickSlots,
                         editable = pageTools != null,
-                        undoRedo = if (edits.session.canUndo || edits.session.canRedo) {
-                            UndoRedo(edits.session.canUndo, edits.session.canRedo, { editing.undo() }, { editing.redo() })
-                        } else {
-                            null
-                        },
+                        drawerOpen = drawerOpen,
+                        undoRedo = UndoRedo(edits.session.canUndo, edits.session.canRedo, { editing.undo() }, { editing.redo() }),
                         side = railed,
-                        onGroup = onGroup,
+                        callbacks = toolBarCallbacks,
+                        onDrawer = { drawerOpen = !drawerOpen },
+                        onArm = onArm,
                         filling = fillArmed,
-                        onFill = onFill,
+                        onFillDown = onFill,
                         onPages = openPages,
+                        onOrigin = { drawerOrigin = it },
                         fillTools = {
                             FillToolButtons(
                                 state = fillTools,
@@ -1032,6 +1092,9 @@ fun ReadyViewer(
                     modifier = Modifier.navigationBarsPadding(),
                 )
             }
+
+            // A tool being dragged to a quick slot, above everything.
+            ToolDragGhost(toolDrag)
         }
     }
 

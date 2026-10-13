@@ -6,8 +6,15 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Tool drawer.** The viewer's bar now has fixed places that never move: **Tools**, two **quick slots**, Undo,
+  Redo and Pages. Tools opens a fan of every tool (highlight, underline, strikeout, pen, marker, stroke eraser,
+  partial eraser, fill and sign, and "Read" to put the tool down). Tap a tool to use it; hold it still for a
+  bubble with its colour and size (also a tap on the armed quick tool); hold and drag it onto a dashed slot to
+  keep it in the bar (drag it off the bar to unpin). A short tutorial shows the first time, and can be shown
+  again from Settings and About. The marker (freehand highlighter) and the two erasers are tools of their own;
+  the Style button is gone. Quick slots, colours, sizes and the eraser's mode are kept across restarts.
 - **Partial eraser.** The eraser can now take away only what your finger passes over, instead of whole
-  annotations: pick "Only where you pass" in the eraser's Style menu and drag over pen and marker strokes or over
+  annotations: pick the Partial eraser in Tools and drag over pen and marker strokes or over
   highlights, underlines and strikeouts. What is left stays as annotations of its own (a stroke cut in the middle
   becomes two); a tap takes a dot; a ring shows the eraser's size (1, 2, 4 or 6 pt); two fingers still zoom and
   pan. Each drag is one undo step. It also works on annotations made by other apps: they become PdfToolkit's

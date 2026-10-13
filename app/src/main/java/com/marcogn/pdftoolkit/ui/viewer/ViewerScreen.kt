@@ -55,6 +55,7 @@ fun ViewerScreen(
     val flattenForm by viewModel.flattenFormChoice.collectAsStateWithLifecycle()
     val form by viewModel.form.collectAsStateWithLifecycle()
     val ocrState by viewModel.ocrState.collectAsStateWithLifecycle()
+    val toolPrefs by viewModel.toolPrefs.collectAsStateWithLifecycle()
 
     when (val state = uiState) {
         is ViewerUiState.Ready -> ReadyViewer(
@@ -90,6 +91,12 @@ fun ViewerScreen(
                 sanitize = viewModel::sanitizeText,
                 importImage = viewModel::importOverlayImage,
                 image = viewModel::overlayImage,
+            ),
+            tools = ViewerToolsUi(
+                prefs = toolPrefs,
+                onSlots = viewModel::setQuickSlots,
+                onTutorialSeen = viewModel::setToolTutorialSeen,
+                onStyle = viewModel::setToolStyle,
             ),
             onBack = onBack,
             onReopen = onReopen,

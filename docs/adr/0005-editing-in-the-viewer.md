@@ -68,7 +68,7 @@ again (the exit asks once more, never the opposite).
   available about when the first pages show.
 - The edit screen is "Organize pages" only: the Annotate pane and the hub went in V-b, the Fill pane in V-c.
 
-## V-b: the tools bar (2026-10-08)
+## V-b: the tools bar (2026-10-08; superseded by T-b below)
 
 - The bar is `ViewerToolBar` (`ToolStrip`: bottom bar, or a rail at the end in landscape): Highlight, Draw and
   Eraser arm a page tool, Fill and Pages open `EditScreen`. A button is named after the tool of its family
@@ -109,3 +109,10 @@ again (the exit asks once more, never the opposite).
 - **The keyboard.** The viewport doesn't resize for the IME (the page area is the whole screen); a focused text
   field below the keyboard pans the page up instead.
 - **Home "Fill and sign"** opens the viewer armed (`Destination.Viewer(uri, tool)`); `Destination.Edit` lost `tool`.
+
+## T-b: the tool drawer (2026-10-13)
+
+The bar of V-b is replaced: `ViewerToolBar` has fixed places (Tools, two quick slots, Undo, Redo, Pages) and
+the tools are in a fan-shaped drawer (`ToolDrawerHost`), with a bubble for colour and size instead of the Style
+menu. The rest of V-b (save first, hiding the bar in full screen, while searching and over the thumbnails) is
+unchanged. Details and the choices made: `docs/decisions.md` (2026-10-13, T-b) and `docs/plan-tools.md`.

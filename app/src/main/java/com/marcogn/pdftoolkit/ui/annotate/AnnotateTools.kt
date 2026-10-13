@@ -19,9 +19,11 @@ import androidx.compose.material.icons.outlined.AutoFixNormal
 import androidx.compose.material.icons.outlined.Brush
 import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.Draw
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -48,7 +50,8 @@ import com.marcogn.pdftoolkit.domain.annotate.AnnotationPalette
 import com.marcogn.pdftoolkit.domain.annotate.FreehandKind
 import com.marcogn.pdftoolkit.domain.annotate.FreehandOptions
 import com.marcogn.pdftoolkit.domain.annotate.MarkupKind
-import com.marcogn.pdftoolkit.ui.fill.ToolButtonFrame
+import com.marcogn.pdftoolkit.domain.tools.DrawerTool
+import com.marcogn.pdftoolkit.domain.tools.ToolStyleSettings
 
 /**
  * What a gesture on a page does with the annotation tools of the viewer (spec §7.4): select text for a markup
@@ -145,6 +148,28 @@ class AnnotatePaneState(
         if (kind == FreehandKind.PEN) penWidth = index else markerWidth = index
     }
 
+    /** What is kept across restarts (plan T-b). */
+    fun style() = ToolStyleSettings(
+        highlightColor, lineColor, penColor, penWidth, markerColor, markerWidth, partialEraser, eraserWidth,
+        markupTool.drawerTool(false), brushTool.drawerTool(false),
+    )
+
+    /** Takes the kept [style] (colours, sizes, eraser mode, last tool of each group) without arming anything. */
+    fun restore(style: ToolStyleSettings) {
+        highlightColor = style.highlightColor
+        lineColor = style.lineColor
+        penColor = style.penColor
+        penWidth = style.penWidth
+        markerColor = style.markerColor
+        markerWidth = style.markerWidth
+        partialEraser = style.partialEraser
+        eraserWidth = style.eraserWidth
+        style.lastMarkup.annotateTool()?.takeIf { it.kind != null }?.let { markupTool = it }
+        style.lastBrush.annotateTool()?.takeIf { it.freehand != null }?.let { brushTool = it }
+        // The tool already armed (opened from Home on Draw...) is the last of its group, whatever was kept.
+        if (tool.kind != null || tool.freehand != null) choose(tool)
+    }
+
     /** How wide the partial eraser is, in points of the page: one of the pen's sizes, 2 pt at first (plan T-a). */
     val eraserSize: Float get() = eraserWidths.let { it[eraserWidth.coerceIn(it.indices)] }
 
@@ -195,73 +220,63 @@ fun AnnotateTool.hint(partialEraser: Boolean = false): String = stringResource(
 )
 
 /**
- * The button that shows the colour (and the size of a brush) the armed tool has and opens a small menu
- * to change them, and to pick the other tool of its group (underline for highlight, marker for pen).
- * For the eraser: whole annotations or only what the finger passes over, and the partial eraser's size
- * (plan T-a, until the drawer of plan T-b).
+ * The bubble of a tool (plan T-b): its name, its colours, the size of a brush and of the partial eraser. Opens on a
+ * hold in the drawer or a tap on the armed quick tool; replaces the old Style button. Choices go straight to
+ * [state]. A tool with nothing to choose (stroke eraser, fill) shows just its name.
  */
 @Composable
-fun StyleButton(state: AnnotatePaneState) {
-    val kind = state.tool.kind
-    val brush = state.tool.freehand
-    if (state.tool == AnnotateTool.ERASER) {
-        EraserStyleButton(state)
-        return
-    }
-    if (kind == null && brush == null) return
-    var open by remember { mutableStateOf(false) }
-    val palette = if (kind != null) AnnotationPalette.of(kind) else FreehandOptions.colors(brush!!)
-    val chosen = if (kind != null) state.colorFor(kind) else state.colorFor(brush!!)
-    Box {
-        ToolButtonFrame(R.string.annotate_style, open, onClick = { open = true }) {
-            Box(
-                Modifier
-                    .size(SWATCH_SIZE - 8.dp)
-                    .clip(CircleShape)
-                    .background(Color(chosen.red, chosen.green, chosen.blue))
-                    .border(BorderStroke(THIN_RIM, MaterialTheme.colorScheme.outline), CircleShape),
+fun ToolBubble(tool: DrawerTool, state: AnnotatePaneState, expanded: Boolean, onDismiss: () -> Unit) {
+    val annotate = tool.annotateTool()
+    val kind = annotate?.kind
+    val brush = annotate?.freehand
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                stringResource(tool.labelRes()),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             )
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            Column(Modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                ToolChoiceRow(state)
-                ColorRow(palette, chosen) { if (kind != null) state.setColor(kind, it) else state.setColor(brush!!, it) }
-                if (brush != null) WidthRow(brush, state)
+            when {
+                kind != null -> ColorRow(AnnotationPalette.of(kind), state.colorFor(kind)) { state.setColor(kind, it) }
+                brush != null -> {
+                    ColorRow(FreehandOptions.colors(brush), state.colorFor(brush)) { state.setColor(brush, it) }
+                    SizeRow(FreehandOptions.widths(brush), state.widthFor(brush)) { state.setWidth(brush, it) }
+                }
+                tool == DrawerTool.ERASER_PARTIAL -> SizeRow(AnnotatePaneState.eraserWidths, state.eraserSize) { state.eraserWidth = it }
             }
         }
     }
 }
 
-@Composable
-private fun EraserStyleButton(state: AnnotatePaneState) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        ToolButtonFrame(R.string.annotate_style, open, onClick = { open = true }) {
-            Icon(eraserModeIcon(state.partialEraser), contentDescription = null)
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            Column(Modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    for (partial in listOf(false, true)) {
-                        ChoiceButton(
-                            selected = state.partialEraser == partial,
-                            name = stringResource(if (partial) R.string.annotate_eraser_partial else R.string.annotate_eraser_whole),
-                            onClick = { state.partialEraser = partial },
-                        ) { Icon(eraserModeIcon(partial), contentDescription = null) }
-                    }
-                }
-                if (state.partialEraser) {
-                    SizeRow(AnnotatePaneState.eraserWidths, state.eraserSize) { state.eraserWidth = it }
-                }
-            }
-        }
-    }
+/** The annotation tool a drawer tool arms, or null for "Fill and sign", which has its own strip. */
+fun DrawerTool.annotateTool(): AnnotateTool? = when (this) {
+    DrawerTool.HIGHLIGHT -> AnnotateTool.HIGHLIGHT
+    DrawerTool.UNDERLINE -> AnnotateTool.UNDERLINE
+    DrawerTool.STRIKEOUT -> AnnotateTool.STRIKEOUT
+    DrawerTool.PEN -> AnnotateTool.PEN
+    DrawerTool.MARKER -> AnnotateTool.MARKER
+    DrawerTool.ERASER_STROKE, DrawerTool.ERASER_PARTIAL -> AnnotateTool.ERASER
+    DrawerTool.FILL -> null
 }
 
-/** Whole annotations (the stroke eraser) or only what the finger passes over (the partial one). */
-private fun eraserModeIcon(partial: Boolean): ImageVector = if (partial) Icons.Outlined.ContentCut else Icons.Outlined.AutoFixNormal
+/** The drawer tool [this] is, with the eraser's mode deciding between the two erasers. */
+fun AnnotateTool.drawerTool(partialEraser: Boolean): DrawerTool = when (this) {
+    AnnotateTool.HIGHLIGHT -> DrawerTool.HIGHLIGHT
+    AnnotateTool.UNDERLINE -> DrawerTool.UNDERLINE
+    AnnotateTool.STRIKEOUT -> DrawerTool.STRIKEOUT
+    AnnotateTool.PEN -> DrawerTool.PEN
+    AnnotateTool.MARKER -> DrawerTool.MARKER
+    AnnotateTool.ERASER -> if (partialEraser) DrawerTool.ERASER_PARTIAL else DrawerTool.ERASER_STROKE
+}
 
-/** A round 48 dp choice in a row of the Style menu, filled when [selected]. */
+/** Arms [tool] (not "Fill and sign"): the eraser's mode is part of the tool. */
+fun AnnotatePaneState.arm(tool: DrawerTool) {
+    val annotate = tool.annotateTool() ?: return
+    if (annotate == AnnotateTool.ERASER) partialEraser = tool == DrawerTool.ERASER_PARTIAL
+    choose(annotate)
+}
+
+/** A round 48 dp choice in a row of the bubble, filled when [selected]. */
 @Composable
 private fun ChoiceButton(selected: Boolean, name: String, onClick: () -> Unit, content: @Composable () -> Unit) {
     Box(
@@ -278,32 +293,8 @@ private fun ChoiceButton(selected: Boolean, name: String, onClick: () -> Unit, c
     ) { content() }
 }
 
-/** The tools of the armed tool's group, one to pick: highlight / underline / strikeout, or pen / marker. */
 @Composable
-private fun ToolChoiceRow(state: AnnotatePaneState) {
-    val group = AnnotateTool.entries.filter { (it.kind != null) == (state.tool.kind != null) && it != AnnotateTool.ERASER }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        group.forEach { tool ->
-            val selected = tool == state.tool
-            val name = stringResource(tool.labelRes())
-            Box(
-                Modifier
-                    .size(TOUCH_TARGET)
-                    .clip(CircleShape)
-                    .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                    .clickable(role = Role.RadioButton) { state.choose(tool) }
-                    .semantics {
-                        this.selected = selected
-                        contentDescription = name
-                    },
-                contentAlignment = Alignment.Center,
-            ) { Icon(tool.icon(), contentDescription = null) }
-        }
-    }
-}
-
-@Composable
-private fun ColorRow(palette: List<AnnotationColor>, chosen: AnnotationColor, onPick: (Int) -> Unit) {
+internal fun ColorRow(palette: List<AnnotationColor>, chosen: AnnotationColor, onPick: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         palette.forEachIndexed { index, color ->
             val selected = color == chosen
@@ -335,15 +326,9 @@ private fun ColorRow(palette: List<AnnotationColor>, chosen: AnnotationColor, on
     }
 }
 
-/** The brush sizes of [kind], one to pick. */
-@Composable
-private fun WidthRow(kind: FreehandKind, state: AnnotatePaneState) {
-    SizeRow(FreehandOptions.widths(kind), state.widthFor(kind)) { state.setWidth(kind, it) }
-}
-
 /** Sizes in points of the page: a dot as wide as the stroke would be (capped to fit), one to pick. */
 @Composable
-private fun SizeRow(widths: List<Float>, chosen: Float, onPick: (Int) -> Unit) {
+internal fun SizeRow(widths: List<Float>, chosen: Float, onPick: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         widths.forEachIndexed { index, width ->
             ChoiceButton(selected = width == chosen, name = stringResource(R.string.annotate_width, width.toInt()), onClick = { onPick(index) }) {
@@ -363,6 +348,28 @@ private const val MIN_DOT = 3f
 private const val MAX_DOT = 30f
 private val SELECTED_RIM = 3.dp
 private val THIN_RIM = 1.dp
+
+internal fun DrawerTool.labelRes(): Int = when (this) {
+    DrawerTool.HIGHLIGHT -> R.string.annotate_tool_highlight
+    DrawerTool.UNDERLINE -> R.string.annotate_tool_underline
+    DrawerTool.STRIKEOUT -> R.string.annotate_tool_strikeout
+    DrawerTool.PEN -> R.string.annotate_tool_pen
+    DrawerTool.MARKER -> R.string.annotate_tool_marker
+    DrawerTool.ERASER_STROKE -> R.string.annotate_tool_eraser
+    DrawerTool.ERASER_PARTIAL -> R.string.annotate_eraser_partial_short
+    DrawerTool.FILL -> R.string.viewer_tool_fill
+}
+
+internal fun DrawerTool.icon(): ImageVector = when (this) {
+    DrawerTool.HIGHLIGHT -> Icons.Outlined.BorderColor
+    DrawerTool.UNDERLINE -> Icons.Filled.FormatUnderlined
+    DrawerTool.STRIKEOUT -> Icons.Filled.FormatStrikethrough
+    DrawerTool.PEN -> Icons.Outlined.Draw
+    DrawerTool.MARKER -> Icons.Outlined.Brush
+    DrawerTool.ERASER_STROKE -> Icons.Outlined.AutoFixNormal
+    DrawerTool.ERASER_PARTIAL -> Icons.Outlined.ContentCut
+    DrawerTool.FILL -> Icons.Outlined.EditNote
+}
 
 internal fun AnnotateTool.labelRes(): Int = when (this) {
     AnnotateTool.HIGHLIGHT -> R.string.annotate_tool_highlight

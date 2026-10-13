@@ -49,13 +49,13 @@ The cloud environment may fix the branch name: then use the one it gives.
 | 10b OCR complete | Sonnet | `docs/plan-v2.md` 10b: UI, progress, cancellation, background | Plan 10b | 20-page scan; cancel halfway |
 | A Updates and About (`docs/plan-updates.md`) | Sonnet | Port of ThePatientGamerHelper's update package (its Phase 9); adds `INTERNET` + `REQUEST_INSTALL_PACKAGES`; About extended | Plan A; ADR 0006; network audit | Old release → update → install; airplane mode; "Never" |
 | T-a Partial eraser core (planned, `docs/plan-tools.md`) | **Opus** | Eraser that removes only what the finger passes over: pen/marker strokes (also other apps' Ink) and text markup; pieces stay as annotations; one undo step | Plan T-a; ADR 0004 addendum | Cut strokes and highlights, turned page, undo; reopen in another reader |
-| T-b Tool drawer (planned, `docs/plan-tools.md`) | Sonnet | Fixed bar: Tools drawer, two pinned quick slots, Undo/Redo, Pages; fan drawer; hold → colour/size bubble, hold and drag → quick slot; tutorial; Marker as its own tool; stroke and partial eraser | Plan T-b | Nothing moves when arming; pins kept after restart; bubble; landscape |
+| T-b Tool drawer (`docs/plan-tools.md`) | Sonnet | Fixed bar: Tools drawer, two pinned quick slots, Undo/Redo, Pages; fan drawer; hold → colour/size bubble, hold and drag → quick slot; tutorial; Marker as its own tool; stroke and partial eraser | Plan T-b | Nothing moves when arming; pins kept after restart; bubble; landscape |
 | 11 ODF export | Sonnet | `docs/plan-v2.md` 11 | Plan 11 | Result opens in LibreOffice / Collabora |
 | 12 Cloud (WebDAV) | Sonnet (Opus reviews the credential store) | `docs/plan-v2.md` 12; adds `INTERNET` | Plan 12 | Nextcloud upload, wrong password, no network |
 
 Done: 0, 1a, 1b, 2, 3, 4a, 4b, 5a, 5b, 6 (except the baseline profile), 7a, 7b, 8a, 8b, U-a, U-b,
-V-a, V-b, V-c, 9, 10a, 10b, A (device checks of 10b and A counted as done by the author to start T-a), T-a
-(written, device checks pending). Haiku is not
+V-a, V-b, V-c, 9, 10a, 10b, A (device checks of 10b and A counted as done by the author to start T-a), T-a,
+T-b (written, device checks pending). Haiku is not
 recommended for code here.
 
 ## Commands
@@ -82,7 +82,9 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   `PdfViewport` (one Canvas: tiles, annotations, overlays, highlights, selection; detectors on its
   `Box`; form controls and the ink layer as children), `PdfViewportState`, `ViewerViewModel`,
   `ViewerEditSession` (page-fixed session), `ViewerEditing.kt` (`ViewerPageTools`, back steps, save and
-  fill bundles), `ViewportFill` (fill geometry across pages), `ViewerToolBar`.
+  fill bundles), `ViewportFill` (fill geometry across pages), `ViewerToolBar` (fixed places: Tools, two quick slots,
+  Undo, Redo, Pages), `ToolDrawer` (fan, tutorial, drag ghost), `ToolGestures` (tap / hold still / hold and move),
+  `FanLayout` (pure geometry). `domain/tools/` (`DrawerTool`, `QuickSlots`, `ToolPrefs`); `data/settings/ViewerToolPreferences`.
 - `ui/edit/`: `EditScreen` = "Organize pages" (and merge), `EditViewModel`, save dialogs, `SaveRunner`
   (shared by both save UIs). `ui/merge/`: merge list.
 - `ui/scan/`: ML Kit Document Scanner (`DocumentScanner`: PDF or JPEG output, availability), the
@@ -90,7 +92,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   the background (optional, cancellable) → `CreateDocument` → viewer). `ui/ocr/`: `OcrRunner` (state of one
   background recognition, shared by the viewer and the scan flow), progress strip, error dialog.
 - `ui/annotate/`: annotation drawing (`AnnotationLayer`, `drawAnnotations`), text selection
-  (`TextSelectionState`, handles, gestures), tool state and Style menu (`AnnotateTools.kt`), freehand
+  (`TextSelectionState`, handles, gestures), tool state and the tool bubble (`AnnotateTools.kt`: `AnnotatePaneState`, `ToolBubble`, `DrawerTool` ↔ `AnnotateTool`), freehand
   on `androidx.ink` (`FreehandGestures`, `FreehandInk`, `ViewportInkLayer` + `WetStroke`), the partial eraser's
   touch (`EraserGestures`).
 - `ui/fill/`: fill tools state and buttons (`FillTools.kt`), form controls (`FormFieldControls.kt`),
@@ -224,9 +226,14 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - **T-a Partial eraser core done (2026-10-13)**, PR #39, 553 unit tests, CI green: Clipper2-java 2.0.1b (JitPack,
   filtered), ADR 0004 addendum; device checks passed (author, 2026-10-13). Author's feedback for T-b: the eraser's
   mode behind Style is not intuitive, and the freehand highlighter (Marker, Draw → Style) wasn't found: both are T-b
-  scope (drawer tools, bubble). **Next: T-b Tool drawer (Sonnet).**
+  scope (drawer tools, bubble).
+- **T-b Tool drawer written (2026-10-13)**: fixed bar (Tools, 2 quick slots, Undo, Redo, Pages), fan drawer with
+  tap / hold still → bubble / hold and move → drag to a slot, tutorial (Settings and About replay it), Marker and the
+  two erasers as tools, `ViewerToolPreferences`; the Style button is gone. 595 unit tests, lint (0 errors) and
+  `assembleDebug` green. Device checks pending (list in `docs/plan-tools.md`). **Next: 11 ODF export (the author is
+  considering dropping it) or whatever the author picks.**
 
-### Handoff T-a → T-b
+### Handoff T-a → T-b (taken up in T-b; kept for the Opus/Sonnet split)
 - The partial eraser is `AnnotateTool.ERASER` with `AnnotatePaneState.partialEraser` (and `eraserWidth`, an index
   into `AnnotatePaneState.eraserWidths` = the pen's sizes); T-b splits it into two drawer tools (stroke eraser,
   partial eraser) and moves the mode and size from `EraserStyleButton` (in `StyleButton`) to the bubble.
