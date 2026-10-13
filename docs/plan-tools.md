@@ -8,7 +8,7 @@ comments cite the items as "plan T-a", "plan T-b".
 | Sub-phase | Model | Scope | Done when | Check on the device |
 |---|---|---|---|---|
 | T-a Partial eraser core | **Opus** | An eraser that removes only what the finger passes over: pen and marker strokes (also Ink from other apps) and text markup (highlight, underline, strikeout); the cut pieces stay as annotations; one undo step per gesture | Unit tests below; ADR 0004 addendum; lint, unit tests, `assembleDebug` green | Cut strokes and highlights in the middle and at an end, on turned pages, undo; save and reopen here and in another reader |
-| T-b Tool drawer | Sonnet | Fixed bottom bar: "Tools" drawer with every tool, two quick slots filled by drag and drop, Undo/Redo, Pages; long press on a tool opens a bubble with colour and size; freehand highlighter as a tool of its own; stroke eraser and partial eraser as two tools | Tests below; lint, unit tests, `assembleDebug` green | Nothing in the bar moves when arming a tool; drag tools onto the dashed quick slots, kept after restart; bubble; landscape rail; Home "Highlight"/"Draw" |
+| T-b Tool drawer | Sonnet | Fixed bottom bar: "Tools" drawer with every tool, two quick slots filled by drag and drop, Undo/Redo, Pages; fan-shaped drawer; hold a tool for a colour/size bubble, hold and drag for a quick slot; tutorial; freehand highlighter as a tool of its own; stroke eraser and partial eraser as two tools | Tests below; lint, unit tests, `assembleDebug` green | Fan opens; tutorial once; nothing in the bar moves when arming a tool; drag tools onto the dashed quick slots, kept after restart; bubble; landscape rail; Home "Highlight"/"Draw" |
 
 ## What the author asked for (2026-10-13)
 
@@ -31,8 +31,17 @@ that multiplies like a highlight), reached through Draw → Style. It is hard to
 - **Drawer + two quick slots** (not a floating button, not today's bar with fixed slots). The bottom bar has
   fixed places that never move: "Tools", quick slot 1, quick slot 2, Undo, Redo, Pages. "Tools" opens a panel
   with every tool. Undo and Redo are always there (disabled when there is nothing to undo).
-- **Long press opens the bubble** (colour, size, the tool's variants), on a quick slot and in the drawer. A
-  tap arms the tool, a tap on the armed tool puts it down, as today.
+- **Touches** (author, revised 2026-10-13):
+  - Drawer button: **tap** opens the drawer, with a fan ("raggiera") that unfolds upward (toward the page
+    start in the landscape rail); **long press** does nothing.
+  - Tool in the drawer: **tap** arms it and closes the drawer; **hold still** opens the bubble (colour, size,
+    variants); **hold and move** out of the drawer drags it toward the quick slots (drop outside a slot, or
+    past them, cancels).
+  - Quick slot: **tap** arms the tool; **tap on the armed tool** opens the bubble.
+  - Putting a tool down (reading again): the system Back (as today's back steps), or the "Leggi" (no tool)
+    entry of the drawer. A tap on the armed tool no longer puts it down.
+  - A **tutorial** the first time the drawer opens: three short steps over the drawer (tap to use, hold for
+    colour and size, hold and drag down for a quick slot); it can be seen again from Settings and About.
 - **Freehand highlighter as a tool of its own** in the drawer, next to text Highlight, instead of being
   hidden behind Draw → Style.
 - **Partial eraser on strokes and text markup**: pen and marker strokes (also Ink annotations made by other
@@ -110,7 +119,10 @@ bar.
   when it isn't pinned).
 - **Drawer** (a panel above the bar, Material bottom sheet or anchored panel: decided in the sub-phase), in
   groups: Text (Highlight, Underline, Strikeout), Draw (Pen, Marker = freehand highlighter), Erase (Stroke
-  eraser, Partial eraser), Fill and sign. A tap arms the tool and closes the drawer.
+  eraser, Partial eraser), Fill and sign, and "Leggi" (no tool). It opens as a fan from the drawer button
+  (staggered items along an arc, 200–250 ms like the app's other transitions, reduced to a fade when the
+  system's "remove animations" is on); items keep 48 dp targets, so the arc's radius grows with the item
+  count. Touches as in "Decisions". The drag/hold-still split uses the platform touch slop.
 - **Quick slots by drag and drop** (author): no tool is pinned at first, the two slots are empty. While a slot
   is empty, opening the drawer shows a hint ("Tieni premuto uno strumento e trascinalo in basso per averlo
   sempre a portata di mano", wording in T-b). Holding a tool in the drawer and moving the finger starts a
@@ -118,7 +130,9 @@ bar.
   dropping anywhere else does nothing and the hint shows again next time. The hint goes away for good once a
   slot is filled. A held tool released without moving opens the bubble instead. Dragging a quick tool off the
   bar unpins it; dropping a tool on a full slot replaces it.
-- **Bubble** on long press (quick slot or drawer entry): colour row and, for Pen and Marker, size row, plus
+- **Tutorial** on the first drawer opening (three steps, see "Decisions"), stored in DataStore, replayable
+  from Settings and About; it replaces the separate one-time hint for the bubble.
+- **Bubble** on hold-still in the drawer or a tap on the armed quick tool: colour row and, for Pen and Marker, size row, plus
   the partial eraser's size; replaces `StyleButton` and its `DropdownMenu`. Choices stay per tool as today
   (`AnnotatePaneState`).
 - Quick slots, the hint's state, the last tool per group, and **colours and sizes** kept across restarts
@@ -136,13 +150,15 @@ bar.
 - Robolectric tests: arming a tool or making Undo available does not move any bar button (bounds compared);
   hint shown while a slot is empty and gone for good once one is filled; drop on an empty slot pins, drop
   elsewhere does nothing, drop on a full slot replaces, drag off the bar unpins; pins, colours and sizes
-  restored from preferences; long press without moving opens the bubble, tap arms and a second tap puts down; Marker armed from the drawer draws as a highlighter; the bubble's
+  restored from preferences; hold still in the drawer opens the bubble, hold and move starts a drag, a quick
+  slot's tap arms and a tap on the armed one opens the bubble; long press on the drawer button does nothing;
+  "Leggi" and Back put the tool down; the tutorial shows once and replays from Settings; Marker armed from the drawer draws as a highlighter; the bubble's
   choices reach `AnnotatePaneState`.
 - README (tools section) and CLAUDE.md updated; lint, unit tests, `assembleDebug` green; CI green.
 
 **Device checks**: arm each tool from the drawer and from the quick slots: no button moves; first open of the drawer
 shows the hint; drag a tool onto a dashed slot, drop one elsewhere (hint again), fill both, swap one, drag one
-off; restart the app: slots, colours and sizes are still there; long press on a quick slot and in the drawer → bubble, colour and size
+off; restart the app: slots, colours and sizes are still there; hold still in the drawer and tap the armed quick tool → bubble, colour and size
 apply to the next stroke; landscape rail; Home "Highlight" and "Draw"; Fill and sign in and out; a protected
 PDF (tools dimmed, a tap explains why); TalkBack reads the slots.
 
@@ -165,5 +181,6 @@ PDF (tools dimmed, a tap explains why); TalkBack reads the slots.
   fall back to cutting on lift if the live preview costs too much.
 - Text markup quads from other apps are not always rectangles along the text; cutting them across their
   long side is an approximation (ADR addendum).
-- Long press for the bubble is less discoverable than a second tap (author's choice): T-b shows a one-time
-  hint ("Hold a tool for colour and size", `TransientHint`).
+- Three behaviours on one drawer item (tap, hold still, hold and move) are not discoverable on their own:
+  the tutorial carries them. The fan with eight-plus items must fit a phone in portrait with 48 dp targets;
+  if it doesn't, T-b falls back to two arcs or a grid that opens with the same animation.

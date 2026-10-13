@@ -314,7 +314,10 @@ decided or approved it.
   icon in `mipmap-anydpi/`.
 - 2026-10-01 · Robolectric Compose tests set the Italian locale explicitly (`@Config(qualifiers = "it-...")`).
 - 2026-10-13 · Planned (plan T-b, author): the viewer's bar gets fixed places (Tools drawer, two quick slots
-  the user pins, Undo, Redo, Pages) so nothing moves when a tool is armed; long press on a tool opens a bubble
-  with colour and size (not a second tap); the freehand highlighter (Marker) becomes a tool of its own.
+  the user pins, Undo, Redo, Pages) so nothing moves when a tool is armed; the freehand highlighter (Marker)
+  becomes a tool of its own. Touches (revised the same day): drawer button tap opens a fan-shaped drawer, long
+  press nothing; in the drawer tap = use, hold still = colour/size bubble, hold and move = drag to a quick
+  slot; quick slot tap = use, tap on the armed one = bubble; Back or "Leggi" puts the tool down; a tutorial on
+  the first drawer opening.
   No default quick tools: the drawer hints at dragging a tool onto the empty (dashed) slots, until one is filled.
   Colours and sizes are kept across restarts from T-b on (replaces "Not kept across app restarts").

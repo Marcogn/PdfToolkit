@@ -49,7 +49,7 @@ The cloud environment may fix the branch name: then use the one it gives.
 | 10b OCR complete | Sonnet | `docs/plan-v2.md` 10b: UI, progress, cancellation, background | Plan 10b | 20-page scan; cancel halfway |
 | A Updates and About (`docs/plan-updates.md`) | Sonnet | Port of ThePatientGamerHelper's update package (its Phase 9); adds `INTERNET` + `REQUEST_INSTALL_PACKAGES`; About extended | Plan A; ADR 0006; network audit | Old release → update → install; airplane mode; "Never" |
 | T-a Partial eraser core (planned, `docs/plan-tools.md`) | **Opus** | Eraser that removes only what the finger passes over: pen/marker strokes (also other apps' Ink) and text markup; pieces stay as annotations; one undo step | Plan T-a; ADR 0004 addendum | Cut strokes and highlights, turned page, undo; reopen in another reader |
-| T-b Tool drawer (planned, `docs/plan-tools.md`) | Sonnet | Fixed bar: Tools drawer, two pinned quick slots, Undo/Redo, Pages; long press → colour/size bubble; Marker as its own tool; stroke and partial eraser | Plan T-b | Nothing moves when arming; pins kept after restart; bubble; landscape |
+| T-b Tool drawer (planned, `docs/plan-tools.md`) | Sonnet | Fixed bar: Tools drawer, two pinned quick slots, Undo/Redo, Pages; fan drawer; hold → colour/size bubble, hold and drag → quick slot; tutorial; Marker as its own tool; stroke and partial eraser | Plan T-b | Nothing moves when arming; pins kept after restart; bubble; landscape |
 | 11 ODF export | Sonnet | `docs/plan-v2.md` 11 | Plan 11 | Result opens in LibreOffice / Collabora |
 | 12 Cloud (WebDAV) | Sonnet (Opus reviews the credential store) | `docs/plan-v2.md` 12; adds `INTERNET` | Plan 12 | Nextcloud upload, wrong password, no network |
 
