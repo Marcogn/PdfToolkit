@@ -22,6 +22,12 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 - **About, extended.** "Check for updates" (works with "Never" too), "Made with ❤️ from Marcogn", a link to the
   source code on GitHub and a rewritten Privacy section.
 
+## [1.1.2] - 2026-10-12
+
+- **Freehand on some tablets.** The stroke being drawn now shows under the pen again on devices where it only
+  appeared once the pen lifted (seen on a Galaxy Tab S7+): the drawing library moves to `androidx.ink`
+  1.1.0-alpha09, which fixes how the area around the page is masked while drawing.
+
 ## [1.1.1] - 2026-10-12
 
 - **Scan documents.** "Scan" on Home opens the Google document scanner (cropping, filters, shadow removal;
