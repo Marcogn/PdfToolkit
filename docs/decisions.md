@@ -230,12 +230,14 @@ decided or approved it.
   undo brings them back.
 - 2026-10-05 · Freehand on `androidx.ink`, outline appearance, one Ink annotation per stroke,
   compact polyline encoding in saved state, "make final" as a save-dialog checkbox, off by default.
-- 2026-10-12 · `androidx.ink` on 1.1.0-alpha09 instead of the stable 1.0.0 (author), an exception to "latest
-  stable": on a Galaxy Tab S7+ the stroke being drawn didn't show until the pen lifted (a phone was fine).
-  1.0.0 clears `maskPath` directly in the front buffer; 1.1.0-alpha02 clears it off screen first ("Fix
-  flicker when using `InProgressStrokesView.maskPath` on certain devices", issuetracker 496920044). That this
-  fixes the tablet is the device check, not a certainty. Back to the stable line when 1.1.0 is released.
-  Brush versions stay pinned (`V1`), so saved outlines don't change shape.
+- 2026-10-13 · The app draws the stroke being drawn itself (`WetStroke`: `androidx.ink`'s `InProgressStroke`
+  with the stroke's own brush, drawn by `CanvasStrokeRenderer` in the viewport's Canvas), not `InProgressStrokes`
+  (author). Its front-buffered layer (a `SurfaceView` above the window on API 33+) showed nothing until the pen
+  lifted on a Galaxy Tab S7+ (a phone was fine), and 1.1.0-alpha09, with its maskPath fix, didn't change that;
+  `ink-authoring` has no switch to turn the layer off (1.0.0's `useHighLatencyRenderHelper` is gone in 1.1.0).
+  Cost: about a frame of latency, no prediction. Back on the stable `androidx.ink` 1.0.0, without `ink-authoring`.
+- 2026-10-13 · With the eraser armed a tap acts at once: double tap doesn't zoom then, so the tap doesn't wait
+  out the double-tap timeout (author).
 - 2026-10-05 · Draw vs zoom: one finger or a stylus draws, a second finger cancels the stroke and
   zooms/pans; the stylus ignores other touches while drawing; pages don't turn while a brush is armed.
   Strokes entirely off the page are dropped.

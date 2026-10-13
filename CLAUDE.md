@@ -86,7 +86,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   background recognition, shared by the viewer and the scan flow), progress strip, error dialog.
 - `ui/annotate/`: annotation drawing (`AnnotationLayer`, `drawAnnotations`), text selection
   (`TextSelectionState`, handles, gestures), tool state and Style menu (`AnnotateTools.kt`), freehand
-  on `androidx.ink` (`FreehandGestures`, `FreehandInk`, `ViewportInkLayer`).
+  on `androidx.ink` (`FreehandGestures`, `FreehandInk`, `ViewportInkLayer` + `WetStroke`).
 - `ui/fill/`: fill tools state and buttons (`FillTools.kt`), form controls (`FormFieldControls.kt`),
   `OverlayPainter`, overlay gestures, text dialog. `ui/signatures/`: "My signatures", creation (draw,
   import), picker sheet. `ui/search/`: search bar, notices, highlights.
@@ -136,8 +136,9 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   change is local until the fingers lift (one undo step).
 - **Freehand**: strokes in document points (`DocumentStrokes`), page = the one under the first point,
   then page display points → user space (`FreehandGeometry`). One stroke = one Ink annotation; the
-  outline is the appearance, `/InkList` the centre line. Ink brush versions pinned (`V1`); `androidx.ink` is
-  on 1.1.0-alpha09 on purpose (front-buffer mask fix), don't move it back to 1.0.0.
+  outline is the appearance, `/InkList` the centre line. Ink brush versions pinned (`V1`). The stroke being
+  drawn is the app's (`WetStroke` in `ViewportInkLayer`), **not** `ink-authoring`'s `InProgressStrokes`, whose
+  front-buffered layer stays blank until lift on some devices (Galaxy Tab S7+); don't bring it back.
 - **Text selection** is one page at a time, in that page's display points, stored as (page, glyph
   range) and resolved again from the text (`ResolveTextSelection`).
 - **Annotations**: the renderer draws none, so the app draws them (`drawAnnotations`) from the same
@@ -183,9 +184,9 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   text" in the viewer's no-text notice, the option dialog after a scan, closes #31; lint, unit tests and
   `assembleRelease` green (see the PR); device checks pending. **Next: 11 ODF export (Sonnet)**, after the 10b
   device checks; the ODG-or-ODT question must be answered first.
-- **Freehand fix (2026-10-12)**, outside the sub-phases: `androidx.ink` 1.0.0 → 1.1.0-alpha09, because on the
-  author's Galaxy Tab S7+ the stroke being drawn only showed on lift (phone fine); device check pending
-  (`docs/decisions.md`). Return to the stable line when 1.1.0 ships.
+- **Freehand fix (2026-10-13)**, outside the sub-phases: 1.1.2's `androidx.ink` 1.1.0-alpha09 didn't fix the
+  Galaxy Tab S7+ (stroke only shown on lift); the app now draws the stroke being drawn itself (`WetStroke`), back on
+  ink 1.0.0 without `ink-authoring`; the eraser acts on tap without the double-tap wait. Device check pending.
 - **Claude Code setup (2026-10-08)**, outside the sub-phases: skills, reviewer agent, SDK hook,
   `REVIEW.md`, `@claude`/review workflows, Dependabot, PR and issue templates, opt-in JaCoCo coverage
   (line coverage 16%; `pdf/edit` 0% in JVM tests) (`docs/claude.md`). Waiting
@@ -219,7 +220,8 @@ already has text: "nothing changed" and no copy left; a protected PDF: no button
   resolution drops to about 0.1 pt (not visible in practice).
 - Canvas-drawn content (pages, overlays, the corner handle) has no per-element accessibility semantics.
 - Reopened ink is drawn from its centre line (even width) in the app; other readers show the outline.
-- `AndroidPageImageLoader` and `Stroke → FreehandStroke` have no unit tests (device only).
+- `AndroidPageImageLoader`, `Stroke → FreehandStroke` and `WetStroke`'s stroke (androidx.ink's native code doesn't
+  load in JVM tests; only its input filter is tested) have no unit tests (device only).
 - The scanner flow (`ScanToPdf`, `DocumentScanner`) needs Play services and has no JVM test beyond the
   pure helpers (`scanUnavailableFor`, `scanFileName`); the rest is device only.
 - Lint warns about `ConfigurationScreenWidthHeight` on `isLandscape()`.

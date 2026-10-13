@@ -74,10 +74,12 @@ axis-aligned box per glyph to stay small.
 
 ## Freehand ink (phase 8a, 2026-10-05)
 
-**Library.** `androidx.ink` 1.0.0, the stable line; 1.1.0-alpha09 since 2026-10-12 for a front-buffer
-mask fix (`docs/decisions.md`). Modules (`ink-authoring-compose`, `-brush`, `-geometry`,
-`-strokes`). Its `InProgressStrokes` composable draws the stroke under the finger with low latency
-(front-buffered); on lift it hands over a `Stroke` whose `PartitionedMesh` has the brush **outlines**
+**Library.** `androidx.ink` 1.0.0, the stable line (`-brush`, `-geometry`, `-strokes`, `-rendering`).
+*Superseded in part (2026-10-13, `docs/decisions.md`):* the stroke under the finger was drawn by
+`InProgressStrokes` (`ink-authoring-compose`, low latency, front-buffered); it is now drawn by the app
+(`WetStroke`: an `InProgressStroke` with the same brush, drawn by `CanvasStrokeRenderer` in Compose),
+because the front-buffered layer showed nothing until lift on a Galaxy Tab S7+. On lift the stroke is
+a `Stroke` whose `PartitionedMesh` has the brush **outlines**
 (closed polygons, filled with the nonzero rule, which is how its own `CanvasStrokeRenderer` paths
 them). Stock brushes with pinned versions: `pressurePen(V1)` for the pen,
 `highlighter(SelfOverlap.DISCARD, V1)` for the marker (DISCARD so a stroke crossing itself paints

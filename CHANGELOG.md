@@ -6,6 +6,13 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Freehand shows while drawing on every device.** The app now draws the stroke under the pen itself,
+  instead of through the drawing library's low-latency layer, which on some tablets (a Galaxy Tab S7+)
+  showed nothing until the pen lifted; 1.1.2's library update didn't fix it and is undone. The saved stroke
+  is the same.
+- **Eraser at once.** A tap with the eraser acts immediately instead of after about half a second (it no
+  longer waits to see whether the tap is a double tap: double tap doesn't zoom while the eraser is armed).
+
 ## [1.1.2] - 2026-10-12
 
 - **Freehand on some tablets.** The stroke being drawn now shows under the pen again on devices where it only
