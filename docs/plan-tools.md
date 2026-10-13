@@ -1,6 +1,7 @@
 # Tool drawer and partial eraser (T-a, T-b): plan
 
-Status on 2026-10-13: **T-a done; T-b written** (device checks pending). Requested by the author on 2026-10-13, after testing 1.1.3 on a Galaxy
+Status on 2026-10-13: **T-a done** (PR #39, device checks passed); **T-b done** (PR #40), both released in
+1.2.0; T-b's device checks are pending. Requested by the author on 2026-10-13, after testing 1.1.3 on a Galaxy
 Tab S7+ (freehand now draws under the pen). Two inserted sub-phases, **T-a Partial eraser core** (Opus) and
 **T-b Tool drawer** (Sonnet), in that order, so the drawer is designed once with every tool in it. Code
 comments cite the items as "plan T-a", "plan T-b".
@@ -102,9 +103,8 @@ stroke and a text highlight spanning two lines; on a turned page; zoomed in and 
 made by another app (e.g. Samsung Notes export, Xodo); save as annotation, reopen here and in another
 reader; "make final" with cut strokes.
 
-**Out of scope**: the drawer and the bubble (T-b). Until T-b, the partial eraser is reached from today's bar:
-with the Eraser armed, the Style button offers "Whole stroke" / "Partial" (the eraser has no Style button
-today); erasing signatures, text, ticks, dates;
+**Out of scope**: the drawer and the bubble (T-b; in between, the partial eraser was a mode in the Eraser's
+Style menu, gone with T-b); erasing signatures, text, ticks, dates;
 erasing other apps' notes, stamps, shapes partially.
 
 ## T-b Tool drawer (Sonnet)

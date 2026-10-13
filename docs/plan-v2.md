@@ -1,9 +1,8 @@
 # Product phase 2 (V2): plan
 
-Status on 2026-10-11: 1.0.0 is released; 7a, 7b, 8a and 8b are done, and so are the inserted
-series U-a/U-b (`docs/plan-usability.md`) and V-a…V-c (`docs/plan-viewer-editing.md`), which moved
-every page tool into the viewer. 9 Scan is done too (device checks passed 2026-10-09). 10a OCR core is
-written (2026-10-09, device checks passed). 10b written (2026-10-11, device checks pending).
+Status on 2026-10-13: 7a–10b are done (released in 1.1.0 and 1.1.1), and so are the inserted series U-a/U-b
+(`docs/plan-usability.md`), V-a…V-c (`docs/plan-viewer-editing.md`), A (`docs/plan-updates.md`) and T-a/T-b
+(`docs/plan-tools.md`). Left: **11 ODF export** (the author is considering dropping it) and **12 Cloud**.
 
 Development continues the numbering of spec §13 (phases 7–12), so "phase 2" keeps meaning the edit
 session. Order chosen by the author: **highlight and draw first** (closes the annotation thread),
@@ -23,9 +22,9 @@ Opus only for the cores where a wrong design is expensive later, with an **a** (
 | 8 | 11 ODF export | Sonnet | §7.5 |
 | 9 | 12 Cloud (WebDAV) | Sonnet, Opus review of the credential store | §7.3 |
 
-Proposed releases: **1.1** now (annotations, drawing, usability, editing in the viewer), **1.2** after
-10b (scan + OCR), **1.3** after 11, **2.0** after 12. `INTERNET` came earlier, with sub-phase A (ADR 0006). To confirm with
-the author.
+Releases so far: 1.1.0 (annotations, drawing, usability, editing in the viewer), 1.1.1 (scan, OCR), 1.1.2–1.1.3
+(freehand fix, updates and `INTERNET`, ADR 0006), 1.2.0 (partial eraser, tool drawer). The numbers for 11 and 12
+are open.
 
 ## Facts checked before planning (2026-10-04)
 
@@ -39,16 +38,15 @@ the author.
   authoring-compose, brush, geometry, rendering, strokes, storage
   ([release notes](https://developer.android.com/jetpack/androidx/releases/ink)). `ink-authoring` and
   `ink-rendering` 1.0.0 declare `minSdkVersion 23` (AAR manifests), below our 26. Native code (JNI);
-  JVM tests are supported on Linux x86_64 only.
+  JVM tests are supported on Linux x86_64 only. In use: 1.0.0 without `ink-authoring` (the app draws the wet
+  stroke, `docs/decisions.md` 2026-10-13).
 - **ML Kit Document Scanner** `play-services-mlkit-document-scanner:16.0.0` (latest on Google Maven):
   UI and models come from Google Play services, output JPEG and/or PDF, needs ≥ 1.7 GB of device RAM
   (else `MlKitException.UNSUPPORTED`), ~300 KB on the APK
   ([guide](https://developers.google.com/ml-kit/vision/doc-scanner/android)). Its POM pulls
-  `transport-backend-cct`, whose manifest declares **`INTERNET`** and `ACCESS_NETWORK_STATE`
-  (Firelog telemetry): our manifest's `tools:node="remove"` dropped `INTERNET`, so the merged APK stayed
-  without it until A; since A the app declares `INTERNET` and removes the `cct` backend instead (ADR 0006). `ACCESS_NETWORK_STATE` was already merged in by `work-runtime` and stays (checked in the
-  merger report, 2026-10-09). Whether the scanner works with the app lacking
-  `INTERNET` is expected (the flow runs in Play services) but **not verified**: device check of phase 9.
+  `transport-backend-cct`, whose manifest declares `INTERNET` and `ACCESS_NETWORK_STATE` (Firelog
+  telemetry). Since A the app declares `INTERNET` and removes the `cct` backend instead (ADR 0006);
+  `ACCESS_NETWORK_STATE` also comes from `work-runtime` and stays (`docs/decisions.md`, Scan).
 - **ML Kit Text Recognition v2**: unbundled `play-services-mlkit-text-recognition` (19.0.1, model
   downloaded by Play services, ~260 KB) or bundled `com.google.mlkit:text-recognition` (16.0.1, ~4 MB
   per script, works without Play services); minSdk 23; result as blocks → lines → elements → symbols
@@ -63,8 +61,8 @@ Answered on 2026-10-04: highlight and draw first went into an "Annotate" pane of
 `ACCESS_NETWORK_STATE` was first to be removed like `INTERNET`, then kept (2026-10-09, `docs/decisions.md`).
 
 Still open:
-1. **ODF: ODG or ODT** (spec §7.5, before 11).
-2. Release numbering above.
+1. **ODF: ODG or ODT** (spec §7.5, before 11), or drop 11.
+2. Numbering of the next releases.
 
 Answered on 2026-10-09: OCR is **bundled** (`docs/decisions.md`, OCR).
 
@@ -76,30 +74,25 @@ strikeout / eraser (also on other apps' annotations), freehand pen and marker on
 Ink annotations with their outline as appearance, "make final". Design in ADR 0004; all device checks
 passed (7b on 2026-10-05, 8a and 8b on 2026-10-07). Since V-a…V-c these tools live in the viewer.
 
-### 9 Scan — Sonnet
-Scope: ML Kit Document Scanner; availability check (Play services up front, which dims the tool with an explanation; low RAM is reported when the scanner itself refuses, `UNSUPPORTED`); result: open the scanned PDF in the viewer (save as with `CreateDocument`)
-and "Add → from scanner" in "Organize pages"; manifest stays without `INTERNET` (CI check unchanged).
-Device check: scan 3 pages, save, open; add scanned pages to an open PDF; airplane mode; a device
-without Play services if one is at hand.
+### 9, 10a, 10b — done
+- **9 Scan** (2026-10-09, PR #27): ML Kit Document Scanner; Play services checked up front, low RAM reported when
+  the scanner refuses (`UNSUPPORTED`); Home "Scan" saves with `CreateDocument` and opens the viewer; "Add → From
+  scanner" in "Organize pages".
+- **10a OCR core** (2026-10-09, PR #30): `pdf/ocr` (`OcrGeometry`, `OcrProcessor`, ML Kit bundled),
+  `PdfEditor.addTextLayer` (`OcrTextWriter`): an invisible Noto Sans layer in user space, one font size and
+  angle per line, words placed one by one inside it (`docs/decisions.md`, OCR).
+- **10b OCR complete** (2026-10-11): `OcrWorker`/`OcrJob`/`OcrScheduler`, `OcrRunner`; "Recognise text" in the
+  viewer's no-text notice; after a scan, "Make the scan searchable?" with progress and "Save without text";
+  closes #31.
 
-### 10a OCR core — Opus
-Scope: `pdf/ocr`: render each image-only page (or take the scan JPEGs) at a resolution fit for
-recognition, run Text Recognition v2, write an invisible text layer (render mode 3) with Noto Sans,
-one line per ML Kit line, scaled horizontally to the line box, rotated by the line angle, in user
-space of the page (any `/Rotate`); detection of pages that already have text. Tests: line box →
-user space on rotated pages, text layer found by our own search (`PdfTextExtractor`).
-Device check: an OCR'd scan is searchable in the app and in another reader; text selection lands on
-the right line.
-Done 2026-10-09: `pdf/ocr` (`OcrGeometry`, `OcrProcessor`, ML Kit bundled), `PdfEditor.addTextLayer`
-(`OcrTextWriter`); words placed one by one inside the line (decisions). Temporary entry: Home "Scan" runs
-OCR before the save picker.
-
-### 10b OCR complete — Sonnet
-Scope: "Recognise text" from the viewer's scanned-PDF message and as an option after a scan;
-progress and cancellation, background run (WorkManager like the save); limits in README.
-Device check: 20-page scan; search after OCR; cancel halfway.
-Done 2026-10-11: `OcrWorker`/`OcrJob`/`OcrScheduler`, `OcrRunner`; viewer button in the no-text notice, scan
-option dialog with progress and "Save without text"; closes #31 (decisions, OCR). Device checks pending.
+Device checks of 10b (counted as done by the author on 2026-10-13; for the next test rounds):
+Scan 2–3 pages from Home: the "Make the scan searchable?" dialog; "Recognise text" shows progress, then the save
+picker; "Save without text" skips it; cancel from the progress dialog saves the raw scan. A 20-page scan:
+measure the time per page (README says only "depends on the phone") and watch memory; leave the app halfway
+and come back. Open a scan saved without text in the viewer: search → the notice has "Recognise text"; as
+copy (picker, result opens from the snackbar, searchable here and in another reader) and as overwrite (the
+viewer reopens on the result); cancel halfway on both (original untouched, no empty copy left); a PDF that
+already has text: "nothing changed" and no copy left; a protected PDF: no button. Airplane mode. Release build.
 
 ### 11 ODF export — Sonnet
 Scope: the format the author chose (ODG: one page image per page; ODT: image + extracted or OCR text),
@@ -109,6 +102,7 @@ Device check: open the result in LibreOffice (desktop and Collabora Office on An
 ### 12 Cloud (WebDAV) — Sonnet, credential store reviewed by Opus
 Scope: `CloudTarget` WebDAV implementation (PUT, optional MKCOL), settings screen (URL, user,
 password) with the password encrypted through Android Keystore, "Upload" from save snackbar and
-viewer; reuses `INTERNET` from sub-phase A (ADR 0006), so About and CHANGELOG say what the new connection is (spec §7.3);
+viewer; reuses `INTERNET` from sub-phase A (ADR 0006), so About and CHANGELOG say what the new connection is (spec §7.3)
+and the network rule in CLAUDE.md, REVIEW.md and ADR 0006 gains the WebDAV server;
 TLS only, no plain HTTP unless the author decides otherwise.
 Device check: Nextcloud upload, wrong password, no network, self-signed certificate behaviour.

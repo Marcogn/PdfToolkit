@@ -12,10 +12,10 @@ into `docs/decisions.md`.
 
 ## Phases
 - **Development phases** are the order the code is written in: 0–6 (spec §13, product phase 1,
-  released as 1.0.0), then 7–12 for product phase 2 (`docs/plan-v2.md`), with two inserted series:
+  released as 1.0.0), then 7–12 for product phase 2 (`docs/plan-v2.md`), with inserted series:
   U-a/U-b (usability, `docs/plan-usability.md`), V-a/V-b/V-c (editing in the viewer,
-  `docs/plan-viewer-editing.md`), A (updates, `docs/plan-updates.md`) and T-a/T-b (tool drawer and
-  partial eraser, `docs/plan-tools.md`). "Next phase" means the next development sub-phase.
+  `docs/plan-viewer-editing.md`), A (updates, `docs/plan-updates.md`) and T-a/T-b (partial eraser and
+  tool drawer, `docs/plan-tools.md`). "Next phase" means the next development sub-phase.
 - **Product phase 1 / 2** (spec §1, §7, §14): the feature sets. Spec lines like "Fase 2 (pianificata,
   non implementare)" or "in Fase 1 nessun permesso INTERNET" refer to the product. Implement a product
   phase 2 feature only inside its own sub-phase.
@@ -44,19 +44,11 @@ The cloud environment may fix the branch name: then use the one it gives.
 
 | Sub-phase | Model | Scope | Done when | Check on the device |
 |---|---|---|---|---|
-| 9 Scan | Sonnet | `docs/plan-v2.md` 9: ML Kit Document Scanner, availability, open/add pages | Plan 9; packaged manifest still without `INTERNET` | Scan, save, add to open PDF; airplane mode |
-| 10a OCR core | **Opus** | `docs/plan-v2.md` 10a: Text Recognition v2, invisible text layer in user space | Unit tests on line geometry and search after OCR; handoff written | OCR'd scan searchable in app and other reader |
-| 10b OCR complete | Sonnet | `docs/plan-v2.md` 10b: UI, progress, cancellation, background | Plan 10b | 20-page scan; cancel halfway |
-| A Updates and About (`docs/plan-updates.md`) | Sonnet | Port of ThePatientGamerHelper's update package (its Phase 9); adds `INTERNET` + `REQUEST_INSTALL_PACKAGES`; About extended | Plan A; ADR 0006; network audit | Old release → update → install; airplane mode; "Never" |
-| T-a Partial eraser core (planned, `docs/plan-tools.md`) | **Opus** | Eraser that removes only what the finger passes over: pen/marker strokes (also other apps' Ink) and text markup; pieces stay as annotations; one undo step | Plan T-a; ADR 0004 addendum | Cut strokes and highlights, turned page, undo; reopen in another reader |
-| T-b Tool drawer (`docs/plan-tools.md`) | Sonnet | Fixed bar: Tools drawer, two pinned quick slots, Undo/Redo, Pages; fan drawer; hold → colour/size bubble, hold and drag → quick slot; tutorial; Marker as its own tool; stroke and partial eraser | Plan T-b | Nothing moves when arming; pins kept after restart; bubble; landscape |
-| 11 ODF export | Sonnet | `docs/plan-v2.md` 11 | Plan 11 | Result opens in LibreOffice / Collabora |
-| 12 Cloud (WebDAV) | Sonnet (Opus reviews the credential store) | `docs/plan-v2.md` 12; adds `INTERNET` | Plan 12 | Nextcloud upload, wrong password, no network |
+| 11 ODF export (the author may drop it) | Sonnet | `docs/plan-v2.md` 11 | Plan 11 | Result opens in LibreOffice / Collabora |
+| 12 Cloud (WebDAV) | Sonnet (Opus reviews the credential store) | `docs/plan-v2.md` 12; reuses `INTERNET` (ADR 0006) | Plan 12 | Nextcloud upload, wrong password, no network |
 
-Done: 0, 1a, 1b, 2, 3, 4a, 4b, 5a, 5b, 6 (except the baseline profile), 7a, 7b, 8a, 8b, U-a, U-b,
-V-a, V-b, V-c, 9, 10a, 10b, A (device checks of 10b and A counted as done by the author to start T-a), T-a,
-T-b (written, device checks pending). Haiku is not
-recommended for code here.
+Done (scope, model and checks in their plan files): 0–6 (except the baseline profile), 7a–8b, U-a/U-b, V-a–V-c,
+9, 10a, 10b, A, T-a, T-b. Haiku is not recommended for code here.
 
 ## Commands
 ```bash
@@ -199,74 +191,19 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - If a requirement is unclear or not feasible, stop and ask.
 
 ## Current status (2026-10-13)
-- Product phase 1 released as **1.0.0** (2026-10-04). Still open from it: the **baseline profile**
-  (needs a device: `androidx.baselineprofile` plugin + a macrobenchmark module, startup / open viewer /
-  open organize) and the **signing secrets** in the repository (Build APK and Release need them).
-- Done since: 7a–8b (annotations, freehand), U-a/U-b (usability), V-a…V-c (editing in the viewer).
-- **V-c Fill and sign in the viewer done (2026-10-08)**, PR #24; lint (0 errors), 440 unit tests,
-  `assembleDebug` and CI green; device checks passed (author, 2026-10-08).
-- **9 Scan done (2026-10-09)**, PR #27; device checks passed (author, 2026-10-09) after an R8 fix.
-- **10a OCR core done (2026-10-09)**, PR #30; device checks passed (author, 2026-10-11).
-- **10b OCR complete written (2026-10-11)**: `OcrWorker` background run with progress and cancel, "Recognise
-  text" in the viewer's no-text notice, the option dialog after a scan, closes #31; lint, unit tests and
-  `assembleRelease` green (see the PR); device checks counted as done by the author (2026-10-13).
-- **Freehand fix (2026-10-13)**, outside the sub-phases: 1.1.2's `androidx.ink` 1.1.0-alpha09 didn't fix the
-  Galaxy Tab S7+ (stroke only shown on lift); the app now draws the stroke being drawn itself (`WetStroke`), back on
-  ink 1.0.0 without `ink-authoring`; the eraser acts on tap without the double-tap wait. Device check pending.
-- **Claude Code setup (2026-10-08)**, outside the sub-phases: skills, reviewer agent, SDK hook,
-  `REVIEW.md`, `@claude`/review workflows, Dependabot, PR and issue templates, opt-in JaCoCo coverage
-  (line coverage 16%; `pdf/edit` 0% in JVM tests) (`docs/claude.md`). Waiting
-  on the author: the `CLAUDE_CODE_OAUTH_TOKEN` secret and the environment's setup script.
-- **A Updates and About written (2026-10-12)**, PR #35: update package ported from ThePatientGamerHelper
-  95f0b97, `INTERNET` + `REQUEST_INSTALL_PACKAGES`, ML Kit telemetry off (ADR 0006), About and Settings;
-  device checks counted as done by the author (2026-10-13, more test rounds to come). Opus for the network audit
-  (author's switch).
-- **Planned (2026-10-13)**: **T-a Partial eraser core** (Opus) then **T-b Tool drawer** (Sonnet),
-  `docs/plan-tools.md`, **before 11** (author). The author is considering dropping 11 (ODF export): open.
-- **T-a Partial eraser core done (2026-10-13)**, PR #39, 553 unit tests, CI green: Clipper2-java 2.0.1b (JitPack,
-  filtered), ADR 0004 addendum; device checks passed (author, 2026-10-13). Author's feedback for T-b: the eraser's
-  mode behind Style is not intuitive, and the freehand highlighter (Marker, Draw → Style) wasn't found: both are T-b
-  scope (drawer tools, bubble).
-- **T-b Tool drawer written (2026-10-13)**: fixed bar (Tools, 2 quick slots, Undo, Redo, Pages), fan drawer with
-  tap / hold still → bubble / hold and move → drag to a slot, tutorial (Settings and About replay it), Marker and the
-  two erasers as tools, `ViewerToolPreferences`; the Style button is gone. 595 unit tests, lint (0 errors) and
-  `assembleDebug` green. Device checks pending (list in `docs/plan-tools.md`). **Next: 11 ODF export (the author is
-  considering dropping it) or whatever the author picks.**
-
-### Handoff T-a → T-b (taken up in T-b; kept for the Opus/Sonnet split)
-- The partial eraser is `AnnotateTool.ERASER` with `AnnotatePaneState.partialEraser` (and `eraserWidth`, an index
-  into `AnnotatePaneState.eraserWidths` = the pen's sizes); T-b splits it into two drawer tools (stroke eraser,
-  partial eraser) and moves the mode and size from `EraserStyleButton` (in `StyleButton`) to the bubble.
-- In the viewer: `ReadyViewer` builds `ViewportErasing` while it is armed; `PdfViewport` runs
-  `detectEraserGestures` and draws the ring. A pager doesn't scroll while it is armed (as for brushes).
-- `TransientHint(armedTool?.hint(partialErasing), …)`: the partial eraser has its own hint string.
-- The one-time "another app's annotation" snackbar is per viewer session (`rememberSaveable`), not per file.
-- Nothing kept across restarts yet: T-b's `ViewerToolPreferences` should store the eraser mode and size too.
-- Not measured on a device: cost of the live cut on long strokes (the plan's fallback is cutting on lift).
-- Open questions for later sub-phases (`docs/plan-v2.md`): ODG or ODT (11), release numbering.
-
-### Device checks 10b (author)
-Scan 2–3 pages from Home: the "Make the scan searchable?" dialog; "Recognise text" shows progress, then the save
-picker; "Save without text" skips it; cancel from the progress dialog saves the raw scan. A 20-page scan:
-measure the time per page (README says only "depends on the phone") and watch memory; leave the app halfway
-and come back. Open a scan saved without text in the viewer: search → the notice has "Recognise text"; as
-copy (picker, result opens from the snackbar, searchable here and in another reader) and as overwrite (the
-viewer reopens on the result); cancel halfway on both (original untouched, no empty copy left); a PDF that
-already has text: "nothing changed" and no copy left; a protected PDF: no button. Airplane mode. Release build.
-
-### Device checks A (author)
-Release builds only (debug never checks, and a debug build can't install a release APK). Install an older
-signed release (e.g. 1.1.1) after a newer one is published: start → dialog with the headlines and "Full
-changelog" → Download → progress, Cancel once → Download → "Ready to install" → "install unknown apps" the
-first time → system installer → the app reopens on the new version. Start a save (or an OCR) and open the
-ready dialog meanwhile: "Install after saving", disabled, enabled when it ends. With the system confirmation on
-screen, go back to the app and start a save: the confirmation must no longer install (session abandoned), the
-dialog is back at "Ready to install". Close the "Installing" dialog, then confirm from Recents: nothing installs. Airplane mode at startup: nothing
-shown, no crash; "Check for updates" in About says no connection. "Never": no prompt at startup, "Check for
-updates" still works. About and Settings → Updates in Italian and English. **Network audit**: PCAPdroid (or
-similar) on the release build during a scan, an OCR from the scan and an OCR from the viewer, plus a startup
-check: only `api.github.com` and GitHub's download hosts for the app's UID (the scanner's traffic belongs to
-Google Play services); OCR still works with the telemetry off.
+- Released: **1.0.0** (product phase 1, 2026-10-04), 1.1.0 (viewer editing), 1.1.1 (scan, OCR), 1.1.2–1.1.3
+  (freehand fix, updates), **1.2.0** (partial eraser, tool drawer, 2026-10-13). `versionName` 1.2.0.
+- Device checks passed or counted as done by the author for every sub-phase up to T-a; 10b and A will get more
+  test rounds (their lists: `docs/plan-v2.md` 10b, `docs/plan-updates.md`). The app-drawn wet stroke
+  (`WetStroke`, 1.1.3) was checked on the Galaxy Tab S7+ before T-a.
+- **T-b Tool drawer** merged (PR #40) and released in 1.2.0; its device checks are still pending (list in
+  `docs/plan-tools.md`). T-a feedback it addressed: the eraser's mode and the Marker are now drawer tools.
+- **Next: 11 ODF export** (the author is considering dropping it), 12, or whatever the author picks.
+- Still open from product phase 1: the **baseline profile** (needs a device: `androidx.baselineprofile` plugin +
+  a macrobenchmark module, startup / open viewer / open organize).
+- Waiting on the author: the `CLAUDE_CODE_OAUTH_TOKEN` secret (no automatic review ran on PR #40) and the cloud
+  environment's setup script (`docs/claude.md`). Open issue: #32 (spec in English).
+- Open questions for later sub-phases (`docs/plan-v2.md`): ODG or ODT (11), numbering of the next releases.
 
 ### Technical limits worth knowing
 - Updates: installing restarts the app, so pending (unsaved) viewer edits are lost; the ready dialog says to save
@@ -286,6 +223,8 @@ Google Play services); OCR still works with the telemetry off.
   resolution drops to about 0.1 pt (not visible in practice).
 - Canvas-drawn content (pages, overlays, the corner handle) has no per-element accessibility semantics.
 - Reopened ink is drawn from its centre line (even width) in the app; other readers show the outline.
+- Partial eraser: the live cut runs on the main thread; its cost on many long strokes is not measured (ADR 0004
+  addendum; fallback: cut on lift only).
 - `AndroidPageImageLoader`, `Stroke → FreehandStroke` and `WetStroke`'s stroke (androidx.ink's native code doesn't
   load in JVM tests; only its input filter is tested) have no unit tests (device only).
 - The scanner flow (`ScanToPdf`, `DocumentScanner`) needs Play services and has no JVM test beyond the
