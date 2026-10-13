@@ -13,12 +13,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.marcogn.pdftoolkit.data.update.UpdateManager
 import com.marcogn.pdftoolkit.domain.model.ThemeMode
 import com.marcogn.pdftoolkit.ui.navigation.PdfToolkitNavGraph
 import com.marcogn.pdftoolkit.ui.theme.PdfToolkitTheme
 import com.marcogn.pdftoolkit.ui.theme.ThemeViewModel
+import com.marcogn.pdftoolkit.ui.update.UpdateDialogHost
 import com.marcogn.pdftoolkit.ui.viewer.pdfUri
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * `AppCompatActivity`, not `ComponentActivity`: `AppCompatDelegate.setApplicationLocales()`
@@ -27,12 +30,21 @@ import dagger.hilt.android.AndroidEntryPoint
  */
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+
+    @Inject lateinit var updateManager: UpdateManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // A VIEW/SEND intent is handled once: after a recreation (rotation) the saved state
         // already has the viewer on the back stack.
         val startUri = if (savedInstanceState == null) intent.pdfUri() else null
+        // Plan A: startup update check, at most once per process (UpdateManager guards it, so a
+        // recreation does not check again). Never in debug builds: they are signed with the debug
+        // key, so a release APK could not install over them; "Check now" stays available there.
+        if (!BuildConfig.DEBUG) {
+            updateManager.checkIfDue()
+        }
         setContent {
             PdfToolkitApp(startUri)
         }
@@ -51,6 +63,8 @@ private fun PdfToolkitApp(startUri: Uri?, themeViewModel: ThemeViewModel = hiltV
     PdfToolkitTheme(darkTheme = darkTheme, dynamicColor = dynamicColor) {
         Surface(modifier = Modifier.fillMaxSize()) {
             PdfToolkitNavGraph(startUri = startUri)
+            // Above the nav graph: the startup check can finish on any screen (plan A).
+            UpdateDialogHost()
         }
     }
 }

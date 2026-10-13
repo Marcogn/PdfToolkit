@@ -21,8 +21,11 @@ a user's PDF, or break one of the rules below. Style, naming and refactoring ide
 - **Saving**: source copied, result written in `cacheDir/work/`, verified, then copied over the
   destination with mode `"wt"`, inside `SaveWorker` (ADR 0003). After an overwrite nothing may keep
   the old file open.
-- **Permissions**: no `INTERNET` (or any network permission) and no dependency that needs it, until
-  sub-phase 12. Important.
+- **Permissions and network** (ADR 0006): `INTERNET` only for the update check (`data/update`); no other
+  network use, and no dependency that needs it, until sub-phase 12. The datatransport `cct` backend stays
+  removed from the manifest (`TelemetryOffTest`); `REQUEST_INSTALL_PACKAGES` only for `ApkInstaller`. A new
+  write of a user's file must be visible to `FileWriteGate` (job tagged `FILE_WRITE_WORK_TAG`, or
+  `UserFileWrites.track`): installing an update ends the process. Important.
 - **Navigation**: every `navigate()`/`popBackStack()` behind the entry's `lifecycleIsResumed()`
   guard, except from an activity result.
 - **SavedStateHandle** keys never reuse a route argument name (`uri`, `tool`, `mergeWith`,

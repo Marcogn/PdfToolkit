@@ -7,6 +7,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.marcogn.pdftoolkit.data.save.PdfSaver
+import com.marcogn.pdftoolkit.data.save.UserFileWrites
 import com.marcogn.pdftoolkit.data.ocr.OcrRequest
 import com.marcogn.pdftoolkit.data.ocr.OcrResult
 import com.marcogn.pdftoolkit.data.ocr.OcrScheduler
@@ -59,6 +60,7 @@ sealed interface ScanEvent {
 class ScanViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     ocrScheduler: OcrScheduler,
+    private val userFileWrites: UserFileWrites,
 ) : ViewModel() {
 
     private val _events = Channel<ScanEvent>(Channel.BUFFERED)
@@ -118,7 +120,8 @@ class ScanViewModel @Inject constructor(
     /** Writes the staged scan over [target] (a fresh `CreateDocument` file); on failure the empty file is removed. */
     fun save(stagedPath: String, target: Uri) {
         viewModelScope.launch {
-            val ok = runCatchingIo { copy(File(stagedPath).toUri(), target) }
+            // Tracked: an update install ends the process and would cut this copy off (plan A).
+            val ok = userFileWrites.track { runCatchingIo { copy(File(stagedPath).toUri(), target) } }
             if (ok) {
                 File(stagedPath).delete()
                 _events.trySend(ScanEvent.Saved(target))

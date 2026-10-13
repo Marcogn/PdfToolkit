@@ -4,7 +4,7 @@
 [![minSdk 26](https://img.shields.io/badge/minSdk-26-brightgreen.svg)](app/build.gradle.kts)
 
 Android app to read and edit PDF files on the phone. Everything runs on the device: no account,
-no cloud, no network access.
+no cloud; the only connection is the check for app updates on GitHub.
 
 ## Features
 
@@ -26,6 +26,9 @@ no cloud, no network access.
   recognition on the phone (OCR, Latin script, offline), after the scan or later from the viewer.
 - **Organizing pages**: select, rotate, remove, drag to reorder, add pages from another PDF, blank,
   from images or from the scanner. **Merging** several PDFs.
+- **Updates** from this repository's GitHub Releases: at startup (Never / Every start / Daily / Weekly,
+  default Weekly) or with "Check for updates" in About; shows the release headlines, downloads and verifies
+  the APK (SHA-256, package, version, signature) and hands it to the system installer.
 
 Planned: export to OpenDocument and upload to a WebDAV server (Nextcloud).
 They already show on Home as "Soon"; order and plan in [`docs/plan-v2.md`](docs/plan-v2.md).
@@ -77,9 +80,13 @@ docs/        specification, plans, decisions, ADRs, CI
 
 ## Privacy
 
-The app does not declare the `INTERNET` permission: files stay on the phone and nothing leaves the
-device. CI checks on every pull request that no dependency brings the permission back. The document
-scanner runs in Google Play services, outside the app.
+Files stay on the phone, and text recognition runs on the phone too. Since sub-phase A the app declares
+`INTERNET` for one thing: the update check on GitHub (`api.github.com`) and the download of the new APK
+(turn the check off with "Never" in Settings). ML Kit's usage statistics, which its libraries would send to
+Google, are turned off in the manifest ([ADR 0006](docs/adr/0006-internet-for-updates.md); a unit test
+guards it). The document scanner runs in Google Play services, outside the app, under Google's own rules.
+Installing an update also needs "install unknown apps" (`REQUEST_INSTALL_PACKAGES`), which Android asks for
+the first time.
 
 ## Libraries and licences
 

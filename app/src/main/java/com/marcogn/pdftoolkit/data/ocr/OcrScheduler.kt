@@ -6,6 +6,7 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.marcogn.pdftoolkit.data.save.FILE_WRITE_WORK_TAG
 import com.marcogn.pdftoolkit.data.save.PdfSaver
 import com.marcogn.pdftoolkit.domain.edit.SaveFailure
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -48,6 +49,7 @@ class OcrScheduler @Inject constructor(@ApplicationContext private val context: 
         }
         val work = OneTimeWorkRequestBuilder<OcrWorker>()
             .setInputData(workDataOf(OcrWorker.KEY_REQUEST to file.absolutePath))
+            .addTag(FILE_WRITE_WORK_TAG)
             .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             .build()
         // Not a unique chain: a failed or cancelled run must not take another screen's run down with it.

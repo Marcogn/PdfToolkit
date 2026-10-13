@@ -1,8 +1,8 @@
 # In-app updates and About: plan
 
-Status on 2026-10-11: **planned**, not started. Requested by the author on 2026-10-11 for all six of
-their Android apps. One inserted sub-phase, **A Updates and About** (Sonnet), placed **after 10b and
-before 11** (author's choice).
+Status on 2026-10-12: **written**, device checks pending (PR #35). Requested by the author on 2026-10-11 for all
+six of their apps. One inserted sub-phase, **A Updates and About** (Sonnet for the port; the author switched to
+Opus for the network audit and the telemetry decision), placed **after 10b and before 11** (author's choice).
 
 The design is shared with the sibling apps and is designed once in **ThePatientGamerHelper**, the
 pilot (its Phase 9, Opus core + Sonnet UI). This sub-phase copies the pilot's `update` package. The
@@ -55,8 +55,9 @@ shared design, the facts checked before planning and their sources are in the pi
   permissions that must still never appear, if the author wants some). No new dependency.
 - Startup check only; debug builds never check automatically.
 - Settings: "Updates" with the frequency.
-- About: "Check for updates" with its result; version + `VERSION_CODE`; "Fatto con ❤ da marcogn" /
-  "Made with ❤ by marcogn"; GitHub link; **Privacy rewritten**: no accounts, documents stay on the
+- About: "Check for updates" with its result; version (no `VERSION_CODE`: the pilot dropped it in 1.1.2,
+  author 2026-10-12); "Fatto con il ❤️ da Marcogn" / "Made with ❤️ from Marcogn" (pilot 1.1.1;
+  first planned as "Fatto con ❤ da marcogn"); GitHub link; **Privacy rewritten**: no accounts, documents stay on the
   phone, the only connection the app makes is the update check to GitHub (turn it off with "Never"),
   the scanner runs in Google Play services. The other sections stay.
 - Docs: ADR 0006 (`docs/adr/0006-internet-for-updates.md`); spec §2 and the §7.3 line amended;
@@ -83,11 +84,19 @@ in progress when the dialog appears; About texts in both languages; the network 
 **Out of scope:** silent install, pre-releases, background checks, any other network feature (phase
 12 stays as planned).
 
+## What changed while building (2026-10-12)
+
+Where the pilot and this plan differed the author chose (`docs/decisions.md`, "Updates and About"):
+preferences on DataStore (plan); one dialog host above the nav graph (pilot), with Install waiting for
+background saves and recognitions (new here); version without version code and the pilot's credits line.
+The network audit found ML Kit's telemetry (datatransport `cct`): turned off in the manifest (ADR 0006),
+with `TelemetryOffTest`; the traffic capture on a device is still a device check.
+
 ## Open questions
 
 - Release numbering: plan-v2 proposed **2.0** as "the first build with `INTERNET`"; with this
   sub-phase after 10b that would be the build with scan + OCR + updates. To confirm with the author.
-- The result of the network audit (above), if ML Kit sends telemetry once `INTERNET` is allowed.
+- ~~The result of the network audit~~: telemetry turned off (ADR 0006); capture on a device pending.
 - Disclaimer and Privacy wording: proposed above, to confirm in the PR.
 
 ## Risks
