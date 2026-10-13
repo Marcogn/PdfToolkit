@@ -18,8 +18,8 @@ jobs:
       app-module: app
       java-version: '17'
       # Permissions the packaged release manifest must not declare (space separated, may be empty).
-      # PdfToolkit: no INTERNET in product phase 1 (docs/spec.md §1).
-      forbidden-permissions: android.permission.INTERNET
+      # PdfToolkit: INTERNET is allowed since plan A (ADR 0006); nothing is forbidden for now.
+      forbidden-permissions: ''
       coverage: true
       # Extra Gradle arguments for the release build only, e.g. -PofflineSeed (may be empty).
       release-build-args: ''

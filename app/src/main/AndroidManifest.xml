@@ -2,13 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Product phase 1: no network access (spec §1). The permission is not declared, and if a
-         dependency tried to add it through the manifest merger it gets removed here (the merger
-         warns that there is nothing to remove: expected, this is a safeguard). CI checks the
-         packaged manifest (.github/workflows/android-ci.yml). -->
-    <uses-permission
-        android:name="android.permission.INTERNET"
-        tools:node="remove" />
+    <!-- Update check and download (plan A, ADR 0006): the only use of the network. The product phase 1
+         rule "no INTERNET" ended with this. CI checks the packaged manifest
+         (.github/workflows/android-ci.yml). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Hands the downloaded APK to the system installer; Android asks the user for "install unknown
+         apps" the first time. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Background save (ADR 0003): WorkManager runs the save as expedited work, promoted to a
          foreground service of type dataSync on Android 11 and earlier or when the system asks. -->
@@ -44,6 +44,24 @@
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
+
+        <!-- ML Kit telemetry off (ADR 0006): its usage metrics go through datatransport's "cct"
+             backend, registered by this meta-data. Without it the runtime refuses those events
+             ("Transport backend 'cct' is not registered", DefaultScheduler) before storing them, and
+             the uploader drops any batch for an unknown backend. Not a documented Google switch:
+             TelemetryOffTest guards the merged manifest, the device check confirms the traffic. -->
+        <service
+            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+            tools:node="merge">
+            <meta-data
+                android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
+                tools:node="remove" />
+        </service>
+
+        <!-- PackageInstaller session status (explicit PendingIntent from ApkInstaller). -->
+        <receiver
+            android:name=".data.update.UpdateInstallReceiver"
+            android:exported="false" />
 
         <activity
             android:name=".MainActivity"

@@ -50,8 +50,11 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.model.ThemeMode
+import com.marcogn.pdftoolkit.domain.update.UpdateFrequency
 import com.marcogn.pdftoolkit.ui.theme.ThemeViewModel
 import com.marcogn.pdftoolkit.ui.theme.isDynamicColorSupported
+import com.marcogn.pdftoolkit.ui.update.UpdateViewModel
+import com.marcogn.pdftoolkit.ui.update.labelRes
 
 /** Settings (spec §10): theme, dynamic colour, language, default reading mode, recents and thumbnail cache. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -141,6 +144,10 @@ fun SettingsScreen(
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
+            UpdatesSection()
+
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
             SectionHeader(stringResource(R.string.settings_language_label))
             // Read from AppCompatDelegate, not from a ViewModel: the system is the source of truth
             // (autoStoreLocales), and the activity is recreated on change anyway.
@@ -168,6 +175,23 @@ fun SettingsScreen(
             },
             onDismiss = { confirmClearRecents = false },
         )
+    }
+}
+
+/** How often the startup check looks for a new release (plan A); "Check for updates" in About ignores it. */
+@Composable
+private fun UpdatesSection(viewModel: UpdateViewModel = hiltViewModel()) {
+    val frequency by viewModel.frequency.collectAsStateWithLifecycle()
+    SectionHeader(stringResource(R.string.settings_updates_section_title))
+    Text(stringResource(R.string.settings_updates_frequency_label), style = MaterialTheme.typography.bodyLarge)
+    Column(Modifier.selectableGroup()) {
+        UpdateFrequency.entries.forEach { option ->
+            RadioOptionRow(
+                label = stringResource(option.labelRes()),
+                selected = frequency == option,
+                onClick = { viewModel.onFrequencySelected(option) },
+            )
+        }
     }
 }
 

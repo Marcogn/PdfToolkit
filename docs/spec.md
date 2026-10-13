@@ -31,7 +31,7 @@ Due blocchi principali:
 
 Fase 2 (pianificata, non da implementare ora): scansione documenti con OCR, caricamento su cloud, evidenziazione, disegno a mano libera, esportazione in formato OpenDocument.
 
-**Principio guida:** tutto gira sul dispositivo. In Fase 1 l'app **non dichiara il permesso `INTERNET`**.
+**Principio guida:** tutto gira sul dispositivo. In Fase 1 l'app **non dichiarava il permesso `INTERNET`**. Dalla sotto-fase A (aggiornamenti, ADR 0006) lo dichiara per il solo controllo degli aggiornamenti su GitHub; la telemetria delle librerie è disattivata.
 
 ---
 
@@ -338,7 +338,7 @@ Nel codice di Fase 1 servono solo: le voci disabilitate in Home/Hub e le interfa
 - Primo obiettivo: **WebDAV** (Nextcloud, NAS personali), con URL, utente e password salvati cifrati. Upload di PDF e scansioni.
 - Google Drive solo come opzione secondaria, eventualmente più avanti.
 - Interfaccia `CloudTarget` già definita in Fase 1 (solo interfaccia, nessuna implementazione).
-- In Fase 2 si aggiunge il permesso `INTERNET`; va indicato nel CHANGELOG e nelle Informazioni.
+- Il permesso `INTERNET` c'è già dalla sotto-fase A (aggiornamenti, ADR 0006): il cloud lo riusa; il nuovo uso della rete va indicato nel CHANGELOG e nelle Informazioni.
 
 ### 7.4 Livello annotazioni: evidenziazione e disegno a mano libera
 
@@ -432,7 +432,7 @@ Contenuto:
 - Requisiti (versione minima di Android).
 - Come compilare (debug e release), dove mettere il keystore, variabili necessarie.
 - Struttura del progetto in poche righe.
-- Privacy: in Fase 1 nessuna connessione di rete, i file restano sul dispositivo.
+- Privacy: i file restano sul dispositivo; l'unica connessione è il controllo degli aggiornamenti su GitHub (ADR 0006).
 - Licenze delle librerie principali.
 - **Disclaimer**: l'app è stata sviluppata con l'aiuto di strumenti di intelligenza artificiale (Claude Code), con revisione e test dell'autore.
 
@@ -440,7 +440,7 @@ Contenuto:
 Memoria di progetto per le sessioni future di Claude Code. Corto e operativo:
 - comandi di build, test, lint
 - architettura in breve e dove sta cosa
-- regole non ovvie (una pagina aperta per volta nel renderer, tutte le scritture passano da `PdfEditor`, overlay scritte nel content stream, evidenziazioni della ricerca solo in overlay e mai nel PDF, nessun permesso `INTERNET` in Fase 1)
+- regole non ovvie (una pagina aperta per volta nel renderer, tutte le scritture passano da `PdfEditor`, overlay scritte nel content stream, evidenziazioni della ricerca solo in overlay e mai nel PDF, `INTERNET` solo per gli aggiornamenti, ADR 0006)
 - convenzioni di naming (prefisso `PT` solo dove serve a evitare collisioni)
 - **regola fissa**: a fine di ogni attività aggiornare README, CLAUDE.md e CHANGELOG se qualcosa è cambiato
 - link a questa specifica e agli ADR

@@ -6,6 +6,22 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Network permission, for updates only.** Until now PdfToolkit had no `INTERNET` permission. It has one now,
+  and uses it for a single thing: checking this repository's GitHub releases for a new version and downloading
+  it. Turn the check off with "Never" in Settings. Your documents never leave the phone, and text recognition
+  still runs on the phone: the usage statistics that Google's ML Kit libraries would send are switched off.
+  The scanner runs in Google Play services, as before.
+- **In-app updates.** At startup (Weekly by default; Never, Every start, Daily in Settings → Updates) the app
+  checks for a new release, shows its headlines with a "Full changelog" link, downloads the APK, verifies it
+  (SHA-256, package name, newer version, same signing key) and hands it to the system installer, always with
+  your confirmation. Debug builds never check on their own.
+  - Install waits while a save or a text recognition is running ("Install after saving"): installing restarts
+    the app.
+  - New permission: "install unknown apps" (`REQUEST_INSTALL_PACKAGES`), asked for by Android only when
+    installing an update.
+- **About, extended.** "Check for updates" (works with "Never" too), "Made with ❤️ from Marcogn", a link to the
+  source code on GitHub and a rewritten Privacy section.
+
 ## [1.1.2] - 2026-10-12
 
 - **Freehand on some tablets.** The stroke being drawn now shows under the pen again on devices where it only

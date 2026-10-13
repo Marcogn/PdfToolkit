@@ -40,7 +40,8 @@ decided or approved it.
   fixed ones with `Fixes #n`. No epics or Projects board for now.
 - 2026-10-09 · Kit updated to 85b2e8a (from 76ea010): adds the `new-plan` skill, `release-build-args` input
   (left empty here), `/next-phase` also takes issues assigned by a plan. Kept locally: the extra
-  `Read(./local.properties)` deny in `.claude/settings.json` and `INTERNET` as forbidden permission.
+  `Read(./local.properties)` deny in `.claude/settings.json` (`INTERNET` was a forbidden permission here until A,
+  ADR 0006).
 - 2026-10-09 · Kit updated to 425e232: `architecture-reviewer` always runs on Opus (nothing adapted).
 - 2026-10-08 · No detekt for now: only 2.0.0 supports Kotlin 2.4 with AGP 9 built-in Kotlin, and it is
   still alpha (stable versions only). Revisit at 2.0.0 stable.
@@ -52,8 +53,39 @@ decided or approved it.
   Never / Every start / Daily / Weekly (default Weekly), "Not now" only closes, the dialog shows the
   Release body; install through `PackageInstaller` with the system confirmation.
 - 2026-10-11 · `INTERNET` comes in with sub-phase A, for the update check only (author), ahead of phase 12:
-  amends the product phase 1 rule, the CI `forbidden-permissions` check and the README/About privacy
-  text. ADR 0006 is written in A, with a network audit of what else the APK contacts once it is allowed.
+  amends the product phase 1 rule, the CI `forbidden-permissions` check (now empty) and the README/About
+  privacy text (ADR 0006).
+
+## Updates and About (plan A, ADR 0006)
+
+- 2026-10-12 · Ported from ThePatientGamerHelper at 95f0b97 (release 1.1.2): `domain/update`, `data/update`,
+  `ui/update`, `ui/about` and their tests. The pilot's fixes after its plan apply here: no version code in
+  About, credits "Fatto con il ❤️ da Marcogn" / "Made with ❤️ from Marcogn" (author, 2026-10-12).
+- 2026-10-12 · Preferences on DataStore in `data/settings/UpdatePreferences.kt` (author: the plan, not the
+  pilot's SharedPreferences). `UpdateManager` reads them with `first()` inside its own scope; the store is a
+  constructor parameter so tests use their own file.
+- 2026-10-12 · One `UpdateDialogHost` above the nav graph, as in the pilot (author). It never navigates, so the
+  `lifecycleIsResumed()` guards are untouched.
+- 2026-10-12 · **Installing waits for file writes** (author). Installing replaces the app and ends the process, so a
+  `SaveWorker` or `OcrWorker` copying over the destination would be cut off. Both jobs carry
+  `FILE_WRITE_WORK_TAG`; the scan flow's in-process copy to its `CreateDocument` file goes through
+  `UserFileWrites.track`. `FileWriteGate` combines the two; while it is busy `UpdateManager.install()` returns
+  `InstallStart.Busy` and the dialog shows "Install after saving", disabled, with the reason. Download and
+  verification are not blocked. The ready message asks to save pending edits first (unsaved viewer edits are
+  not a write in progress and are lost when the app restarts).
+- 2026-10-12 · A committed session waiting for the system confirmation is **abandoned** when a write starts (the
+  flow goes back to "Ready to install") or when the user closes the "Installing" dialog: the confirmation runs
+  in its own task and could otherwise be accepted later, mid-write. The state is `Installing` *before* the
+  commit (found in review): the status broadcast can arrive before `install()` resumes, and was dropped.
+  Whether the system installer screen reacts to an abandoned session is a device check.
+- 2026-10-12 · About keeps the check result as data (`UpdateCheckResult`); the screen turns it into text with
+  `LocalResources`. Below API 33 an application context does not follow the per-app language (the pilot
+  formats it in the ViewModel with the application context).
+- 2026-10-12 · **ML Kit telemetry off** (author, ADR 0006): the manifest removes datatransport's `cct` backend
+  registration, checked by `TelemetryOffTest`. Not a documented switch, so every ML Kit update needs the test
+  and a traffic capture on a device.
+- 2026-10-12 · The parser fixtures are the pilot's real `releases/latest` responses (v1.0.6), kept as captured;
+  a test also parses the body of this repository's `v1.1.1` release.
 
 ## Viewer and rendering (ADR 0001)
 
@@ -128,8 +160,8 @@ decided or approved it.
   system reports) but reported when the scanner itself fails with `MlKitException.UNSUPPORTED`.
 - 2026-10-09 · `ACCESS_NETWORK_STATE` is **kept** (author). The 2026-10-04 plan assumed the scanner brought
   it; the manifest merger report shows `work-runtime` 2.12.0 (in use since 1.0) and `transport-runtime`
-  declare it too, and removing it could break WorkManager's network trackers. It gives no network access;
-  only `INTERNET` is removed and forbidden in CI.
+  declare it too, and removing it could break WorkManager's network trackers. It gives no network access.
+  (`INTERNET` was removed and forbidden in CI until A, ADR 0006.)
 - 2026-10-09 · The scanned PDF is first copied to `cacheDir/work/` by `ScanViewModel`, then written to the
   `CreateDocument` file there (in `viewModelScope`, a failed write deletes the empty file). This is a plain
   copy of a finished file, not an edit, so it does not go through `SaveWorker` (ADR 0003); a rotation does
