@@ -77,9 +77,11 @@ class EraserSweep private constructor(private val path: Path64, val radius: Floa
  *
  * - **Ink with outlines** (strokes drawn in the app): the swept area is cut out of the outlines (nonzero, as
  *   they are filled). Each connected part left is one piece, with the parts of the centre line that lie in
- *   it. The centre line is cut by the swept area grown by half the width, so a reader that draws `/InkList`
- *   (and this app, for ink read back from a file) ends the line where the eraser passed.
- * - **Ink without outlines** (read from a file): the centre line is cut the same way.
+ *   it. The centre line is cut where the eraser crosses it and shortened by half the width at each cut, so a
+ *   reader that draws `/InkList` (and this app, for ink read back from a file) ends the line where the eraser
+ *   passed, while a nick in the edge leaves it whole.
+ * - **Ink without outlines** (read from a file, drawn as its centre line stroked): the centre line is cut by the
+ *   swept area grown by half the width, so wherever the eraser touches the line as drawn, it is cut.
  * - **Text markup**: each quad loses, along its text, the stretch the swept area crosses, at full line height:
  *   a quad is a line of text, so the rest of the line keeps its markup.
  *
@@ -100,24 +102,26 @@ object PartialEraser {
 
     /**
      * What is left of [shape] after [sweep]: null if the sweep doesn't touch it (nothing changes), an empty
-     * list if nothing is left, else the pieces. [separate]: each piece of ink is an annotation of its own (the
-     * annotation was one stroke); else they stay one. Cutting again what a cut left, pass the original's choice:
-     * a piece may hold two stretches of centre line while a sliver still joins them.
+     * list if nothing is left, else the pieces.
      */
-    fun cut(shape: AnnotationShape, sweep: EraserSweep, separate: Boolean = separates(shape)): List<AnnotationShape>? {
+    fun cut(shape: AnnotationShape, sweep: EraserSweep): List<AnnotationShape>? {
         if (!AnnotationGeometry.bounds(shape).overlaps(sweep.bounds)) return null
         return when (shape) {
-            is AnnotationShape.Ink -> if (shape.outlines.isEmpty()) cutCentreLines(shape, sweep, separate) else cutOutlined(shape, sweep, separate)
+            is AnnotationShape.Ink -> if (shape.outlines.isEmpty()) cutCentreLines(shape, sweep) else cutOutlined(shape, sweep)
             is AnnotationShape.TextMarkup -> cutMarkup(shape, sweep)
         }
     }
 
-    /** Whether the pieces of [shape] become annotations of their own: ink of one stroke, as the app draws it. */
-    fun separates(shape: AnnotationShape): Boolean = shape is AnnotationShape.Ink && shape.strokes.size == 1
+    /**
+     * Whether the pieces of [ink] become annotations of their own: ink with outlines (only the app draws them,
+     * one stroke each) and ink of one stroke. The answer is the same for the pieces as for the original, so a
+     * later drag splits them the same way, even a piece whose two stretches of centre line a sliver still joins.
+     */
+    private fun separates(ink: AnnotationShape.Ink): Boolean = ink.outlines.isNotEmpty() || ink.strokes.size == 1
 
     // --- Ink ---
 
-    private fun cutCentreLines(ink: AnnotationShape.Ink, sweep: EraserSweep, separate: Boolean): List<AnnotationShape>? {
+    private fun cutCentreLines(ink: AnnotationShape.Ink, sweep: EraserSweep): List<AnnotationShape>? {
         val area = sweep.area(ink.width / 2)
         var changed = false
         val pieces = ink.strokes.flatMap { stroke ->
@@ -128,10 +132,10 @@ object PartialEraser {
         // A stroked piece shows its round caps too, so only a stub of nothing is dropped.
         val kept = pieces.filter { length(it) >= LEFTOVER }
         if (kept.isEmpty()) return emptyList()
-        return if (separate) kept.map { ink.copy(strokes = listOf(it)) } else listOf(ink.copy(strokes = kept))
+        return if (separates(ink)) kept.map { ink.copy(strokes = listOf(it)) } else listOf(ink.copy(strokes = kept))
     }
 
-    private fun cutOutlined(ink: AnnotationShape.Ink, sweep: EraserSweep, separate: Boolean): List<AnnotationShape>? {
+    private fun cutOutlined(ink: AnnotationShape.Ink, sweep: EraserSweep): List<AnnotationShape>? {
         val outlines = Paths64(ink.outlines.map(::toPath))
         val erased = sweep.area()
         if (abs(Clipper.area(Clipper.intersect(outlines, erased, FillRule.NonZero))) < MIN_AREA) return null
@@ -148,8 +152,11 @@ object PartialEraser {
         }
         if (parts.isEmpty()) return emptyList()
 
-        val lineArea = sweep.area(ink.width / 2)
-        val centres = ink.strokes.flatMap { stroke -> clipLine(stroke, lineArea, keepInside = false) ?: listOf(stroke) }
+        // Cut where the eraser crosses the centre line, then shortened by half the width at each new end: a nick
+        // in the edge of a wide stroke leaves the centre line whole, as it leaves the outline in one part.
+        val centres = ink.strokes.flatMap { stroke ->
+            clipLine(stroke, erased, keepInside = false)?.mapNotNull { trimNewEnds(it, stroke, ink.width / 2) } ?: listOf(stroke)
+        }
         val linesOf = parts.map { mutableListOf<List<UserPoint>>() }
         for (centre in centres) {
             val owner = parts.indexOfFirst { part -> centre.any { contains(part, it) } }
@@ -164,7 +171,7 @@ object PartialEraser {
             if (lines.isEmpty()) null else ink.copy(strokes = lines, outlines = part.map(::fromPath))
         }
         if (pieces.isEmpty()) return emptyList()
-        if (separate) return pieces
+        if (separates(ink)) return pieces
         return listOf(ink.copy(strokes = pieces.flatMap { it.strokes }, outlines = pieces.flatMap { it.outlines }))
     }
 
@@ -209,6 +216,35 @@ object PartialEraser {
         val pieces = open.map(::fromPath).filter { it.size >= 2 }
         if (pieces.size == 1 && abs(length(pieces[0]) - length(line)) < CompactPolylineSerializer.STEP) return null
         return pieces
+    }
+
+    /**
+     * [piece] of [original] shortened by [by] points at each end the cut made (an end that isn't one of the
+     * original's), so a line stroked from it ends where the eraser passed; null if nothing is left.
+     */
+    private fun trimNewEnds(piece: List<UserPoint>, original: List<UserPoint>, by: Float): List<UserPoint>? {
+        fun isOriginalEnd(p: UserPoint) = toClipper(p) == toClipper(original.first()) || toClipper(p) == toClipper(original.last())
+        var line = piece
+        if (!isOriginalEnd(line.first())) line = trimStart(line, by) ?: return null
+        if (!isOriginalEnd(line.last())) line = trimStart(line.asReversed(), by)?.asReversed() ?: return null
+        return line
+    }
+
+    /** [line] without its first [by] points of length; null if it isn't longer than that. */
+    private fun trimStart(line: List<UserPoint>, by: Float): List<UserPoint>? {
+        var left = by
+        for (i in 1 until line.size) {
+            val a = line[i - 1]
+            val b = line[i]
+            val step = hypot(b.x - a.x, b.y - a.y)
+            if (step > left) {
+                val t = left / step
+                val start = UserPoint(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t).let { fromClipper(toClipper(it)) }
+                return listOf(start) + line.subList(i, line.size)
+            }
+            left -= step
+        }
+        return null
     }
 
     /** [paths] grown by [by] points (round corners). */
@@ -365,9 +401,8 @@ class PartialEraseStroke(private val targets: List<EraseTarget>, private val rad
         var changed = false
         for (target in targets) {
             var touched = false
-            val separate = PartialEraser.separates(target.shape)
             val next = (pieces[target.pick] ?: listOf(target.shape)).flatMap { shape ->
-                PartialEraser.cut(shape, sweep, separate)?.also { touched = true } ?: listOf(shape)
+                PartialEraser.cut(shape, sweep)?.also { touched = true } ?: listOf(shape)
             }
             if (touched) {
                 pieces[target.pick] = next

@@ -243,9 +243,14 @@ class ViewerPartialErase internal constructor(
         points.map { point -> space.displayToUser.map(point).let { UserPoint(it.x, it.y) } },
     )
 
-    /** It cut an annotation of the file that another app made (or an older version of this one, unmarked). */
+    /**
+     * It left pieces of an annotation of the file that another app made, which become this app's (one erased
+     * altogether is just gone, as with the whole eraser).
+     */
     val cutForeign: Boolean
-        get() = stroke.left.keys.any { pick -> pick is ErasePick.Existing && existing.any { it.ref == pick.ref && !it.madeHere } }
+        get() = stroke.left.any { (pick, pieces) ->
+            pieces.isNotEmpty() && pick is ErasePick.Existing && existing.any { it.ref == pick.ref && !it.madeHere }
+        }
 
     /** The session's annotations as [commit] would leave them, for the screen while the finger is down. */
     fun preview(): AnnotationEdits {

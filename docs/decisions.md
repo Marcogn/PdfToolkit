@@ -286,8 +286,9 @@ decided or approved it.
   (author, ADR 0004 "Partial eraser"); integer coordinates in hundredths of a point. Until T-b the partial eraser is
   the Eraser's Style menu ("Whole annotations" / "Only where you pass", whole by default) with the pen's sizes,
   not kept across restarts.
-- 2026-10-13 · T-a: a one-stroke Ink becomes one annotation per piece; several strokes and text markup stay one
-  annotation. The centre line is cut by the swept area grown by half the line width. An annotation is "the app's"
+- 2026-10-13 · T-a: Ink with outlines or of one stroke becomes one annotation per piece; several strokes and text
+  markup stay one annotation. The centre line of outlined ink is cut where the eraser crosses it and shortened by
+  half the width; ink without outlines is cut by the swept area grown by half the width. An annotation is "the app's"
   when its `/NM` is an app id ("a" + 8 hex digits); others get the one-time notice (once per viewer session).
 - 2026-10-13 · T-a prerequisites: the author counts the 10b and A device checks as done for starting T-a (more
   test rounds will follow).

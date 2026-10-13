@@ -119,6 +119,15 @@ class PartialEraserTest {
     }
 
     @Test
+    fun `a nick in the edge of a wide marker leaves its centre line whole`() {
+        val marker = pen.copy(width = 6f, highlighter = true, outlines = listOf(listOf(p(97f, 97f), p(203f, 97f), p(203f, 103f), p(97f, 103f))))
+        val pieces = PartialEraser.cut(marker, EraserSweep.along(listOf(p(140f, 102.5f), p(160f, 102.5f)), 1f)!!)!!.map(::ink)
+        assertEquals(1, pieces.size)
+        assertEquals(marker.strokes, pieces[0].strokes)
+        assertTrue(pieces[0].outlines.flatten().any { it.y < 101.6f && it.x in 140f..160f })
+    }
+
+    @Test
     fun `ink without outlines is cut on its centre line, the gap as wide as the eraser plus the line`() {
         val fileInk = AnnotationShape.Ink(strokes = pen.strokes, width = 2f)
         val pieces = PartialEraser.cut(fileInk, across(150f))!!.map(::ink).sortedBy { centreXs(it).min() }

@@ -18,9 +18,10 @@ import com.marcogn.pdftoolkit.ui.viewer.PdfViewportState
  * are ignored. Runs in the initial pass and consumes everything, so taps, double taps and the page's own zoom
  * and pan don't act; [grab] tells the zoom/pan detector to stand down, as for freehand.
  *
- * Positions are on screen. [onStart] gets the down and says whether there is something to erase there (a
- * page); [onMove] gets every position since the last event, historical ones included, so a fast stroke
- * leaves no gaps; [onEnd] runs when the erasing pointer lifts, [onCancel] when the drag is abandoned.
+ * Positions are on screen. [onStart] gets the down and says whether the drag erases (false: it is consumed and
+ * does nothing; the viewport says false only without a layout, and a drag between pages erases on the one it
+ * belongs to, as a stroke does); [onMove] gets every position since the last event, historical ones included, so
+ * a fast stroke leaves no gaps; [onEnd] runs when the erasing pointer lifts, [onCancel] when the drag is abandoned.
  */
 internal suspend fun PointerInputScope.detectEraserGestures(
     viewport: PdfViewportState,
@@ -41,7 +42,13 @@ internal suspend fun PointerInputScope.detectEraserGestures(
         try {
             while (true) {
                 val event = awaitPointerEvent(PointerEventPass.Initial)
-                if (event.changes.none { it.pressed }) break
+                if (event.changes.none { it.pressed }) {
+                    // The lift may carry the end of a fast swipe.
+                    val last = event.changes.firstOrNull { it.id == down.id }
+                    if (erasing && !navigating && last != null) onMove(last.historical.map { it.position } + last.position)
+                    event.changes.forEach { it.consume() }
+                    break
+                }
                 if (!navigating) {
                     val others = event.changes.filter { it.id != down.id && it.pressed }
                     if (others.isNotEmpty() && !stylus) {

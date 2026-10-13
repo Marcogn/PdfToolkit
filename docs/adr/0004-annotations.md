@@ -140,15 +140,19 @@ pieces are ordinary `NewAnnotation`s, written by `AnnotationWriter` like any oth
 - The swept area is the drag path inflated by the eraser's radius with round joins and ends: a chain of capsules,
   a circle for a tap.
 - *Ink with outlines* (drawn in the app): outlines minus swept area, nonzero, as they are filled. Each connected
-  part left (an outer polygon with its holes) is a piece. The centre line (`/InkList`) is cut by the swept area
-  grown by half the stroke width, so a reader that strokes `/InkList` (and this app, which reads back only the
-  centre line) ends the line where the eraser passed; each part gets the stretches of centre line inside it. A
+  part left (an outer polygon with its holes) is a piece. The centre line (`/InkList`) is cut where the eraser
+  crosses it and shortened by half the stroke width at each cut, so a reader that strokes `/InkList` (and this
+  app, which reads back only the centre line) ends the line where the eraser passed, while a nick in the edge of
+  a wide stroke leaves it whole; each part gets the stretches of centre line inside it. A
   part with no centre line in it (a narrow eraser along the middle of a wide marker, or a short stroke cut in the
   middle) gets the stretch of the original centre line that drew it, which may lie partly outside it: other
   readers draw the appearance, so only an `/InkList`-based reader shows more there.
-- *Ink without outlines* (read from a file): only the centre line is cut, the same way.
-- An annotation of **one** stroke (the app's) becomes one annotation per piece, so the stroke eraser still works
-  piece by piece; one of several strokes (another app's handwriting) stays one annotation with all its pieces.
+- *Ink without outlines* (read from a file, drawn as its centre line stroked): the centre line is cut by the swept
+  area grown by half the width, so wherever the eraser touches the line as drawn, it is cut through.
+- Ink with outlines (only the app draws them, one stroke each) and ink of **one** stroke become one annotation per
+  piece, so the stroke eraser still works piece by piece; ink of several strokes without outlines (another app's
+  handwriting) stays one annotation with all its pieces. Pieces keep their original's rule, so later drags split
+  them the same way.
 - *Text markup*: each quad is intersected with the swept area and loses, on the quad's own axes (along the bottom
   edge, up the left edge: exact for the parallelograms text makes, rotated pages included), the stretch of text
   the intersection covers, at full line height: a quad is a line of text, so the rest of the line keeps its markup.

@@ -162,7 +162,9 @@ class AnnotatePaneState(
             restore = {
                 AnnotatePaneState(
                     AnnotateTool.valueOf(it[0] as String), it[1] as Int, it[2] as Int, it[3] as Int, it[4] as Int, it[5] as Int, it[6] as Int,
-                    it[9] as Boolean, it[10] as Int,
+                    // Absent from a state saved before plan T-a.
+                    it.getOrNull(9) as? Boolean ?: false,
+                    it.getOrNull(10) as? Int ?: FreehandOptions.defaultWidthIndex(FreehandKind.PEN),
                 )
                     .also { state ->
                         state.choose(AnnotateTool.valueOf(it[7] as String))

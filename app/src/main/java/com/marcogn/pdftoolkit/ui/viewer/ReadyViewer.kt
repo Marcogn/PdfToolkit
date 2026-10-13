@@ -325,7 +325,14 @@ fun ReadyViewer(
     var erase by remember { mutableStateOf<ViewerPartialErase?>(null) }
     var erasePreview by remember { mutableStateOf<AnnotationEdits?>(null) }
     LaunchedEffect(edits) { if (erase == null) erasePreview = null }
-    // Once per document opened: cutting another app's annotation makes it ours (plan T-a).
+    // Put down mid-drag (Back, search...): the gesture is cancelled without reaching us, nothing was committed.
+    LaunchedEffect(partialErasing) {
+        if (!partialErasing) {
+            erase = null
+            erasePreview = null
+        }
+    }
+    // Once per viewer session (survives rotation): cutting another app's annotation makes it ours (plan T-a).
     var foreignCutNoticed by rememberSaveable { mutableStateOf(false) }
     val foreignCutMessage = stringResource(R.string.annotate_eraser_foreign)
     val eraseUndoLabel = stringResource(R.string.edit_undo)
@@ -349,9 +356,11 @@ fun ReadyViewer(
                         if (done.cutForeign && !foreignCutNoticed) {
                             foreignCutNoticed = true
                             snackbarHostState.currentSnackbarData?.dismiss()
+                            val cut = editing.session
                             scope.launch {
                                 val result = snackbarHostState.showSnackbar(foreignCutMessage, actionLabel = eraseUndoLabel, duration = SnackbarDuration.Long)
-                                if (result == SnackbarResult.ActionPerformed) editing.undo()
+                                // Only that cut: after another edit, Undo here would take back the wrong one.
+                                if (result == SnackbarResult.ActionPerformed && editing.session === cut) editing.undo()
                             }
                         }
                     } else {
