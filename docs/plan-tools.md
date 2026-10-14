@@ -35,10 +35,13 @@ that multiplies like a highlight), reached through Draw → Style. It is hard to
 - **Touches** (author, revised 2026-10-13):
   - Drawer button: **tap** opens the drawer, with a fan ("raggiera") that unfolds upward (toward the page
     start in the landscape rail); **long press** does nothing.
-  - Tool in the drawer: **tap** arms it and closes the drawer; **hold still** opens the bubble (colour, size,
+  - Tool in the drawer: **tap** arms it and closes the drawer; **hold still** opens the bubble as soon as the long-press time is up, finger still down (colour, size,
     variants); **hold and move** out of the drawer drags it toward the quick slots (drop outside a slot, or
     past them, cancels).
-  - Quick slot: **tap** arms the tool; **tap on the armed tool** opens the bubble.
+  - Quick slot: **tap** arms the tool; **tap on the armed tool** opens the bubble; **hold still** opens the bubble
+    too, and **hold and move** drags the tool (to another slot, or off the bar to unpin it).
+  - A drag always starts from a hold, so the bubble shows for a moment and closes as the finger moves on (the
+    pattern of a launcher's shortcut menu, issue #42).
   - Putting a tool down (reading again): the system Back (as today's back steps), or the "Leggi" (no tool)
     entry of the drawer. A tap on the armed tool no longer puts it down.
   - A **tutorial** the first time the drawer opens: three short steps over the drawer (tap to use, hold for
@@ -128,7 +131,7 @@ bar.
   sempre a portata di mano", wording in T-b). Holding a tool in the drawer and moving the finger starts a
   drag: the empty slots appear as dashed rectangles ("qui va uno strumento"); dropping on one pins the tool,
   dropping anywhere else does nothing and the hint shows again next time. The hint goes away for good once a
-  slot is filled. A held tool released without moving opens the bubble instead. Dragging a quick tool off the
+  slot is filled. A held tool opens the bubble the moment the hold is recognised (not on release); moving on closes it and starts the drag (issue #42). Dragging a quick tool off the
   bar unpins it; dropping a tool on a full slot replaces it.
 - **Tutorial** on the first drawer opening (three steps, see "Decisions"), stored in DataStore, replayable
   from Settings and About; it replaces the separate one-time hint for the bubble.
@@ -150,7 +153,8 @@ bar.
 - Robolectric tests: arming a tool or making Undo available does not move any bar button (bounds compared);
   hint shown while a slot is empty and gone for good once one is filled; drop on an empty slot pins, drop
   elsewhere does nothing, drop on a full slot replaces, drag off the bar unpins; pins, colours and sizes
-  restored from preferences; hold still in the drawer opens the bubble, hold and move starts a drag, a quick
+  restored from preferences; hold still in the drawer or on a quick slot opens the bubble with the finger still
+  down, moving on closes it and starts a drag (checked before the lift), a quick
   slot's tap arms and a tap on the armed one opens the bubble; long press on the drawer button does nothing;
   "Leggi" and Back put the tool down; the tutorial shows once and replays from Settings; Marker armed from the drawer draws as a highlighter; the bubble's
   choices reach `AnnotatePaneState`.
@@ -159,7 +163,8 @@ bar.
 **Device checks**: arm each tool from the drawer and from the quick slots: no button moves; first open of the drawer
 shows the hint; drag a tool onto a dashed slot, drop one elsewhere (hint again), fill both, swap one, drag one
 off; restart the app: slots, colours and sizes are still there; hold still in the drawer and tap the armed quick tool → bubble, colour and size
-apply to the next stroke; landscape rail; Home "Highlight" and "Draw"; Fill and sign in and out; a protected
+apply to the next stroke; hold a tool (drawer and quick slot) until the bubble shows, then move without lifting:
+the bubble closes and the drag follows the finger to the drop (the bubble is a popup window opened mid-touch); landscape rail; Home "Highlight" and "Draw"; Fill and sign in and out; a protected
 PDF (tools dimmed, a tap explains why); TalkBack reads the slots.
 
 **Out of scope**: a floating, draggable palette; more than two quick slots; new tools.

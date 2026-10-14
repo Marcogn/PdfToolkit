@@ -220,6 +220,7 @@ private fun QuickSlot(
                     holdAndDrag = tool != null,
                     onTap = tap,
                     onHold = { if (tool != null) bubble = true },
+                    onHoldEnd = { bubble = false },
                     onDragStart = { if (tool != null) drag.start(tool, index, it) },
                     onDrag = drag::move,
                     onDragEnd = {
