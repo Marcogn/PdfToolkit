@@ -157,7 +157,10 @@ fun ToolDrawerHost(
                             base.toolGestures(
                                 onTap = { if (open) onArm(tool) },
                                 onHold = { if (open) bubble = tool },
-                                onDragStart = { if (open) callbacks.drag.start(tool, null, it) },
+                                onDragStart = {
+                                    bubble = null
+                                    if (open) callbacks.drag.start(tool, null, it)
+                                },
                                 onDrag = callbacks.drag::move,
                                 onDragEnd = {
                                     val dropped = callbacks.drag.tool

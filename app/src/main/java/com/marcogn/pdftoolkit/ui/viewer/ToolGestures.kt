@@ -65,9 +65,11 @@ class ToolBarGeometry {
 
 /**
  * The three touches of a tool in the drawer or in a quick slot (plan T-b): a **tap** ([onTap]); **hold still**
- * past the long-press time and let go ([onHold]); **hold and move** past the touch slop, which drags the tool
- * ([onDragStart] .. [onDrag] .. [onDragEnd], positions in root coordinates). Moving before the hold time is up
- * is neither: it is a scroll of the bar, and nothing happens. [holdAndDrag] false makes it a plain tap.
+ * ([onHold], fired the moment the long-press time is up, finger still down); **hold and move** past the touch
+ * slop, which drags the tool ([onDragStart] .. [onDrag] .. [onDragEnd], positions in root coordinates). A move
+ * after [onHold] fired still starts the drag, so [onDragStart] must close whatever [onHold] opened. Moving
+ * before the hold time is up is neither: it is a scroll of the bar, and nothing happens. [holdAndDrag] false
+ * makes it a plain tap.
  */
 @Composable
 fun Modifier.toolGestures(
@@ -113,7 +115,8 @@ fun Modifier.toolGestures(
                     Early.LIFTED -> tap()
                     Early.CANCELLED -> Unit
                     null -> {
-                        // Held. Let go without moving: the bubble; move on: the drag.
+                        // Held: the bubble opens now, finger down. Move on and it becomes the drag.
+                        hold()
                         var dragging = false
                         var finished = false
                         try {
@@ -123,7 +126,7 @@ fun Modifier.toolGestures(
                             if (change.changedToUp()) {
                                 change.consume()
                                 finished = true
-                                if (dragging) dragEnd(root(change.position)) else hold()
+                                if (dragging) dragEnd(root(change.position))
                                 break
                             }
                             if (!dragging && (change.position - down.position).getDistance() > slop) {

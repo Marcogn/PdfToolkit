@@ -35,7 +35,7 @@ that multiplies like a highlight), reached through Draw → Style. It is hard to
 - **Touches** (author, revised 2026-10-13):
   - Drawer button: **tap** opens the drawer, with a fan ("raggiera") that unfolds upward (toward the page
     start in the landscape rail); **long press** does nothing.
-  - Tool in the drawer: **tap** arms it and closes the drawer; **hold still** opens the bubble (colour, size,
+  - Tool in the drawer: **tap** arms it and closes the drawer; **hold still** opens the bubble as soon as the long-press time is up, finger still down (colour, size,
     variants); **hold and move** out of the drawer drags it toward the quick slots (drop outside a slot, or
     past them, cancels).
   - Quick slot: **tap** arms the tool; **tap on the armed tool** opens the bubble.
@@ -128,7 +128,7 @@ bar.
   sempre a portata di mano", wording in T-b). Holding a tool in the drawer and moving the finger starts a
   drag: the empty slots appear as dashed rectangles ("qui va uno strumento"); dropping on one pins the tool,
   dropping anywhere else does nothing and the hint shows again next time. The hint goes away for good once a
-  slot is filled. A held tool released without moving opens the bubble instead. Dragging a quick tool off the
+  slot is filled. A held tool opens the bubble the moment the hold is recognised (not on release); moving on closes it and starts the drag (issue #42). Dragging a quick tool off the
   bar unpins it; dropping a tool on a full slot replaces it.
 - **Tutorial** on the first drawer opening (three steps, see "Decisions"), stored in DataStore, replayable
   from Settings and About; it replaces the separate one-time hint for the bubble.
