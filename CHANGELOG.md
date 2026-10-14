@@ -7,8 +7,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 ## [Unreleased]
 
 - **Tool options appear while you hold.** The colour and size bubble of a tool now opens as soon as the long
-  press is recognised, with the finger still down, instead of when you let go. Moving the finger after that
-  still drags the tool to a quick slot (the bubble closes).
+  press is recognised, with the finger still down, instead of when you let go, in the drawer and on a quick
+  slot. Moving the finger after that still drags the tool (the bubble closes).
 
 ## [1.2.0] - 2026-10-13
 

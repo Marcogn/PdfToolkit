@@ -18,7 +18,6 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -290,14 +289,43 @@ class ViewerToolBarTest {
         assertEquals(com.marcogn.pdftoolkit.domain.annotate.AnnotationColor.RED, state.colorFor(com.marcogn.pdftoolkit.domain.annotate.FreehandKind.PEN))
     }
 
+    /**
+     * Hold [from] until the bubble is up, move to [to] and check, finger still down, that the move closed the
+     * bubble and started the drag; then let go.
+     */
+    private fun holdMoveAndCheckBubbleClosed(from: Offset, to: Offset) {
+        composeRule.mainClock.autoAdvance = false
+        mainRoot().performTouchInput { down(from) }
+        composeRule.mainClock.advanceTimeBy(LONG_PRESS_MS + 50)
+        composeRule.onNodeWithContentDescription("Nero").assertIsDisplayed()
+        mainRoot().performTouchInput {
+            moveTo(from + (to - from) * 0.5f)
+            moveTo(to)
+        }
+        // Let the menu's exit animation run, finger still down.
+        composeRule.mainClock.autoAdvance = true
+        composeRule.waitForIdle()
+        assertTrue("the move is a drag", drag.active)
+        composeRule.onNodeWithContentDescription("Nero").assertDoesNotExist()
+        mainRoot().performTouchInput { up() }
+        composeRule.waitForIdle()
+    }
+
     @Test
-    fun `moving after the hold closes the bubble and drags`() {
+    fun `moving after the hold in the drawer closes the bubble and drags`() {
         setBar()
         openDrawer()
-        val at = centerOf("Penna")
-        holdAndDragTo(at, center("quickSlot1"))
-        composeRule.onNodeWithContentDescription("Nero").assertDoesNotExist()
+        holdMoveAndCheckBubbleClosed(centerOf("Penna"), center("quickSlot1"))
         assertEquals(listOf(null, DrawerTool.PEN), slots.tools)
+    }
+
+    @Test
+    fun `holding a quick slot opens the bubble and moving on closes it and drags`() {
+        slots = QuickSlots(listOf(DrawerTool.PEN, null))
+        setBar()
+        holdMoveAndCheckBubbleClosed(center("quickSlot0"), center("quickSlot1"))
+        assertEquals(listOf(null, DrawerTool.PEN), slots.tools)
+        assertEquals("a hold is not a tap", emptyList<DrawerTool>(), arms)
     }
 
     @Test

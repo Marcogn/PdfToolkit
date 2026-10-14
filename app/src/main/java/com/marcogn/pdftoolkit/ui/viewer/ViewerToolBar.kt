@@ -220,10 +220,8 @@ private fun QuickSlot(
                     holdAndDrag = tool != null,
                     onTap = tap,
                     onHold = { if (tool != null) bubble = true },
-                    onDragStart = {
-                        bubble = false
-                        if (tool != null) drag.start(tool, index, it)
-                    },
+                    onHoldEnd = { bubble = false },
+                    onDragStart = { if (tool != null) drag.start(tool, index, it) },
                     onDrag = drag::move,
                     onDragEnd = {
                         val dropped = drag.tool
