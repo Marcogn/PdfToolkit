@@ -34,13 +34,16 @@ When the author says "go on" / "next phase":
 3. Do only that sub-phase. Open `bug` issues touching it may be included (the author picks). Bugs and
    ideas found along the way become GitHub issues once the author agrees; Current status keeps only
    status, handoffs and limits.
-4. Close when "Done when" holds: lint + unit tests + `assembleDebug` green; docs updated; commit; PR.
+4. Close when "Done when" holds: lint + unit tests + `assembleDebug` green; independent review of the diff
+   (`self-review`, required before any PR: `.claude/hooks/review-gate.sh` enforces it); docs updated; commit; PR.
 5. An **a** sub-phase writes a handoff (≤ 15 lines) in Current status for its **b**.
 6. End with the sub-phase's **device checks**: there is no emulator here, the author tests on a phone.
 7. Don't start the next sub-phase in the same session unless asked.
 
-Session title `<sub-phase> <Name>`, branch the same in kebab-case (e.g. `9-scan`), set at the start.
-The cloud environment may fix the branch name: then use the one it gives.
+Session title `<sub-phase> <Name>` (other work: `PdfToolkit <what>`), set at the start with `set_session_title`
+and again if the task changes. Branches Claude creates are `<type>/<what-and-where>` (`phase/9-scan`,
+`fix/crash-on-rotation`; `docs/claude.md`, "Names"). The cloud environment may fix the branch name: then use
+the one it gives.
 
 | Sub-phase | Model | Scope | Done when | Check on the device |
 |---|---|---|---|---|
@@ -116,8 +119,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   [claude-skill-android-kit](https://github.com/Marcogn/claude-skill-android-kit) (`@v1`): CI, Build APK,
   Release, cleanup, `@claude`, PR review; only this project's values here (`docs/ci.md`).
   `dependabot.yml` updates dependencies.
-- `.claude/`: skills (`verify`, `new-plan`, `next-phase`, `close-phase`, `steward`), the `architecture-reviewer`
-  agent, the SDK hook, permissions: copied from the kit by `/android-kit` (version in
+- `.claude/`: skills (`verify`, `new-plan`, `next-phase`, `close-phase`, `self-review`, `deps-triage`, `steward`), the
+  `architecture-reviewer` agent, hooks (SDK, review gate, branch names), permissions: copied from the kit by `/android-kit` (version in
   `.claude/kit-version`); improve them in the kit, not here. Per project only this file and `REVIEW.md`
   (`docs/claude.md`).
 
@@ -192,7 +195,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 
 ## Current status (2026-10-13)
 - Released: **1.0.0** (product phase 1, 2026-10-04), 1.1.0 (viewer editing), 1.1.1 (scan, OCR), 1.1.2–1.1.3
-  (freehand fix, updates), **1.2.0** (partial eraser, tool drawer, 2026-10-13). `versionName` 1.2.0.
+  (freehand fix, updates), **1.2.0** (partial eraser, tool drawer, 2026-10-13). The current version is the build's `versionName` and `CHANGELOG.md`.
 - Device checks passed or counted as done by the author for every sub-phase up to T-a; 10b and A will get more
   test rounds (their lists: `docs/plan-v2.md` 10b, `docs/plan-updates.md`). The app-drawn wet stroke
   (`WetStroke`, 1.1.3) was checked on the Galaxy Tab S7+ before T-a.
