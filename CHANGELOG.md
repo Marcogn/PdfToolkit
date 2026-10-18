@@ -6,6 +6,10 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Recents say when access has expired.** A PDF opened from another app (a file manager, a mail attachment)
+  often comes with access for that one opening only, so it can't be reopened from Recents later. Such an
+  entry now reads "Access expired" and, when tapped, says to open the file again from that app or with "Open
+  PDF", instead of claiming the file is no longer available.
 - **Tool options appear while you hold.** The colour and size bubble of a tool now opens as soon as the long
   press is recognised, with the finger still down, instead of when you let go, in the drawer and on a quick
   slot. Moving the finger after that still drags the tool (the bubble closes).

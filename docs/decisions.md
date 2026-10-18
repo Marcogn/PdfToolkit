@@ -7,7 +7,8 @@ decided or approved it.
 ## Process and project
 
 - 2026-10-01 · Documentation and code comments in English, app UI in Italian with an English
-  translation (author). The spec stays in Italian, in `docs/spec.md`.
+  translation (author). The spec, first kept in Italian, is in English since 2026-10-18 (author, issue #32):
+  same sections and numbering; `[ASSUNZIONE]` stays as the marker of assumptions.
 - 2026-10-01 · One model per sub-phase (author): Sonnet by default, Opus for the cores where a wrong
   design is expensive (**a** sub-phases, with a handoff note for **b**). Every session starts with a
   model check. One session and one branch per sub-phase, named after it.
@@ -111,6 +112,12 @@ decided or approved it.
   SHA-256 of the URI; the database is excluded from backup.
 - 2026-10-01 · Intents `VIEW` and `SEND` for `application/pdf` open the viewer above Home, only on a fresh
   launch (rotation doesn't reopen it).
+- 2026-10-18 · Recents opened with only a temporary grant (issue #47) read "Access expired" instead of "File
+  unavailable" once they can't be read. Whether the grant was temporary is stored at opening
+  (`RecentDocument.temporaryAccess`, Room v3: a `content://` URI with no persisted read grant), not worked out
+  later: deleting a document through its provider revokes the persisted grants too, so a later check would
+  call a deleted file "expired". No copy of the file into app storage (it would duplicate users' documents;
+  the author can still ask for it).
 - 2026-10-01 · Scrubber: only the thumb takes touches, linear page mapping. Drawer swipe disabled in the viewer.
 - 2026-10-04 · The app draws every annotation itself; the platform renderer draws none (ADR 0004). On API
   35+ it does draw form widgets, with the value saved in the file.

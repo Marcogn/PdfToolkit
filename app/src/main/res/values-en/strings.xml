@@ -72,9 +72,11 @@
 
     <!-- Recents -->
     <string name="recent_unavailable">File unavailable</string>
+    <string name="recent_access_expired">Access expired</string>
     <string name="recent_remove">Remove from list</string>
     <string name="cd_recent_remove">Remove %1$s from recents</string>
     <string name="home_recent_unavailable_message">The file is no longer available. Press and hold it to remove it from the list.</string>
+    <string name="home_recent_expired_message">The app that opened this file gave access for that time only. Open it again from there or with \"Open PDF\"; press and hold it to remove it from the list.</string>
 
     <!-- Viewer -->
     <string name="viewer_page_indicator">Page %1$d of %2$d</string>

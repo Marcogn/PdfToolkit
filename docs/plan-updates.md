@@ -25,7 +25,7 @@ shared design, the facts checked before planning and their sources are in the pi
 ## Decisions (author's answers, 2026-10-11)
 
 - **`INTERNET` is added now, for the update check only.** This amends the product phase 1 rule
-  "no `INTERNET`" (spec §2 "Principio guida", CLAUDE.md, README "Privacy", CI
+  "no `INTERNET`" (spec §1 "Guiding principle", CLAUDE.md, README "Privacy", CI
   `forbidden-permissions`), ahead of phase 12, which was going to be the first build with it.
   Recorded as ADR 0006 in this sub-phase. Phase 12 then reuses the permission instead of adding it.
 - **Pilot + port**: the code is copied from ThePatientGamerHelper, not designed here.

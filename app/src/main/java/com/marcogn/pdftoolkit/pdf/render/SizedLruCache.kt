@@ -71,7 +71,7 @@ class SizedLruCache<K : Any, V : Any>(
  * [tileCacheBytes]: high-resolution tiles of the zoomed area. Separate so that zooming in can
  * never evict the pages around the current one.
  * [maxPageBitmapBytes]: largest single page bitmap; above it the page is rendered smaller and
- * tiles make up for the detail (spec §5: "si va a tile").
+ * tiles make up for the detail (spec §5: "it goes to tiles").
  */
 data class RenderBudget(
     val pageCacheBytes: Long,

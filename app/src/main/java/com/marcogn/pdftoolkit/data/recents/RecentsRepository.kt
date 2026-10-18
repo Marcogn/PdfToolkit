@@ -1,5 +1,6 @@
 package com.marcogn.pdftoolkit.data.recents
 
+import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
@@ -35,6 +36,7 @@ class RecentsRepository @Inject constructor(
      */
     suspend fun recordOpened(uri: String, displayName: String, sizeBytes: Long?, pageCount: Int, now: Long = System.currentTimeMillis()): Int {
         val previous = dao.find(uri)
+        val temporaryAccess = hasOnlyTemporaryAccess(uri)
         val lastPage = (previous?.lastPage ?: 0).coerceIn(0, pageCount - 1)
         dao.upsert(
             RecentDocument(
@@ -45,6 +47,7 @@ class RecentsRepository @Inject constructor(
                 lastPage = lastPage,
                 lastOpenedAt = now,
                 thumbnailPath = previous?.thumbnailPath,
+                temporaryAccess = temporaryAccess,
             ),
         )
         dao.olderThan(MAX_RECENTS).forEach { old ->
@@ -92,6 +95,17 @@ class RecentsRepository @Inject constructor(
         } catch (e: IllegalArgumentException) {
             false
         }
+    }
+
+    /**
+     * Whether the app reads [uri] through a temporary grant only (issue #47): a `content://` URI with no
+     * persisted read permission. Checked while the document opens, when the grant still works: later, a
+     * missing persisted grant may just as well mean the provider revoked it because the file was deleted.
+     */
+    private suspend fun hasOnlyTemporaryAccess(uri: String): Boolean = withContext(Dispatchers.IO) {
+        val parsed: Uri = uri.toUri()
+        parsed.scheme == ContentResolver.SCHEME_CONTENT &&
+            context.contentResolver.persistedUriPermissions.none { it.uri == parsed && it.isReadPermission }
     }
 
     companion object {

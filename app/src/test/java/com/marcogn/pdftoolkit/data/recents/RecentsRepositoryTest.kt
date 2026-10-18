@@ -1,6 +1,8 @@
 package com.marcogn.pdftoolkit.data.recents
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -86,5 +88,20 @@ class RecentsRepositoryTest {
     fun aMissingFileIsNotAccessible() = runBlocking {
         assertFalse(repository.isAccessible("content://nobody.here/none.pdf"))
         assertFalse(repository.isAccessible("file:///no/such/file.pdf"))
+    }
+
+    @Test
+    fun anOpeningWithoutAPersistedGrantIsRecordedAsTemporary() = runBlocking {
+        val kept = "content://docs/kept.pdf"
+        context.contentResolver.takePersistableUriPermission(Uri.parse(kept), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        repository.recordOpened(kept, "kept.pdf", null, 1, now = 1)
+        repository.recordOpened("content://docs/viewed.pdf", "viewed.pdf", null, 1, now = 2)
+        repository.recordOpened("file:///sdcard/a.pdf", "a.pdf", null, 1, now = 3)
+
+        val temporary = repository.recents.first().associate { it.uri to it.temporaryAccess }
+        assertEquals(
+            mapOf(kept to false, "content://docs/viewed.pdf" to true, "file:///sdcard/a.pdf" to false),
+            temporary,
+        )
     }
 }

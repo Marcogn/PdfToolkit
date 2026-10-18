@@ -76,7 +76,7 @@ internal fun TextOverlayDialog(
     )
 }
 
-/** Today in the app's language, as numbers with a four-digit year (spec §6.5: "formato della lingua dell'app"). */
+/** Today in the app's language, as numbers with a four-digit year (spec §6.5: "in the app language's format"). */
 internal fun todayText(context: Context): String {
     val locale = context.resources.configuration.locales[0]
     val pattern = DateFormat.getBestDateTimePattern(locale, "ddMMyyyy")

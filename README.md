@@ -48,7 +48,7 @@ Android 8.0 (API 26) or later.
 ./gradlew assembleRelease     # release APK
 ```
 
-You need JDK 17 or later and the Android SDK with API 37. The Gradle wrapper (9.8.0) checks the
+You need JDK 17 or later and the Android SDK with API 37. The Gradle wrapper (9.8.1) checks the
 SHA-256 of the distribution it downloads.
 
 The release build is signed only when it finds the keystore. Credentials are not in the
@@ -104,6 +104,9 @@ Clipper2), under the Boost Software License 1.0.
 
 ## Known limits
 
+- **Recents** can't reopen a PDF that another app (file manager, mail) handed over with access for that one
+  opening only: Android gives no lasting permission for it. The entry says "Access expired"; open the file
+  again from that app or with "Open PDF".
 - **Protected PDFs** can be read (Android 15+) but not edited, added to another PDF or merged.
 - **Removing a page** doesn't guarantee its data leaves the file: if a bookmark or link points to it,
   its objects stay (unseen). This is not a redaction tool.
@@ -151,7 +154,7 @@ Clipper2), under the Boost Software License 1.0.
 
 ## Documentation
 
-- [`docs/spec.md`](docs/spec.md): specification (Italian), with notes where the app deviates from it
+- [`docs/spec.md`](docs/spec.md): specification, with notes where the app deviates from it
 - [`docs/decisions.md`](docs/decisions.md): decisions in force, by topic; [`docs/adr/`](docs/adr/): the big ones
 - [`docs/plan-v2.md`](docs/plan-v2.md): plan of product phase 2 (scan, OCR, ODF, cloud)
 - Records of the inserted series: [`docs/plan-usability.md`](docs/plan-usability.md) (usability review),

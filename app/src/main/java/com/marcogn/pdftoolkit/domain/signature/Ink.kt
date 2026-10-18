@@ -15,7 +15,7 @@ data class InkPoint(val x: Float, val y: Float, val timeMs: Long)
 data class InkStroke(val color: InkColor, val points: List<InkPoint>)
 
 /**
- * Line width along a stroke (spec §6.5: "spessore che varia leggermente con la velocità"): the
+ * Line width along a stroke (spec §6.5: "a stroke whose width varies slightly with speed"): the
  * faster the finger, the thinner the line, within [MIN_FACTOR]..[MAX_FACTOR] of the base width, and
  * smoothed so the width never jumps between two samples.
  */

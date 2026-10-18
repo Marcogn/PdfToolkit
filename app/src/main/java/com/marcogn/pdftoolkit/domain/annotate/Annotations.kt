@@ -69,7 +69,7 @@ data class AnnotationColor(val red: Float, val green: Float, val blue: Float) {
 }
 
 /**
- * The colours the annotate tools offer (spec §7.4, "alcuni colori"). A highlight multiplies with
+ * The colours the annotate tools offer (spec §7.4, "a few colours"). A highlight multiplies with
  * the text under it, so its colours are light and a dark one would black the text out; underline
  * and strikeout are thin lines, so theirs are strong.
  */

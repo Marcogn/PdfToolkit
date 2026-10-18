@@ -1,5 +1,6 @@
 package com.marcogn.pdftoolkit.data.recents
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -16,4 +17,9 @@ data class RecentDocument(
     val lastOpenedAt: Long,
     /** Absolute path of the first-page thumbnail under `cacheDir/thumbnails/`; regenerable, may be gone. */
     val thumbnailPath: String?,
+    /**
+     * At the last opening the app had only a temporary grant for [uri] (issue #47): another app's
+     * `VIEW`/`SEND` without a persistable permission, so the entry stops opening once that grant ends.
+     */
+    @ColumnInfo(defaultValue = "0") val temporaryAccess: Boolean = false,
 )

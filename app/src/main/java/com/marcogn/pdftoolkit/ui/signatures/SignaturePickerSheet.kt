@@ -30,7 +30,7 @@ import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.data.signatures.Signature
 
 /**
- * Choosing the signature to place (spec §6.5: "si sceglie una firma salvata, o se ne crea una al volo"):
+ * Choosing the signature to place (spec §6.5: "pick a saved signature (or create one on the fly)"):
  * the archive with the favourite first, and a button for a new one.
  */
 @OptIn(ExperimentalMaterial3Api::class)

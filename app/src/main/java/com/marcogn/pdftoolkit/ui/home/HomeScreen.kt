@@ -89,7 +89,9 @@ fun HomeScreen(
         if (item.accessible) {
             onRecentClick(item)
         } else {
-            val message = resources.getString(R.string.home_recent_unavailable_message)
+            val message = resources.getString(
+                if (item.accessExpired) R.string.home_recent_expired_message else R.string.home_recent_unavailable_message,
+            )
             scope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(message)

@@ -76,9 +76,11 @@
 
     <!-- Recents -->
     <string name="recent_unavailable">File non disponibile</string>
+    <string name="recent_access_expired">Accesso scaduto</string>
     <string name="recent_remove">Rimuovi dalla lista</string>
     <string name="cd_recent_remove">Rimuovi %1$s dai recenti</string>
     <string name="home_recent_unavailable_message">Il file non è più disponibile. Tienilo premuto per toglierlo dalla lista.</string>
+    <string name="home_recent_expired_message">L\'app che ha aperto questo file ha dato l\'accesso solo per quella volta. Riaprilo da lì o con \"Apri PDF\"; tienilo premuto per toglierlo dalla lista.</string>
 
     <!-- Viewer -->
     <string name="viewer_page_indicator">Pagina %1$d di %2$d</string>
