@@ -42,6 +42,8 @@ decided or approved it.
 - 2026-10-14 · Kit updated to 5fb47c3 (`.claude/kit-version`): review gate before PRs (`self-review`), branch-name
   hook, `deps-triage`, Dependabot cooldown, Release `bump` choice and cleanup of old runs. Kept locally: the extra
   `Read(./local.properties)` deny in `.claude/settings.json`; `release-build-args` left empty.
+- 2026-10-18 · Kit updated to 1721624 (0c21768 + simpler branch-name hook): `issues-triage` skill, branch-name hook rewritten (accepts `ccr-…` and base branches, checks plain one-line commands only),
+  Release cleans old runs only after a successful release, SHA-1 printed too. No local changes to reconcile.
 - 2026-10-08 · No detekt for now: only 2.0.0 supports Kotlin 2.4 with AGP 9 built-in Kotlin, and it is
   still alpha (stable versions only). Revisit at 2.0.0 stable.
 - 2026-10-03 · `CloudTarget` (spec §7.3) is a minimal interface (`displayName`, `suspend upload(...)`):

@@ -40,8 +40,8 @@ When the author says "go on" / "next phase":
 6. End with the sub-phase's **device checks**: there is no emulator here, the author tests on a phone.
 7. Don't start the next sub-phase in the same session unless asked.
 
-Session title `<sub-phase> <Name>` (other work: `PdfToolkit <what>`), set at the start with `set_session_title`
-and again if the task changes. Branches Claude creates are `<type>/<what-and-where>` (`phase/9-scan`,
+Session title `PdfToolkit <sub-phase> <Name>` (other work: `PdfToolkit <what>`), set at the start with `set_session_title`
+and again if the task changes. Branches Claude creates are `<type>/<what-and-where>` (`phase/9-export-pdf`,
 `fix/crash-on-rotation`; `docs/claude.md`, "Names"). The cloud environment may fix the branch name: then use
 the one it gives.
 
@@ -119,7 +119,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   [claude-skill-android-kit](https://github.com/Marcogn/claude-skill-android-kit) (`@v1`): CI, Build APK,
   Release, cleanup, `@claude`, PR review; only this project's values here (`docs/ci.md`).
   `dependabot.yml` updates dependencies.
-- `.claude/`: skills (`verify`, `new-plan`, `next-phase`, `close-phase`, `self-review`, `deps-triage`, `steward`), the
+- `.claude/`: skills (`verify`, `new-plan`, `next-phase`, `close-phase`, `self-review`, `deps-triage`, `issues-triage`, `steward`), the
   `architecture-reviewer` agent, hooks (SDK, review gate, branch names), permissions: copied from the kit by `/android-kit` (version in
   `.claude/kit-version`); improve them in the kit, not here. Per project only this file and `REVIEW.md`
   (`docs/claude.md`).
