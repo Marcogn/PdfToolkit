@@ -1,10 +1,12 @@
 package com.marcogn.pdftoolkit.ui.edit
 
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Process
+import com.marcogn.pdftoolkit.data.files.SHARED_STORAGE
 import com.marcogn.pdftoolkit.data.save.SaveProgress
 import com.marcogn.pdftoolkit.data.save.SaveRequest
 import com.marcogn.pdftoolkit.data.save.SaveScheduler
@@ -14,6 +16,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.IOException
 import java.util.UUID
 
 /**
@@ -74,7 +78,21 @@ fun Context.takeWritePermission(uri: Uri) {
     }
 }
 
-/** Whether the app may write [uri], so "overwrite" can be offered (spec §6.7). */
-fun Context.hasWriteAccess(uri: Uri): Boolean =
-    uri.scheme == "content" &&
+/**
+ * Whether the app may write [uri], so "overwrite" can be offered (spec §6.7): a write grant, or a file
+ * opened by path with all files access (ADR 0007).
+ */
+fun Context.hasWriteAccess(uri: Uri): Boolean = when (uri.scheme) {
+    ContentResolver.SCHEME_CONTENT ->
         checkUriPermission(uri, Process.myPid(), Process.myUid(), Intent.FLAG_GRANT_WRITE_URI_PERMISSION) == PackageManager.PERMISSION_GRANTED
+    // Only shared storage: a file:// sent in by another app could point into this app's own files.
+    ContentResolver.SCHEME_FILE -> uri.path?.let { path ->
+        val file = File(path)
+        try {
+            file.canonicalPath.startsWith(SHARED_STORAGE) && file.canWrite()
+        } catch (e: IOException) {
+            false
+        }
+    } ?: false
+    else -> false
+}

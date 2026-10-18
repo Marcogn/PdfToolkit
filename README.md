@@ -48,7 +48,7 @@ Android 8.0 (API 26) or later.
 ./gradlew assembleRelease     # release APK
 ```
 
-You need JDK 17 or later and the Android SDK with API 37. The Gradle wrapper (9.8.0) checks the
+You need JDK 17 or later and the Android SDK with API 37. The Gradle wrapper (9.8.1) checks the
 SHA-256 of the distribution it downloads.
 
 The release build is signed only when it finds the keystore. Credentials are not in the
@@ -89,7 +89,9 @@ Files stay on the phone, and text recognition runs on the phone too. Since versi
 Google, are turned off in the manifest ([ADR 0006](docs/adr/0006-internet-for-updates.md); a unit test
 guards it). The document scanner runs in Google Play services, outside the app, under Google's own rules.
 Installing an update also needs "install unknown apps" (`REQUEST_INSTALL_PACKAGES`), which Android asks for
-the first time.
+the first time. "All files access" is optional: the app asks for it only when a PDF arrives from another app
+(a file manager, an attachment) with access for that opening only, so recents can reopen it by its path; it is
+used for nothing else ([ADR 0007](docs/adr/0007-all-files-access.md)). It can be turned off in Settings.
 
 ## Libraries and licences
 
@@ -104,6 +106,9 @@ Clipper2), under the Boost Software License 1.0.
 
 ## Known limits
 
+- **Recents** keep a PDF that another app (file manager, mail) handed over with access for that one opening
+  only if "All files access" is on and the PDF is a file in the phone's storage (not a cloud file or a stream).
+  Otherwise the entry says "Access expired"; open the file again from that app or with "Open PDF".
 - **Protected PDFs** can be read (Android 15+) but not edited, added to another PDF or merged.
 - **Removing a page** doesn't guarantee its data leaves the file: if a bookmark or link points to it,
   its objects stay (unseen). This is not a redaction tool.
@@ -151,7 +156,7 @@ Clipper2), under the Boost Software License 1.0.
 
 ## Documentation
 
-- [`docs/spec.md`](docs/spec.md): specification (Italian), with notes where the app deviates from it
+- [`docs/spec.md`](docs/spec.md): specification, with notes where the app deviates from it
 - [`docs/decisions.md`](docs/decisions.md): decisions in force, by topic; [`docs/adr/`](docs/adr/): the big ones
 - [`docs/plan-v2.md`](docs/plan-v2.md): plan of product phase 2 (scan, OCR, ODF, cloud)
 - Records of the inserted series: [`docs/plan-usability.md`](docs/plan-usability.md) (usability review),

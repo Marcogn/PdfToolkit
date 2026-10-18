@@ -1,6 +1,7 @@
 package com.marcogn.pdftoolkit.ui.recents
 
 import android.text.format.DateUtils
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -79,7 +80,7 @@ private fun RecentRow(item: RecentItem, onClick: (RecentItem) -> Unit, onRemove:
                 if (item.accessible) {
                     DateUtils.getRelativeTimeSpanString(document.lastOpenedAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
                 } else {
-                    stringResource(R.string.recent_unavailable)
+                    stringResource(item.unavailableLabel())
                 },
                 color = if (item.accessible) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
             )
@@ -97,4 +98,20 @@ private fun RecentRow(item: RecentItem, onClick: (RecentItem) -> Unit, onRemove:
         },
         modifier = Modifier.clickable { onClick(item) },
     )
+}
+
+/** The label of an entry that can't be opened, shared with Home's recent cards. */
+@StringRes
+fun RecentItem.unavailableLabel(): Int = when {
+    needsAllFilesAccess -> R.string.recent_needs_all_files
+    accessExpired -> R.string.recent_access_expired
+    else -> R.string.recent_unavailable
+}
+
+/** The message for a tap on an entry that can't be opened (Home). */
+@StringRes
+fun RecentItem.unavailableMessage(): Int = when {
+    needsAllFilesAccess -> R.string.home_recent_needs_all_files_message
+    accessExpired -> R.string.home_recent_expired_message
+    else -> R.string.home_recent_unavailable_message
 }

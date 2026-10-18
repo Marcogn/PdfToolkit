@@ -37,7 +37,7 @@ class HomeScreenTest {
     private val recentClicks = mutableListOf<String>()
     private val recentRemovals = mutableListOf<String>()
 
-    private fun recent(name: String, accessible: Boolean = true) = RecentItem(
+    private fun recent(name: String, accessible: Boolean = true, temporaryAccess: Boolean = false) = RecentItem(
         RecentDocument(
             uri = "content://docs/$name",
             displayName = name,
@@ -46,6 +46,7 @@ class HomeScreenTest {
             lastPage = 0,
             lastOpenedAt = System.currentTimeMillis(),
             thumbnailPath = null,
+            temporaryAccess = temporaryAccess,
         ),
         accessible,
     )
@@ -79,6 +80,18 @@ class HomeScreenTest {
         composeRule.onNodeWithText("File non disponibile").assertIsDisplayed()
         composeRule.onNodeWithText("perso.pdf").performClick()
         composeRule.onNodeWithText("Il file non è più disponibile. Tienilo premuto per toglierlo dalla lista.").assertIsDisplayed()
+        assertTrue(recentClicks.isEmpty())
+    }
+
+    @Test
+    fun recentWithExpiredTemporaryAccessSaysWhy() {
+        setHome(listOf(recent("allegato.pdf", accessible = false, temporaryAccess = true)))
+        composeRule.onNodeWithText("Accesso scaduto").assertIsDisplayed()
+        composeRule.onNodeWithText("allegato.pdf").performClick()
+        composeRule.onNodeWithText(
+            "L'accesso a questo file valeva solo per quell'apertura. " +
+                "Riaprilo dall'app da cui l'hai aperto o con \"Apri PDF\"; tienilo premuto per toglierlo dalla lista.",
+        ).assertIsDisplayed()
         assertTrue(recentClicks.isEmpty())
     }
 

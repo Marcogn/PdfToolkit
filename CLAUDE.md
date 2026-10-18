@@ -1,7 +1,7 @@
 # PdfToolkit — project memory
 
-Android app to read and edit PDFs on the phone, offline. The specification is `docs/spec.md`
-(Italian); decisions still in force are in `docs/decisions.md`, the big ones as ADRs in `docs/adr/`.
+Android app to read and edit PDFs on the phone, offline. The specification is `docs/spec.md`;
+decisions still in force are in `docs/decisions.md`, the big ones as ADRs in `docs/adr/`.
 This file holds what a session needs to work: protocol, commands, where things are, rules, status.
 
 ## Fixed rule
@@ -16,8 +16,8 @@ into `docs/decisions.md`.
   U-a/U-b (usability, `docs/plan-usability.md`), V-a/V-b/V-c (editing in the viewer,
   `docs/plan-viewer-editing.md`), A (updates, `docs/plan-updates.md`) and T-a/T-b (partial eraser and
   tool drawer, `docs/plan-tools.md`). "Next phase" means the next development sub-phase.
-- **Product phase 1 / 2** (spec §1, §7, §14): the feature sets. Spec lines like "Fase 2 (pianificata,
-  non implementare)" or "in Fase 1 nessun permesso INTERNET" refer to the product. Implement a product
+- **Product phase 1 / 2** (spec §1, §7, §14): the feature sets. Spec lines like "Phase 2 (planned,
+  do not implement)" or "In Phase 1 the app did not declare the `INTERNET` permission" refer to the product. Implement a product
   phase 2 feature only inside its own sub-phase.
 - Code comments cite plan items as "plan U7", "plan V-b": U-items are in `docs/plan-usability.md`,
   V-items in `docs/plan-viewer-editing.md`, T-items in `docs/plan-tools.md`.
@@ -97,7 +97,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   (overlays, `FieldValue`, `FormField`, `TextBlock`, `MarkShape`), `annotate/` (`Quad`, shapes,
   `NewAnnotation`, `AnnotationRef`, `AnnotationEdits`, `CompactPolylineSerializer`), `signature/`,
   `cloud/` (`CloudTarget`, interface only).
-- `data/`: DataStore preferences, Room (`AppDatabase` v2: recents, signatures; schemas in
+- `data/`: DataStore preferences, Room (`AppDatabase` v3: recents, signatures; schemas in
   `app/schemas/`, committed), `save/` (`SaveScheduler`, `SaveWorker`, `PdfSaver`), `images/`.
 - `pdf/render`: `PdfRenderer` wrapper, scheduler/planner, caches, and the shared geometry
   (`DocumentLayout`, `Viewport`, `PageCoordinateMapper`, `PdfPageSpace`, `OverlayGeometry`).
@@ -109,6 +109,8 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   `TextRecognizer` (ML Kit bundled), `OcrProcessor` (detect, render, recognise, write); the writer is
   `pdf/edit/OcrTextWriter` behind `PdfEditor.addTextLayer`. `data/ocr/`: `OcrWorker` (WorkManager, like
   `SaveWorker`), `OcrJob` (copy → `OcrProcessor` → copy over the destination), `OcrScheduler`/`OcrQueue`.
+- `data/files/`: all files access (`AllFilesAccess`, settings intents), `FilePathResolver` (`candidatePaths`),
+  `shareableUri`; `ui/viewer/IncomingPdf.kt` (`IncomingPdfViewModel`, the prompt); `data/settings/FileAccessPreferences`.
 - Updates (ported from ThePatientGamerHelper, plan A): `domain/update` (version, release parsing, APK pick,
   release notes, `UpdateCheckPolicy`, states), `data/update` (`GitHubReleaseClient`, `ApkDownloader`,
   `ApkVerifier`, `ApkInstaller`, `UpdateInstallReceiver`, `UpdateManager`, `FileWriteGate`;
@@ -166,6 +168,10 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   (`data/update`). ML Kit telemetry is off: the manifest removes datatransport's `cct` backend and
   `TelemetryOffTest` guards it; after any ML Kit/datatransport update rerun it and capture traffic on a
   device. Don't add dependencies or code that use the network (phase 12, WebDAV, is the exception).
+- **All files access** (ADR 0007): optional, asked only for a `VIEW`/`SEND` PDF whose grant can't be kept
+  (`IncomingPdfHandler`); with it the viewer opens `file://<path>` found by `FilePathResolver` (`/proc/self/fd`
+  link checked with `stat`). Code must work without it (the old URI opens as before). `file://` is shared only
+  through `shareableUri` (FileProvider `${applicationId}.files`). Use it for nothing else.
 - **Updates** (plan A): `UpdateManager` is the single state (`UpdateState`), `UpdateDialogHost` above the nav
   graph shows it. Installing ends the process, so `install()` waits while a job tagged `FILE_WRITE_WORK_TAG`
   (save, OCR) is queued or running, or a write wrapped in `UserFileWrites.track` (scan copy) runs; a pending
@@ -205,7 +211,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - Still open from product phase 1: the **baseline profile** (needs a device: `androidx.baselineprofile` plugin +
   a macrobenchmark module, startup / open viewer / open organize).
 - Waiting on the author: the `CLAUDE_CODE_OAUTH_TOKEN` secret (no automatic review ran on PR #40) and the cloud
-  environment's setup script (`docs/claude.md`). Open issue: #32 (spec in English).
+  environment's setup script (`docs/claude.md`). The spec is in English since 2026-10-18 (#32).
 - Open questions for later sub-phases (`docs/plan-v2.md`): ODG or ODT (11), numbering of the next releases.
 
 ### Technical limits worth knowing
@@ -233,3 +239,6 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
 - The scanner flow (`ScanToPdf`, `DocumentScanner`) needs Play services and has no JVM test beyond the
   pure helpers (`scanUnavailableFor`, `scanFileName`); the rest is device only.
 - Lint warns about `ConfigurationScreenWidthHeight` on `isLandscape()`.
+- All files access: the `/proc/self/fd` path lookup (`ProcFdFilePathResolver`) and the permission flows have no JVM
+  test (device only; `candidatePaths` and `IncomingPdfViewModel` are tested). Reopening via "Open PDF" a file kept
+  by path adds a second entry (different URI).

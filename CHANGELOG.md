@@ -6,6 +6,17 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **PDFs from other apps stay in recents.** A PDF opened from a file manager or an attachment usually comes
+  with access for that opening only, so after closing the app it read "no longer available" in Recents. The
+  app now asks, once, for "All files access": with it on, such a file is opened by its path, reopens from
+  Recents as long as it is where it was (moved or deleted: "File unavailable"), and can be overwritten.
+  "Not now" keeps the old behaviour; Settings › Data has the switch. The app asks only for files in the phone's
+  storage (not cloud files or another app's private attachments). If the access is turned off later, those
+  entries read "File access off" and say how to turn it back on.
+- **Recents say when access has expired.** A PDF opened from another app (a file manager, a mail attachment)
+  often comes with access for that one opening only, so it can't be reopened from Recents later. Such an
+  entry now reads "Access expired" and, when tapped, says to open the file again from that app or with "Open
+  PDF", instead of claiming the file is no longer available.
 - **Tool options appear while you hold.** The colour and size bubble of a tool now opens as soon as the long
   press is recognised, with the finger still down, instead of when you let go, in the drawer and on a quick
   slot. Moving the finger after that still drags the tool (the bubble closes).

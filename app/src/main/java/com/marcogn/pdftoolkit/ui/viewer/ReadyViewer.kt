@@ -146,6 +146,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
+import com.marcogn.pdftoolkit.data.files.shareableUri
 import com.marcogn.pdftoolkit.domain.model.ReadingMode
 import com.marcogn.pdftoolkit.pdf.render.RenderBudget
 import com.marcogn.pdftoolkit.ui.search.RevealRequest
@@ -1289,7 +1290,8 @@ private fun ModeItem(labelRes: Int, selected: Boolean, onClick: () -> Unit) {
 }
 
 /** Hands the document itself to the system share sheet (read access granted to the receiver). */
-private fun sharePdf(context: android.content.Context, uri: Uri, title: String) {
+private fun sharePdf(context: android.content.Context, document: Uri, title: String) {
+    val uri = context.shareableUri(document)
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "application/pdf"
         putExtra(Intent.EXTRA_STREAM, uri)
@@ -1299,7 +1301,7 @@ private fun sharePdf(context: android.content.Context, uri: Uri, title: String) 
     try {
         context.startActivity(Intent.createChooser(send, title))
     } catch (e: Exception) {
-        // No app to share with, or a file:// URI the system refuses to hand out: nothing to do.
+        // No app to share with, or a file:// URI the FileProvider doesn't cover: nothing to do.
     }
 }
 

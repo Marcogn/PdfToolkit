@@ -16,7 +16,6 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -25,6 +24,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavBackStackEntry
@@ -47,6 +47,7 @@ import com.marcogn.pdftoolkit.ui.recents.RecentsScreen
 import com.marcogn.pdftoolkit.ui.recents.RecentsViewModel
 import com.marcogn.pdftoolkit.ui.settings.SettingsScreen
 import com.marcogn.pdftoolkit.ui.signatures.SignaturesScreen
+import com.marcogn.pdftoolkit.ui.viewer.IncomingPdfHandler
 import com.marcogn.pdftoolkit.ui.viewer.ViewerScreen
 import com.marcogn.pdftoolkit.ui.viewer.rememberOpenPdfLauncher
 import com.marcogn.pdftoolkit.ui.scan.rememberScanToPdf
@@ -140,13 +141,15 @@ fun PdfToolkitNavGraph(
     }
 
     val context = LocalContext.current
-    // PDF handed over by another app (VIEW / SEND): opened on top of Home, so back goes to Home.
-    LaunchedEffect(startUri) {
-        if (startUri != null) {
-            context.takePersistableAccess(startUri)
-            navController.navigate(Destination.Viewer(startUri.toString()))
-        }
-    }
+    // PDF handed over by another app (VIEW / SEND): opened on top of Home, so back goes to Home; by
+    // its path when the grant can't be kept and all files access is there (ADR 0007).
+    // The same check as lifecycleIsResumed(), as state, so the PDF waits until the entry is resumed.
+    val entryState = backStackEntry?.lifecycle?.currentStateFlow?.collectAsStateWithLifecycle()
+    IncomingPdfHandler(
+        startUri,
+        canNavigate = entryState?.value?.let { it == Lifecycle.State.RESUMED } != false,
+        onOpen = { navController.navigate(Destination.Viewer(it.toString())) },
+    )
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -168,6 +171,8 @@ fun PdfToolkitNavGraph(
         ) {
             composable<Destination.Home> { entry ->
                 val recentsViewModel: RecentsViewModel = hiltViewModel()
+                // Files may have moved, and all files access changed, while the app was away.
+                LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { recentsViewModel.refresh() }
                 val recents by recentsViewModel.recents.collectAsStateWithLifecycle()
                 // The picker result arrives before the entry is RESUMED again, so this navigate()
                 // can't go through the guard; it isn't a tap, so no double-tap risk. The tap that
@@ -287,6 +292,8 @@ fun PdfToolkitNavGraph(
             }
             composable<Destination.Recents> { entry ->
                 val recentsViewModel: RecentsViewModel = hiltViewModel()
+                // Files may have moved, and all files access changed, while the app was away.
+                LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { recentsViewModel.refresh() }
                 val recents by recentsViewModel.recents.collectAsStateWithLifecycle()
                 RecentsScreen(
                     recents = recents,

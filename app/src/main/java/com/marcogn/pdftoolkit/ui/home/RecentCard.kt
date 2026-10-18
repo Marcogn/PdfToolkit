@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.ui.recents.RecentItem
 import com.marcogn.pdftoolkit.ui.recents.RecentThumbnail
+import com.marcogn.pdftoolkit.ui.recents.unavailableLabel
 
 private val CardWidth = 132.dp
 
@@ -103,7 +104,7 @@ fun RecentCard(item: RecentItem, onClick: () -> Unit, onRemove: () -> Unit, modi
         } else {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
-                Text(stringResource(R.string.recent_unavailable), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                Text(stringResource(item.unavailableLabel()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
         }
     }

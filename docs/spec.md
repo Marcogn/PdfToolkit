@@ -1,550 +1,552 @@
-# PdfToolkit — Specifica funzionale e tecnica
+# PdfToolkit — Functional and technical specification
 
-> Documento di riferimento per l'implementazione con Claude Code.
-> Versione 1.1 — 1 ottobre 2026 (aggiunte: ricerca testo, unione PDF; evidenziazione pianificata in Fase 2)
-> Nomi: **PdfToolkit** (nome visualizzato), **pdf-toolkit** (repo, slug, artifact), **PT** (prefisso breve per classi/tag dove serve).
-
----
-
-## 0. Come usare questo documento (per l'agente)
-
-1. Leggi tutto il documento prima di scrivere codice.
-2. Leggi i due progetti di riferimento (§2). Se non li trovi nel workspace, **chiedi il percorso o il link del repo**. Non inventare la loro struttura.
-3. Lavora per fasi (§13). Ogni fase si chiude solo quando i criteri di accettazione sono soddisfatti, la build debug passa e README, CLAUDE.md e CHANGELOG sono aggiornati.
-4. Dove questa specifica è in conflitto con i progetti di riferimento su stack, struttura Gradle, signing, CI e convenzioni, **vincono i progetti di riferimento**. Dove la specifica chiede esplicitamente qualcosa di diverso, vince la specifica.
-5. Se un requisito non è chiaro o non è fattibile come scritto, fermati e chiedi. Non risolvere ambiguità in silenzio.
-6. Le sezioni marcate **[ASSUNZIONE]** sono scelte di default che l'utente può cambiare. Implementale come scritte, ma tienile isolate e facili da modificare.
-
-**Modelli consigliati:** Opus per la Fase 0 (analisi dei progetti di riferimento e piano), Sonnet per le fasi di implementazione. Se Sonnet si blocca su un problema di architettura, torna a Opus solo per quella decisione.
+> Reference document for the implementation with Claude Code.
+> Version 1.1 — 1 October 2026 (added: text search, PDF merge; highlighting planned in Phase 2). Translated from Italian on 2026-10-18 (issue #32); content and section numbers unchanged.
+> Names: **PdfToolkit** (display name), **pdf-toolkit** (repo, slug, artifact), **PT** (short prefix for classes/tags where needed).
 
 ---
 
-## 1. Cos'è PdfToolkit
+## 0. How to use this document (for the agent)
 
-App Android per leggere e modificare file PDF in locale, sul telefono, senza account e senza cloud nella prima fase.
+1. Read the whole document before writing code.
+2. Read the two reference projects (§2). If you can't find them in the workspace, **ask for the path or the repo link**. Don't make up their structure.
+3. Work in phases (§13). A phase is closed only when its acceptance criteria hold, the debug build passes and README, CLAUDE.md and CHANGELOG are up to date.
+4. Where this specification conflicts with the reference projects on stack, Gradle structure, signing, CI and conventions, **the reference projects win**. Where the specification explicitly asks for something different, the specification wins.
+5. If a requirement is unclear or not feasible as written, stop and ask. Don't resolve ambiguities silently.
+6. Sections marked **[ASSUNZIONE]** (assumption) are default choices the user may change. Implement them as written, but keep them isolated and easy to change.
 
-Due blocchi principali:
-
-- **Lettura** (la funzione più importante): zoom, scorrimento continuo o a pagina singola, navigazione veloce tra le pagine.
-- **Ricerca nel testo** del documento aperto.
-- **Modifica**: unione di più PDF, aggiunta di pagine (da un altro PDF, pagine vuote, immagini), rimozione, riordino, compilazione e firma.
-
-Fase 2 (pianificata, non da implementare ora): scansione documenti con OCR, caricamento su cloud, evidenziazione, disegno a mano libera, esportazione in formato OpenDocument.
-
-**Principio guida:** tutto gira sul dispositivo. In Fase 1 l'app **non dichiarava il permesso `INTERNET`**. Dalla sotto-fase A (aggiornamenti, ADR 0006) lo dichiara per il solo controllo degli aggiornamenti su GitHub; la telemetria delle librerie è disattivata.
+**Recommended models:** Opus for Phase 0 (analysis of the reference projects and plan), Sonnet for the implementation phases. If Sonnet gets stuck on an architecture problem, go back to Opus for that decision only.
 
 ---
 
-## 2. Progetti di riferimento
+## 1. What PdfToolkit is
 
-| Progetto | Cosa riprendere |
+Android app to read and edit PDF files locally, on the phone, with no account and no cloud in the first phase.
+
+Main blocks:
+
+- **Reading** (the most important feature): zoom, continuous or single-page scrolling, fast navigation between pages.
+- **Text search** in the open document.
+- **Editing**: merging several PDFs, adding pages (from another PDF, blank pages, images), removing, reordering, filling and signing.
+
+Phase 2 (planned, not to be implemented now): document scanning with OCR, cloud upload, highlighting, freehand drawing, export to OpenDocument format.
+
+**Guiding principle:** everything runs on the device. In Phase 1 the app **did not declare the `INTERNET` permission**. Since sub-phase A (updates, ADR 0006) it declares it for the update check on GitHub only; library telemetry is turned off.
+
+---
+
+## 2. Reference projects
+
+| Project | What to take from it |
 |---|---|
-| **ThePatientGamerHelper** | Stack (Kotlin, Jetpack Compose, Room, Hilt, MVVM con StateFlow), struttura Gradle e version catalog, gestione tema chiaro/scuro/sistema, lingua IT/EN per-app, keystore fisso, varianti debug/release |
-| **KartLog** (MKW tracker) | Struttura della home a pulsantoni quadrati raggiungibili anche da menu hamburger a sinistra, pattern di navigazione |
-| **Entrambi** | Workflow di CI/CD (GitHub Actions o equivalente presente nei repo), script di build e release, gestione di README e CHANGELOG |
+| **ThePatientGamerHelper** | Stack (Kotlin, Jetpack Compose, Room, Hilt, MVVM with StateFlow), Gradle structure and version catalog, light/dark/system theme, per-app IT/EN language, fixed keystore, debug/release variants |
+| **KartLog** (MKW tracker) | Home structure with big square buttons also reachable from a hamburger menu on the left, navigation pattern |
+| **Both** | CI/CD workflows (GitHub Actions or whatever the repos use), build and release scripts, handling of README and CHANGELOG |
 
-Le due app hanno presentazione diversa ma struttura simile. **Mantieni la struttura** (moduli, package, layering, nomenclatura, pipeline), e dai a PdfToolkit un aspetto suo (§9).
+The two apps look different but have a similar structure. **Keep the structure** (modules, packages, layering, naming, pipeline), and give PdfToolkit a look of its own (§9).
 
-Azioni concrete:
-- Copia i workflow di CI dai repo di riferimento adattando nomi, applicationId e artifact.
-- Riusa la stessa configurazione di signing (keystore fisso, stesso SHA1 tra build). Le credenziali restano fuori dal repo, come nei progetti di riferimento.
-- `applicationId`: stesso prefisso dei progetti di riferimento seguito da `.pdftoolkit`. Se il prefisso non è ricavabile, chiedi.
+Concrete actions:
+- Copy the CI workflows from the reference repos, adapting names, applicationId and artifacts.
+- Reuse the same signing setup (fixed keystore, same SHA1 across builds). Credentials stay out of the repo, as in the reference projects.
+- `applicationId`: the same prefix as the reference projects followed by `.pdftoolkit`. If the prefix can't be derived, ask.
 
 ---
 
-## 3. Decisioni tecniche principali
+## 3. Main technical decisions
 
-### 3.1 Motore di rendering: `android.graphics.pdf.PdfRenderer` con viewer custom in Compose
+### 3.1 Rendering engine: `android.graphics.pdf.PdfRenderer` with a custom Compose viewer
 
-Il viewer è scritto da noi in Compose sopra `PdfRenderer` (API di piattaforma).
+We write the viewer ourselves in Compose on top of `PdfRenderer` (platform API).
 
-Perché non la libreria Jetpack `androidx.pdf`:
-- È in **beta** (1.0.0-beta01, agosto 2026) e le API Compose (`PdfViewer`, `PdfViewerState`) e `EditablePdfViewerFragment` sono ancora marcate `@ExperimentalPdfApi`.
-- Non offre una modalità a pagina singola paginata, che è un requisito.
-- Il controllo fine su animazioni e transizioni ci serve per l'obiettivo "moderno e snappy".
+Why not the Jetpack `androidx.pdf` library:
+- It is in **beta** (1.0.0-beta01, August 2026) and the Compose APIs (`PdfViewer`, `PdfViewerState`) and `EditablePdfViewerFragment` are still marked `@ExperimentalPdfApi`.
+- It has no paged single-page mode, which is a requirement.
+- We need fine control over animations and transitions for the "modern and snappy" goal.
 
-Annota questa scelta in `docs/adr/0001-viewer.md`. Va rivalutata quando `androidx.pdf` arriva a stable: potrebbe sostituire il viewer e dare gratis ricerca testo e selezione.
+Record this choice in `docs/adr/0001-viewer.md`. Reconsider it when `androidx.pdf` reaches stable: it could replace the viewer and give text search and selection for free.
 
-Vincoli di `PdfRenderer` da rispettare:
-- **Una sola pagina aperta per volta** per istanza. Serializza l'accesso (un `Mutex` per documento) e chiudi sempre la pagina dopo il render.
-- Il render avviene su `Dispatchers.Default`, mai sul main thread.
-- Su dispositivi senza le API di Android 15 (o il backport `PdfRendererPreV` via SDK extension), il renderer di sistema **non disegna le annotazioni né i valori dei campi modulo**. Conseguenza pratica: tutto ciò che l'utente aggiunge (firma, testo, timbri) va scritto **nel contenuto della pagina**, non come annotazione. Vedi §6.5.
+`PdfRenderer` constraints to respect:
+- **Only one page open at a time** per instance. Serialise access (one `Mutex` per document) and always close the page after rendering.
+- Rendering happens on `Dispatchers.Default`, never on the main thread.
+- On devices without the Android 15 APIs (or the `PdfRendererPreV` backport through the SDK extension), the system renderer **draws neither annotations nor form field values**. In practice: everything the user adds (signature, text, stamps) is written **into the page content**, not as an annotation. See §6.5.
 
-### 3.2 Motore di modifica: PdfBox-Android
+### 3.2 Editing engine: PdfBox-Android
 
-Tutte le scritture passano da **PdfBox-Android** (`com.tom-roush:pdfbox-android`, porting di Apache PDFBox 2.0.x, licenza Apache 2.0).
+All writes go through **PdfBox-Android** (`com.tom-roush:pdfbox-android`, a port of Apache PDFBox 2.0.x, Apache 2.0 licence).
 
-- Ultima release: 2.0.27.0. Il progetto è poco attivo da qualche anno. Va bene per quello che ci serve (import/rimozione/riordino pagine, immagini, AcroForm, scrittura nel content stream), ma va isolato dietro un'interfaccia (`PdfEditor`) per poterlo sostituire.
-- Chiamare `PDFBoxResourceLoader.init(context)` all'avvio.
-- Verificare le regole R8/ProGuard nel README della libreria: la build release deve funzionare (testarla).
-- **Esclusi** iText e MuPDF: licenza AGPL, incompatibile con l'uso che vogliamo farne.
+- Latest release: 2.0.27.0. The project has seen little activity for some years. It is fine for what we need (importing/removing/reordering pages, images, AcroForm, writing into the content stream), but it goes behind an interface (`PdfEditor`) so it can be replaced.
+- Call `PDFBoxResourceLoader.init(context)` at startup.
+- Check the R8/ProGuard rules in the library's README: the release build must work (test it).
+- **Excluded**: iText and MuPDF (AGPL licence, incompatible with how we want to use them).
 
 ### 3.3 Stack
 
-Come ThePatientGamerHelper. In assenza di indicazioni diverse dal progetto di riferimento:
+As in ThePatientGamerHelper. Unless the reference project says otherwise:
 
 - Kotlin, Jetpack Compose, Material 3, Navigation Compose
-- Hilt, Room, DataStore (preferenze), Coroutines/Flow, MVVM con `StateFlow`
-- `minSdk`: come il progetto di riferimento, ma non sotto 26 **[ASSUNZIONE]**
-- `targetSdk` / `compileSdk`: l'ultimo stabile supportato dall'AGP in uso
-- Test: JUnit per la logica di modifica (sessione di editing, calcolo dimensioni pagina, mapping coordinate), test Compose UI solo per i flussi principali
+- Hilt, Room, DataStore (preferences), Coroutines/Flow, MVVM with `StateFlow`
+- `minSdk`: as in the reference project, but not below 26 **[ASSUNZIONE]**
+- `targetSdk` / `compileSdk`: the latest stable one supported by the AGP in use
+- Tests: JUnit for the editing logic (edit session, page size computation, coordinate mapping), Compose UI tests only for the main flows
 
-### 3.4 Accesso ai file
+### 3.4 File access
 
-- Apertura con Storage Access Framework (`ActivityResultContracts.OpenDocument` con `application/pdf`). Nessun permesso di storage.
-- Chiamare `takePersistableUriPermission` per poter riaprire i file recenti.
-- L'app si registra come visualizzatore PDF: `intent-filter` per `ACTION_VIEW` con `mimeType="application/pdf"` (schema `content` e `file`), e `ACTION_SEND` per ricevere un PDF condiviso.
-- Immagini: Photo Picker (`PickVisualMedia`) più SAF per i file non presenti nella galleria.
-- PDF protetti da password: chiedere la password e aprirli se le API disponibili lo consentono. Se non è possibile sul dispositivo, messaggio chiaro, nessun crash.
+- Opening through the Storage Access Framework (`ActivityResultContracts.OpenDocument` with `application/pdf`). No storage permission.
+
+  > **Note (2026-10-18):** all files access is asked for, optionally, when a PDF arrives from another app with a temporary grant, so recents can reopen it by its path (ADR 0007, issue #47). Opening through the picker still needs no permission.
+- Call `takePersistableUriPermission` so recent files can be reopened.
+- The app registers as a PDF viewer: an `intent-filter` for `ACTION_VIEW` with `mimeType="application/pdf"` (schemes `content` and `file`), and `ACTION_SEND` to receive a shared PDF.
+- Images: Photo Picker (`PickVisualMedia`) plus SAF for files not in the gallery.
+- Password-protected PDFs: ask for the password and open them if the available APIs allow it. If that isn't possible on the device, a clear message, no crash.
 
 ---
 
-## 4. Navigazione e struttura delle schermate
+## 4. Navigation and screen structure
 
 ```
                 ┌────────────────────┐
-  avvio senza ─►│  Home (Strumenti)  │◄── hamburger da ogni schermata
-  documento     └─────────┬──────────┘
-                          │ "Apri PDF" / tap su uno strumento
+  start with  ─►│   Home (Tools)     │◄── hamburger from every screen
+  no document   └─────────┬──────────┘
+                          │ "Open PDF" / tap on a tool
                           ▼
-  avvio con   ─►┌────────────────────┐   FAB "Modifica"   ┌──────────────────┐
-  intent PDF    │       Viewer       │ ─────────────────► │   Hub modifiche  │
+  start with  ─►┌────────────────────┐   "Edit" FAB       ┌──────────────────┐
+  PDF intent    │       Viewer       │ ─────────────────► │     Edit hub     │
                 └────────────────────┘                    └────────┬─────────┘
                                                                    ▼
-                          Pagine (aggiungi / rimuovi / riordina) · Immagini · Compila e firma
+                          Pages (add / remove / reorder) · Images · Fill and sign
                                                                    │
                                                                    ▼
-                                                        Salva (copia / sovrascrivi)
+                                                        Save (copy / overwrite)
 ```
 
-Drawer (hamburger a sinistra), sempre raggiungibile: Home, File recenti, Le mie firme, Impostazioni, Informazioni.
+Drawer (hamburger on the left), always reachable: Home, Recent files, My signatures, Settings, About.
 
-### 4.1 Home (avvio senza documento)
+### 4.1 Home (start with no document)
 
-Struttura come KartLog: griglia di pulsanti quadrati grandi.
+Structure as in KartLog: a grid of big square buttons.
 
-- In alto, card evidente **"Apri PDF"**.
-- Sotto, sezione **"Recenti"** (orizzontale, massimo 10, con miniatura prima pagina, nome, data). Swipe o long press per rimuovere dalla lista. Se un file non è più accessibile, va mostrato come tale e si può togliere.
-- Griglia strumenti:
-  - Unisci PDF
-  - Aggiungi pagine
-  - Inserisci immagini
-  - Rimuovi pagine
-  - Riordina pagine
-  - Compila e firma
-  - Le mie firme
-- Gli strumenti di Fase 2 compaiono già, **disabilitati** con etichetta "Presto": Scansiona, Carica su cloud, Evidenzia, Disegna, Esporta in ODF. Tap → snackbar breve, nessuna navigazione.
+- At the top, a prominent **"Open PDF"** card.
+- Below, a **"Recents"** section (horizontal, at most 10, with first-page thumbnail, name, date). Swipe or long press to remove from the list. A file that is no longer accessible is shown as such and can be removed.
+- Tool grid:
+  - Merge PDFs
+  - Add pages
+  - Insert images
+  - Remove pages
+  - Reorder pages
+  - Fill and sign
+  - My signatures
+- Phase 2 tools are already shown, **disabled** with a "Soon" label: Scan, Upload to cloud, Highlight, Draw, Export to ODF. Tap → short snackbar, no navigation.
 
-> **Nota (2026-10-13):** Scansiona, Evidenzia e Disegna sono attivi (sotto-fasi 7a–9); restano "Presto" Carica su cloud ed Esporta in ODF. Rimuovi, Riordina, Aggiungi pagine e Inserisci immagini sono uno strumento unico, «Organizza pagine» (U4).
+> **Note (2026-10-13):** Scan, Highlight and Draw are active (sub-phases 7a–9); Upload to cloud and Export to ODF are still "Soon". Remove, Reorder, Add pages and Insert images are a single tool, "Organize pages" (U4).
 
-Tap su uno strumento senza documento aperto: si apre il selettore PDF e, scelto il file, si va **direttamente allo strumento**, non al viewer.
+Tap on a tool with no document open: the PDF picker opens and, once the file is chosen, the app goes **straight to the tool**, not to the viewer.
 
 ### 4.2 Viewer
 
-> **Nota (2026-10-08, aggiornata 2026-10-13):** evidenziare, disegnare, cancellare e compilare e firmare avvengono nel viewer, sulla pagina in lettura, con salvataggio proprio (ADR 0005, `docs/plan-viewer-editing.md`). Dalla T-b la barra ha posti fissi: Strumenti (cassetto a ventaglio con tutti gli strumenti), due slot rapidi, Annulla, Ripeti, Pagine (`docs/plan-tools.md`). "Pagine" apre la schermata di modifica (organizza, aggiungi, unisci).
+> **Note (2026-10-08, updated 2026-10-13):** highlighting, drawing, erasing and filling and signing happen in the viewer, on the page being read, with their own save (ADR 0005, `docs/plan-viewer-editing.md`). Since T-b the bar has fixed places: Tools (fan drawer with every tool), two quick slots, Undo, Redo, Pages (`docs/plan-tools.md`). "Pages" opens the edit screen (organize, add, merge).
 
-- Top bar: nome file (ellissi al centro se lungo), indicatore "pagina X di N", icona **Cerca** (§5.1), menu con: modalità di scorrimento, vai a pagina, condividi, informazioni documento.
-- **Modalità continua** (default): scorrimento verticale di tutte le pagine.
-- **Modalità pagina singola**: una pagina per schermata, swipe orizzontale, snap alla pagina.
-- La modalità scelta si ricorda (preferenza globale) **[ASSUNZIONE]**.
-- **Zoom**: pinch, doppio tap (alterna adatta-larghezza ↔ 2,5x centrato sul punto toccato), zoom minimo = adatta pagina, massimo 5x. Pan quando zoomato.
-- **Scrubber**: barra laterale trascinabile per saltare velocemente tra le pagine, con fumetto del numero pagina.
-- Barra miniature apribile dal basso per saltare a una pagina.
-- La pagina di lettura si salva per file e si riprende alla riapertura.
-- ~~**FAB "Modifica"**~~ (rimosso in V-b, 2026-10-08): al suo posto la barra strumenti in basso (a lato in orizzontale), che un tap sulla pagina nasconde insieme alla top bar.
+- Top bar: file name (ellipsis in the middle if long), "page X of N" indicator, **Search** icon (§5.1), menu with: scroll mode, go to page, share, document info.
+- **Continuous mode** (default): vertical scrolling through all pages.
+- **Single-page mode**: one page per screen, horizontal swipe, snapping to the page.
+- The chosen mode is remembered (global preference) **[ASSUNZIONE]**.
+- **Zoom**: pinch, double tap (toggles fit-width ↔ 2.5x centred on the tapped point), minimum zoom = fit page, maximum 5x. Pan when zoomed.
+- **Scrubber**: draggable side bar to jump quickly between pages, with a page-number bubble.
+- A thumbnail bar that opens from the bottom to jump to a page.
+- The reading page is saved per file and restored on reopening.
+- ~~**"Edit" FAB**~~ (removed in V-b, 2026-10-08): in its place the bottom tool bar (at the side in landscape), which a tap on the page hides together with the top bar.
 
-### 4.3 Hub modifiche
+### 4.3 Edit hub
 
-> **Nota (2026-10-08):** l'hub è stato rimosso (V-b) con il FAB "Modifica". Gli strumenti di pagina sono nella barra del viewer (§4.2); la schermata di modifica è solo "Organizza pagine".
+> **Note (2026-10-08):** the hub was removed (V-b) together with the "Edit" FAB. The page tools are in the viewer's bar (§4.2); the edit screen is only "Organize pages".
 
-Stessi strumenti della Home, legati al documento aperto. Presentazione: schermata a griglia con transizione dal FAB (container transform o equivalente). In alto, nome del documento e numero di pagine.
-
----
-
-## 5. Lettura: dettagli di rendering
-
-L'obiettivo è che la lettura sia fluida anche su PDF di centinaia di pagine.
-
-- **Render a due livelli**: prima una bitmap alla risoluzione di adatta-larghezza, poi, quando lo zoom si ferma (debounce ~150 ms), un re-render ad alta risoluzione **solo della porzione visibile** (`PdfRenderer.Page.render` con matrice di trasformazione e clip). Mentre si zooma si scala la bitmap esistente.
-- **Cache** LRU delle bitmap dimensionata sulla memoria disponibile (`ActivityManager.memoryClass`), con prefetch di ±2 pagine rispetto a quella visibile.
-- Dimensione massima di una bitmap limitata (evitare OOM): se il render richiesto supera il limite, si va a tile.
-- In lista continua, i placeholder hanno già le proporzioni corrette della pagina (letti all'apertura) così lo scroll non salta.
-- Colore di sfondo dietro le pagine diverso tra tema chiaro e scuro. Le pagine restano bianche: **niente** inversione colori in Fase 1.
-- Errore di apertura (file corrotto, formato non supportato): schermata d'errore con messaggio comprensibile e pulsante per tornare alla Home.
-
-Criterio di prestazione: apertura di un PDF di 200 pagine e prima pagina visibile in meno di 1 secondo su un dispositivo di fascia media; scroll senza scatti evidenti.
-
-### 5.1 Ricerca nel testo
-
-**Estrazione del testo**
-- Implementazione unica con PdfBox: una sottoclasse di `PDFTextStripper` che raccoglie, per ogni pagina, il testo e la posizione dei caratteri (`TextPosition`). Così funziona su tutte le versioni di Android supportate.
-- Le API di testo di piattaforma (`PdfRenderer.Page` su API 35, `PdfRendererPreV` sulle versioni precedenti con SDK extension) possono servire come ottimizzazione futura. In Fase 1 non vanno usate: due percorsi di codice da tenere allineati non valgono il guadagno.
-- L'indice si costruisce in background, pagina per pagina, la prima volta che l'utente apre la ricerca. Non all'apertura del documento, per non rallentare la lettura.
-- L'indice resta in memoria finché il documento è aperto. Una cache su disco (chiave: URI + dimensione + data di modifica) è facoltativa: va aggiunta solo se le misure su PDF grandi la giustificano.
-
-**Interfaccia**
-- Tap su **Cerca**: la top bar diventa un campo di ricerca con contatore "3 di 17" e frecce precedente/successivo.
-- I risultati arrivano pagina per pagina mentre l'indicizzazione procede. Nessuna attesa bloccante; durante l'indicizzazione si vede un indicatore discreto.
-- Debounce sull'input di circa 250 ms. Una nuova query annulla quella in corso.
-- Ogni occorrenza è evidenziata sulla pagina con un rettangolo semitrasparente disegnato in overlay (non scritto nel PDF). L'occorrenza corrente ha un colore più marcato. Passando alla successiva, il viewer scorre fino alla pagina e centra il risultato.
-- La ricerca ignora maiuscole/minuscole e accenti: "perche" trova "perché". Si normalizza in NFD e si tolgono i diacritici sia dall'indice sia dalla query, mantenendo la corrispondenza con le posizioni originali.
-- Un a-capo nel testo estratto vale come spazio, così una frase spezzata su due righe viene trovata.
-- Chiudere la ricerca (indietro o X) rimuove le evidenziazioni.
-
-**Limiti da gestire**
-- PDF scansionati (solo immagini): nessun testo da cercare. Se l'indice è vuoto, messaggio esplicito: "Questo documento non contiene testo ricercabile. Potrebbe essere una scansione." L'OCR della Fase 2 risolverà questo caso. *(Fatto in 10b: il messaggio offre "Riconosci testo".)*
-- Pagine ruotate e testo con trasformazioni: verificare il sistema di coordinate di `TextPosition` e coprire con test la conversione verso lo schermo tramite `PageCoordinateMapper`, incluse pagine ruotate di 90° e 180°.
-- L'ordine di estrazione di PdfBox può non coincidere con l'ordine di lettura (colonne, tabelle). È accettabile: va scritto nei limiti noti del README.
-- Ricerca disponibile solo nel viewer. Nelle schermate di modifica no.
+The same tools as Home, bound to the open document. Presentation: a grid screen with a transition from the FAB (container transform or equivalent). At the top, the document name and page count.
 
 ---
 
-## 6. Modifica
+## 5. Reading: rendering details
 
-### 6.1 Sessione di modifica (modello comune)
+The goal is smooth reading even on PDFs with hundreds of pages.
 
-Tutte le modifiche di pagina lavorano su una **sessione** in memoria, non sul file:
+- **Two-level rendering**: first a bitmap at fit-width resolution, then, when the zoom stops (debounce ~150 ms), a high-resolution re-render **of the visible part only** (`PdfRenderer.Page.render` with a transformation matrix and clip). While zooming, the existing bitmap is scaled.
+- An LRU bitmap **cache** sized on the available memory (`ActivityManager.memoryClass`), with prefetch of ±2 pages around the visible one.
+- Maximum bitmap size capped (avoid OOM): if a requested render exceeds the limit, it goes to tiles.
+- In the continuous list, placeholders already have the page's correct proportions (read at opening) so scrolling doesn't jump.
+- Background colour behind the pages differs between light and dark theme. Pages stay white: **no** colour inversion in Phase 1.
+- Opening error (corrupt file, unsupported format): an error screen with an understandable message and a button back to Home.
+
+Performance criterion: opening a 200-page PDF with the first page visible in under 1 second on a mid-range device; scrolling without visible stutter.
+
+### 5.1 Text search
+
+**Text extraction**
+- One implementation with PdfBox: a `PDFTextStripper` subclass that collects, for each page, the text and the position of the characters (`TextPosition`). This way it works on every supported Android version.
+- The platform text APIs (`PdfRenderer.Page` on API 35, `PdfRendererPreV` on earlier versions with the SDK extension) may serve as a later optimisation. Not in Phase 1: two code paths to keep aligned aren't worth the gain.
+- The index is built in the background, page by page, the first time the user opens search. Not when the document opens, so reading isn't slowed down.
+- The index stays in memory while the document is open. A disk cache (key: URI + size + modification date) is optional: add it only if measurements on large PDFs justify it.
+
+**Interface**
+- Tap on **Search**: the top bar becomes a search field with a "3 of 17" counter and previous/next arrows.
+- Results arrive page by page as indexing proceeds. No blocking wait; a discreet indicator is shown while indexing.
+- Input debounce of about 250 ms. A new query cancels the running one.
+- Every match is highlighted on the page with a semi-transparent rectangle drawn as an overlay (not written into the PDF). The current match has a stronger colour. Moving to the next one, the viewer scrolls to its page and centres the result.
+- Search ignores case and accents: "perche" finds "perché". Normalise to NFD and strip diacritics from both the index and the query, keeping the mapping to the original positions.
+- A line break in the extracted text counts as a space, so a sentence split over two lines is found.
+- Closing search (back or X) removes the highlights.
+
+**Limits to handle**
+- Scanned PDFs (images only): no text to search. If the index is empty, an explicit message: "This document contains no searchable text. It may be a scan." Phase 2's OCR will solve this case. *(Done in 10b: the message offers "Recognise text".)*
+- Rotated pages and transformed text: check `TextPosition`'s coordinate system and cover the conversion to the screen through `PageCoordinateMapper` with tests, including pages rotated by 90° and 180°.
+- PdfBox's extraction order may not match the reading order (columns, tables). That's acceptable: list it in the README's known limits.
+- Search is available in the viewer only. Not in the edit screens.
+
+---
+
+## 6. Editing
+
+### 6.1 Edit session (common model)
+
+All page edits work on an in-memory **session**, not on the file:
 
 ```kotlin
 data class EditSession(
     val sourceUri: Uri,
-    val pages: List<PageItem>,      // ordine finale
-    val history: UndoStack,         // annulla / ripeti
+    val pages: List<PageItem>,      // final order
+    val history: UndoStack,         // undo / redo
 )
 
 sealed interface PageItem {
-    val id: String                  // stabile, per animazioni e drag
+    val id: String                  // stable, for animations and drag
     data class FromPdf(val docRef: DocRef, val pageIndex: Int, val rotation: Int = 0) : PageItem
     data class Blank(val widthPt: Float, val heightPt: Float) : PageItem
     data class FromImage(val imageUri: Uri, val mode: ImageFit, val widthPt: Float, val heightPt: Float) : PageItem
 }
 ```
 
-- `DocRef` può puntare al documento principale o a un PDF aggiunto.
-- Annulla/ripeti per ogni operazione.
-- Le overlay di compilazione e firma (§6.5) si legano al `PageItem.id`, così sopravvivono a riordini.
-- Uscire con modifiche non salvate chiede conferma (Salva / Scarta / Annulla).
-- La sessione sopravvive alla rotazione e alla process death per quanto ragionevole (`SavedStateHandle` per lo stato leggero; per i dati pesanti va bene perderli con avviso).
+- `DocRef` can point to the main document or to an added PDF.
+- Undo/redo for every operation.
+- Fill and signature overlays (§6.5) are bound to `PageItem.id`, so they survive reordering.
+- Leaving with unsaved changes asks for confirmation (Save / Discard / Cancel).
+- The session survives rotation and process death as far as reasonable (`SavedStateHandle` for light state; heavy data may be lost, with a warning).
 
-### 6.2 Aggiungere pagine
+### 6.2 Adding pages
 
-> **Nota (U-b, 2026-10-08):** in app questa funzione è parte dello strumento unico «Organizza pagine» (`docs/plan-usability.md`, U4).
+> **Note (U-b, 2026-10-08):** in the app this is part of the single "Organize pages" tool (`docs/plan-usability.md`, U4).
 
-Punto di inserimento scelto dall'utente: prima di / dopo la pagina selezionata, in testa, in coda.
+Insertion point chosen by the user: before / after the selected page, at the start, at the end.
 
-**Da un altro PDF**
-- Selezione del file, poi griglia di miniature con selezione multipla (tutte / nessuna / intervallo).
-- Le pagine mantengono la loro dimensione originale.
+**From another PDF**
+- Pick the file, then a thumbnail grid with multiple selection (all / none / range).
+- Pages keep their original size.
 
-**Pagine vuote**
-- Numero di pagine da inserire (1–50).
-- Dimensione: quella della **pagina adiacente** al punto di inserimento (la precedente; se si inserisce in testa, la successiva) **[ASSUNZIONE]**. Se il documento ha pagine di dimensioni diverse, il dialog mostra la dimensione che verrà usata.
+**Blank pages**
+- Number of pages to insert (1–50).
+- Size: that of the **page next to** the insertion point (the previous one; when inserting at the start, the next one) **[ASSUNZIONE]**. If the document has pages of different sizes, the dialog shows the size that will be used.
 
-**Da immagini**
-- Selezione multipla dal Photo Picker o da file. Ogni immagine diventa una pagina.
-- Due modalità, scelte nel dialog e applicate a tutte le immagini selezionate:
-  - **Adatta alla pagina**: la pagina ha la dimensione della pagina di riferimento (stessa regola delle pagine vuote); l'immagine è scalata mantenendo le proporzioni e centrata, senza ritagli. Orientamento della pagina che segue quello dell'immagine (una foto orizzontale su pagina A4 diventa A4 orizzontale) **[ASSUNZIONE]**.
-  - **Dimensione originale**: la pagina prende le dimensioni dell'immagine. Conversione pixel → punti usando i DPI dei metadati se presenti, altrimenti **150 DPI** **[ASSUNZIONE]** (a 72 DPI una foto da 4000 px darebbe una pagina di oltre 1,4 m).
-- Rispettare l'orientamento EXIF.
-- HEIC/HEIF/AVIF: PdfBox-Android non li gestisce direttamente. Decodificare sempre con `ImageDecoder` di Android e passare a PdfBox la bitmap.
-- Compressione: JPEG qualità 85 per le foto, lossless per immagini con trasparenza. Lato lungo massimo 3000 px in modalità "adatta" per tenere il PDF leggero **[ASSUNZIONE]**.
+**From images**
+- Multiple selection from the Photo Picker or from files. Each image becomes a page.
+- Two modes, chosen in the dialog and applied to all the selected images:
+  - **Fit to page**: the page has the size of the reference page (same rule as blank pages); the image is scaled keeping its proportions and centred, without cropping. The page's orientation follows the image's (a landscape photo on an A4 page becomes landscape A4) **[ASSUNZIONE]**.
+  - **Original size**: the page takes the image's dimensions. Pixel → point conversion using the DPI in the metadata if present, otherwise **150 DPI** **[ASSUNZIONE]** (at 72 DPI a 4000 px photo would give a page over 1.4 m wide).
+- Respect the EXIF orientation.
+- HEIC/HEIF/AVIF: PdfBox-Android doesn't handle them directly. Always decode with Android's `ImageDecoder` and pass the bitmap to PdfBox.
+- Compression: JPEG quality 85 for photos, lossless for images with transparency. Long side at most 3000 px in "fit" mode to keep the PDF light **[ASSUNZIONE]**.
 
-### 6.3 Rimuovere pagine
+### 6.3 Removing pages
 
-> **Nota (U-b, 2026-10-08):** in app questa funzione è parte dello strumento unico «Organizza pagine» (`docs/plan-usability.md`, U4).
+> **Note (U-b, 2026-10-08):** in the app this is part of the single "Organize pages" tool (`docs/plan-usability.md`, U4).
 
-- Griglia di miniature, selezione multipla con tap, "seleziona tutto", selezione per intervallo (long press su una pagina, poi tap su un'altra).
-- Non si può rimuovere l'ultima pagina rimasta.
-- Animazione di uscita delle miniature rimosse; annullabile da snackbar e da undo.
+- Thumbnail grid, multiple selection by tap, "select all", range selection (long press on a page, then tap on another).
+- The last remaining page can't be removed.
+- Exit animation for removed thumbnails; undoable from the snackbar and with undo.
 
-### 6.4 Riordinare pagine
+### 6.4 Reordering pages
 
-> **Nota (U-b, 2026-10-08):** in app questa funzione è parte dello strumento unico «Organizza pagine» (`docs/plan-usability.md`, U4).
+> **Note (U-b, 2026-10-08):** in the app this is part of the single "Organize pages" tool (`docs/plan-usability.md`, U4).
 
-- Griglia di miniature con drag & drop (long press per prendere la pagina, auto-scroll ai bordi).
-- Per Compose valutare la libreria **Reorderable** (Calvin Liang); verificare la licenza e la compatibilità con la versione di Compose in uso prima di adottarla. In alternativa, implementazione propria.
-- Azioni rapide: sposta in testa, sposta in coda, ruota 90°.
-- Feedback aptico alla presa e al rilascio.
+- Thumbnail grid with drag & drop (long press to pick up the page, auto-scroll at the edges).
+- For Compose, evaluate the **Reorderable** library (Calvin Liang); check its licence and compatibility with the Compose version in use before adopting it. Otherwise, an own implementation.
+- Quick actions: move to start, move to end, rotate 90°.
+- Haptic feedback on pick-up and drop.
 
-### 6.5 Compila e firma
+### 6.5 Fill and sign
 
-**Modulo con campi (AcroForm)**
-- All'apertura dello strumento, PdfBox legge i campi del modulo. Se ci sono, si entra in modalità compilazione: sopra la pagina renderizzata compaiono controlli Compose allineati ai rettangoli dei campi (testo, checkbox, radio, menu a tendina).
-- Navigazione tra campi con "Avanti/Indietro" della tastiera.
-- Moduli XFA: non supportati. Messaggio esplicito, si può comunque usare la compilazione libera.
+**Form with fields (AcroForm)**
+- When the tool opens, PdfBox reads the form fields. If there are any, fill mode starts: Compose controls aligned to the fields' rectangles appear over the rendered page (text, checkbox, radio, drop-down).
+- Moving between fields with the keyboard's "Next/Previous".
+- XFA forms: not supported. An explicit message; free filling can still be used.
 
-**Compilazione libera (PDF senza campi)**
-Molti moduli sono PDF "piatti". Strumenti disponibili:
-- **Testo**: casella posizionabile, trascinabile, ridimensionabile; dimensione carattere regolabile.
-- **Spunta** (✓) e **croce** (✗).
-- **Data** (formato della lingua dell'app, modificabile).
-- **Firma** (vedi sotto).
+**Free filling (PDFs without fields)**
+Many forms are "flat" PDFs. Tools available:
+- **Text**: a box that can be placed, dragged, resized; adjustable font size.
+- **Tick** (✓) and **cross** (✗).
+- **Date** (in the app language's format, editable).
+- **Signature** (see below).
 
-**Font**: includere un font TTF con licenza libera (es. Noto Sans, OFL) ed embeddarlo con `PDType0Font`, così lettere accentate e caratteri speciali escono sempre corretti.
+**Font**: include a freely licensed TTF font (e.g. Noto Sans, OFL) and embed it with `PDType0Font`, so accented letters and special characters always come out right.
 
-**Firma**
-- Fonti: disegnata col dito oppure caricata da immagine.
-- **Disegno**: canvas a tutto schermo in orizzontale, tratto con spessore che varia leggermente con la velocità, colori nero e blu, pulsanti Pulisci / Annulla tratto / Salva. Per il tratto si può usare `androidx.ink` o un'implementazione Compose propria.
-- **Da immagine**: dopo la scelta, ritaglio e opzione "rimuovi sfondo" (soglia sul bianco → trasparente) con anteprima.
-- **Archivio firme ("Le mie firme")**: le firme sono PNG con trasparenza salvate nello storage interno dell'app (`filesDir/signatures/`), non accessibile ad altre app. Metadati in Room: nome, tipo, data, preferita. Le firme vanno **escluse dal backup automatico Android** (`dataExtractionRules` / `fullBackupContent`). Si possono rinominare, eliminare, impostare come preferita.
-- **Posizionamento**: si sceglie una firma salvata (o se ne crea una al volo), compare sulla pagina, si sposta, ridimensiona (proporzioni bloccate) e ruota con i gesti.
+**Signature**
+- Sources: drawn with the finger, or loaded from an image.
+- **Drawing**: full-screen landscape canvas, a stroke whose width varies slightly with speed, black and blue colours, Clear / Undo stroke / Save buttons. The stroke may use `androidx.ink` or an own Compose implementation.
+- **From an image**: after picking it, crop and a "remove background" option (threshold on white → transparent) with a preview.
+- **Signature store ("My signatures")**: signatures are PNGs with transparency saved in the app's internal storage (`filesDir/signatures/`), not accessible to other apps. Metadata in Room: name, type, date, default. Signatures are **excluded from Android's automatic backup** (`dataExtractionRules` / `fullBackupContent`). They can be renamed, deleted, set as default.
+- **Placement**: pick a saved signature (or create one on the fly), it appears on the page, and it can be moved, resized (proportions locked) and rotated with gestures.
 
-**Salvataggio di compilazione e firma**
-- Testo, spunte, date e firme si scrivono **nel contenuto della pagina** (`PDPageContentStream` in modalità append), non come annotazioni. Così sono visibili in qualunque lettore, incluso il nostro renderer su Android meno recenti (§3.1).
-- Campi AcroForm: si impostano i valori con generazione delle appearance. Opzione **"Rendi definitivo"** (flatten del modulo), **attiva di default se il documento contiene una firma** **[ASSUNZIONE]**.
+**Saving fill and signature**
+- Text, ticks, dates and signatures are written **into the page content** (`PDPageContentStream` in append mode), not as annotations. This way they show in any reader, including our renderer on older Android versions (§3.1).
+- AcroForm fields: values are set with appearance generation. A **"Make final"** option (form flattening), **on by default if the document contains a signature** **[ASSUNZIONE]**.
 
-**Nota da mostrare nell'app (una volta, nella schermata firma, e nelle Informazioni):** la firma inserita è un'immagine apposta sul documento. Non è una firma digitale con certificato e non ha il valore legale di una firma elettronica qualificata.
+**Note to show in the app (once, on the signature screen, and in About):** the inserted signature is an image placed on the document. It is not a digital signature with a certificate and doesn't have the legal value of a qualified electronic signature.
 
-### 6.6 Unire PDF
+### 6.6 Merging PDFs
 
-Strumento dedicato, separato da "Aggiungi pagine". Serve a combinare due o più documenti interi in un nuovo file.
+A dedicated tool, separate from "Add pages". It combines two or more whole documents into a new file.
 
-**Da Home**
-- Selezione multipla di PDF dal selettore (minimo 2). L'utente può aggiungerne altri dopo, con un pulsante "+".
-- Lista dei file da unire: miniatura della prima pagina, nome, numero di pagine. Riordino con drag & drop, rimozione con swipe.
-- Pulsante **Unisci**: crea una `EditSession` con tutte le pagine nell'ordine dei file e va al salvataggio come copia. Nome proposto: `<nome primo file>_unito.pdf`.
-- Pulsante secondario **Unisci e modifica**: crea la stessa sessione ma apre l'Hub modifiche, così si possono togliere o riordinare pagine prima di salvare.
+**From Home**
+- Multiple selection of PDFs from the picker (at least 2). The user can add more afterwards with a "+" button.
+- List of files to merge: first-page thumbnail, name, page count. Reordering with drag & drop, removal with swipe.
+- **Merge** button: creates an `EditSession` with all the pages in file order and goes to save as a copy. Proposed name: `<first file name>_unito.pdf`.
+- Secondary **Merge and edit** button: creates the same session but opens the Edit hub, so pages can be removed or reordered before saving.
 
-**Dal viewer (Hub modifiche)**
-- Voce "Unisci con altro PDF": il documento aperto è il primo della lista, poi si scelgono gli altri. Stesso flusso di sopra.
+**From the viewer (Edit hub)**
+- "Merge with another PDF" item: the open document is the first in the list, then the others are picked. Same flow as above.
 
-**Note**
-- Nessuna logica di unione dedicata nel motore: lo strumento costruisce una `EditSession` e la scrittura passa da `PdfEditor.applySession`, come per tutte le altre modifiche.
-- PDF protetti da password: si chiede la password per ognuno al momento dell'aggiunta alla lista.
-- Segnalibri (outline) e campi modulo dei file uniti: in Fase 1 non si preservano. Se un file sorgente ha campi AcroForm, avvisare che nel risultato i campi potrebbero non funzionare e proporre di renderli definitivi prima dell'unione **[ASSUNZIONE]**. Da scrivere tra i limiti noti del README.
+**Notes**
+- No dedicated merge logic in the engine: the tool builds an `EditSession` and writing goes through `PdfEditor.applySession`, as for every other edit.
+- Password-protected PDFs: the password is asked for each one when it is added to the list.
+- Bookmarks (outline) and form fields of merged files: not preserved in Phase 1. If a source file has AcroForm fields, warn that the fields may not work in the result and offer to make them final before merging **[ASSUNZIONE]**. List it in the README's known limits.
 
-### 6.7 Salvataggio
+### 6.7 Saving
 
-Al termine di qualsiasi modifica:
-- **Salva come copia** (default): `CreateDocument`, nome proposto `<nome>_modificato.pdf`.
-- **Sovrascrivi**: solo se l'URI concede la scrittura. Conferma esplicita.
-- Scrittura sempre prima su file temporaneo in `cacheDir`, poi copia sulla destinazione. Se qualcosa fallisce, l'originale resta intatto.
-- Operazione lunga: indicatore di avanzamento non bloccante; per documenti grandi la scrittura deve sopravvivere al passaggio in background (WorkManager o servizio con notifica, a scelta dell'agente motivandola).
-- Dopo il salvataggio: snackbar con "Apri" e "Condividi".
+At the end of any edit:
+- **Save as copy** (default): `CreateDocument`, proposed name `<name>_modificato.pdf`.
+- **Overwrite**: only if the URI grants write access. Explicit confirmation.
+- Always write to a temporary file in `cacheDir` first, then copy over the destination. If anything fails, the original stays intact.
+- Long operation: a non-blocking progress indicator; for large documents the write must survive going to the background (WorkManager or a service with a notification, the agent's choice with its reasons).
+- After saving: a snackbar with "Open" and "Share".
 
 ---
 
-## 7. Fase 2 (pianificata, non implementare)
+## 7. Phase 2 (planned, do not implement)
 
-> **Nota (2026-10-13):** la Fase 2 è in corso secondo `docs/plan-v2.md`: §7.1, §7.2 e §7.4 sono implementati (1.1.0–1.2.0); restano §7.5 (11) e §7.3 (12).
+> **Note (2026-10-13):** Phase 2 is in progress following `docs/plan-v2.md`: §7.1, §7.2 and §7.4 are implemented (1.1.0–1.2.0); §7.5 (11) and §7.3 (12) remain.
 
-Nel codice di Fase 1 servono solo: le voci disabilitate in Home/Hub e le interfacce già pronte dove indicato. Niente dipendenze di Fase 2 nel progetto.
+Phase 1 code needs only: the disabled items in Home/Hub and the interfaces already in place where stated. No Phase 2 dependencies in the project.
 
-### 7.1 Scansione
-- **ML Kit Document Scanner** (Google Play services): flusso UI già pronto, elaborazione interamente sul dispositivo, nessun permesso fotocamera richiesto all'app, ritaglio/filtri/rimozione ombre, output JPEG o PDF.
-- Limite: richiede Google Play services. Su dispositivi senza, la voce resta disabilitata con spiegazione.
+### 7.1 Scanning
+- **ML Kit Document Scanner** (Google Play services): a ready-made UI flow, processing entirely on the device, no camera permission requested by the app, crop/filters/shadow removal, JPEG or PDF output.
+- Limit: it needs Google Play services. On devices without them, the item stays disabled with an explanation.
 
 ### 7.2 OCR
-- **ML Kit Text Recognition v2**, on-device, script latino (copre l'italiano).
-- Uso: creare un PDF "ricercabile" aggiungendo sopra l'immagine un livello di testo invisibile (rendering mode invisibile in PdfBox). Il posizionamento del testo è approssimato per riga; va bene per cercare e copiare, non per riprodurre l'impaginazione.
+- **ML Kit Text Recognition v2**, on-device, Latin script (covers Italian).
+- Use: create a "searchable" PDF by adding an invisible text layer over the image (invisible rendering mode in PdfBox). Text placement is approximated per line; good enough to search and copy, not to reproduce the layout.
 
-### 7.3 Caricamento su cloud
-- Primo obiettivo: **WebDAV** (Nextcloud, NAS personali), con URL, utente e password salvati cifrati. Upload di PDF e scansioni.
-- Google Drive solo come opzione secondaria, eventualmente più avanti.
-- Interfaccia `CloudTarget` già definita in Fase 1 (solo interfaccia, nessuna implementazione).
-- Il permesso `INTERNET` c'è già dalla sotto-fase A (aggiornamenti, ADR 0006): il cloud lo riusa; il nuovo uso della rete va indicato nel CHANGELOG e nelle Informazioni.
+### 7.3 Cloud upload
+- First target: **WebDAV** (Nextcloud, personal NAS), with URL, user and password stored encrypted. Upload of PDFs and scans.
+- Google Drive only as a secondary option, possibly later.
+- `CloudTarget` interface already defined in Phase 1 (interface only, no implementation).
+- The `INTERNET` permission is already there since sub-phase A (updates, ADR 0006): the cloud reuses it; the new use of the network goes into the CHANGELOG and About.
 
-### 7.4 Livello annotazioni: evidenziazione e disegno a mano libera
+### 7.4 Annotation layer: highlighting and freehand drawing
 
-Evidenziazione e disegno condividono la stessa infrastruttura, per questo stanno insieme.
+Highlighting and drawing share the same infrastructure, which is why they are together.
 
-**Prerequisiti**
-- Selezione del testo nel viewer (long press e maniglie), costruita sull'indice di testo della ricerca (§5.1).
-- Un livello annotazioni nel viewer che legge le annotazioni esistenti con PdfBox e le disegna in overlay. Serve perché il renderer di sistema, sui dispositivi senza le API di Android 15, non le mostra (§3.1).
+**Prerequisites**
+- Text selection in the viewer (long press and handles), built on the search's text index (§5.1).
+- An annotation layer in the viewer that reads existing annotations with PdfBox and draws them as an overlay. It is needed because the system renderer, on devices without the Android 15 APIs, doesn't show them (§3.1).
 
-**Evidenziazione**
-- Su testo selezionato: evidenzia (alcuni colori), sottolinea, barra.
-- Salvataggio come annotazioni standard di tipo Highlight/Underline/StrikeOut **con appearance stream generato**. Così restano visibili, modificabili e cancellabili anche in altri lettori. A differenza di firme e testo (§6.5), qui l'annotazione è la scelta corretta: un'evidenziazione scritta nel contenuto della pagina non si potrebbe più togliere.
-- Gomma per rimuovere evidenziazioni, incluse quelle create da altre app.
+**Highlighting**
+- On selected text: highlight (a few colours), underline, strike out.
+- Saved as standard Highlight/Underline/StrikeOut annotations **with a generated appearance stream**. This way they stay visible, editable and removable in other readers too. Unlike signatures and text (§6.5), here an annotation is the right choice: a highlight written into the page content could no longer be removed.
+- An eraser to remove highlights, including those created by other apps.
 
-**Disegno a mano libera**
-- `androidx.ink` per i tratti, con penna, evidenziatore libero, gomma, annulla/ripeti.
-- Salvataggio come annotazioni Ink con appearance stream, coerente con l'evidenziazione. Opzione "rendi definitivo" per scriverle nel contenuto della pagina.
+**Freehand drawing**
+- `androidx.ink` for the strokes, with pen, freehand highlighter, eraser, undo/redo.
+- Saved as Ink annotations with an appearance stream, consistent with highlighting. A "make final" option to write them into the page content.
 
-### 7.5 Esportazione OpenDocument
-Da dire chiaramente: **una conversione fedele PDF → ODT (testo modificabile con impaginazione) sul telefono non è realistica**. Il PDF non contiene paragrafi o struttura, solo glifi posizionati.
+### 7.5 OpenDocument export
+To be said clearly: **a faithful PDF → ODT conversion (editable text with layout) on the phone is not realistic**. A PDF contains no paragraphs or structure, only positioned glyphs.
 
-Opzioni realistiche, da decidere all'inizio della Fase 2:
-- **ODG** (Draw): una pagina per pagina PDF, con l'immagine della pagina. Fedele all'aspetto, non modificabile come testo.
-- **ODT** con un'immagine per pagina più il testo estratto (o da OCR) sotto ogni immagine. Utile per recuperare il testo, impaginazione persa.
+Realistic options, to be decided at the start of Phase 2:
+- **ODG** (Draw): one page per PDF page, with the page's image. Faithful to the look, not editable as text.
+- **ODT** with one image per page plus the extracted text (or OCR text) under each image. Useful to recover the text, layout lost.
 
-Il formato ODF è uno ZIP con file XML (il file `mimetype` va scritto per primo e non compresso), quindi si può generare senza librerie pesanti.
+The ODF format is a ZIP of XML files (the `mimetype` file must be written first and uncompressed), so it can be generated without heavy libraries.
 
 ---
 
-## 8. Dati persistenti
+## 8. Persistent data
 
 **Room**
 - `RecentDocument(uri PK, displayName, sizeBytes, pageCount, lastPage, lastOpenedAt, thumbnailPath)`
 - `Signature(id PK, name, type: DRAWN|IMPORTED, filePath, createdAt, isDefault)`
 
 **DataStore**
-- tema (chiaro / scuro / sistema), lingua (IT / EN / sistema), modalità di lettura, ultima scelta "salva come copia / sovrascrivi", ultima modalità immagini.
+- theme (light / dark / system), language (IT / EN / system), reading mode, last "save as copy / overwrite" choice, last image mode.
 
-**File**
-- `filesDir/signatures/` — PNG firme (escluse dal backup)
-- `cacheDir/thumbnails/` — miniature recenti (rigenerabili)
-- `cacheDir/work/` — temporanei di salvataggio, svuotati all'avvio
-
----
-
-## 9. Aspetto e animazioni
-
-Obiettivo: moderna, professionale, ordinata. Non deve sembrare un'app di utility generica piena di banner.
-
-- Material 3 con colore seed proprio (proposta: blu petrolio profondo; accento ambra per le azioni di firma) **[ASSUNZIONE]**. Dynamic color disattivato di default, attivabile nelle impostazioni.
-- Tema chiaro / scuro / sistema, come nei progetti di riferimento.
-- Tipografia: un solo font per l'interfaccia, gerarchia chiara, niente testo in maiuscolo diffuso.
-- Icona app semplice: foglio con angolo piegato e un elemento che richiami gli strumenti. Adaptive icon e icona monocromatica per Android 13+.
-- Pulsanti strumento della Home: quadrati, angoli arrotondati, icona grande e etichetta breve, leggera elevazione; stato premuto con scala 0,96.
-
-**Animazioni** (devono aiutare, non rallentare):
-- Transizioni tra schermate: 200–250 ms, fade-through o slide breve. Mai oltre 300 ms.
-- FAB → Hub modifiche: container transform.
-- Miniature: ingresso a cascata leggero (solo alla prima apparizione), animazione di riposizionamento durante riordino e rimozione (`animateItem`).
-- Cambio modalità di lettura: crossfade.
-- Rispettare l'impostazione di sistema per ridurre le animazioni.
-
-**Navigazione snappy** — requisiti misurabili:
-- Il tap su un pulsante dà feedback visivo entro un frame.
-- Nessun lavoro di I/O o render sul main thread durante una transizione.
-- Le schermate mostrano subito lo scheletro (layout e placeholder), i contenuti arrivano dopo.
-- Baseline profile per i percorsi principali (avvio, apertura viewer, hub modifiche).
-
-**Accessibilità**: content description su tutte le icone, target di tocco ≥ 48 dp, contrasto AA, scrubber e drag & drop utilizzabili anche con azioni alternative (menu "sposta").
+**Files**
+- `filesDir/signatures/` — signature PNGs (excluded from backup)
+- `cacheDir/thumbnails/` — recents thumbnails (regenerable)
+- `cacheDir/work/` — save temporaries, emptied at startup
 
 ---
 
-## 10. Lingue, impostazioni, informazioni
+## 9. Look and animations
 
-- Italiano e inglese, selezione per-app (come i progetti di riferimento). Nessuna stringa hardcoded.
-- Impostazioni: tema, colore dinamico, lingua, modalità di lettura predefinita, cancella cronologia recenti, svuota cache miniature.
-- Informazioni: versione, licenze open source delle dipendenze, nota sulla firma (§6.5), disclaimer AI (§11).
+Goal: modern, professional, tidy. It must not look like a generic utility app full of banners.
+
+- Material 3 with its own seed colour (proposal: deep petrol blue; amber accent for signing actions) **[ASSUNZIONE]**. Dynamic colour off by default, can be turned on in settings.
+- Light / dark / system theme, as in the reference projects.
+- Typography: a single font for the interface, clear hierarchy, no widespread upper-case text.
+- Simple app icon: a sheet with a folded corner and an element that hints at the tools. Adaptive icon and monochrome icon for Android 13+.
+- Home tool buttons: square, rounded corners, large icon and short label, slight elevation; pressed state scales to 0.96.
+
+**Animations** (they must help, not slow down):
+- Screen transitions: 200–250 ms, fade-through or short slide. Never over 300 ms.
+- FAB → Edit hub: container transform.
+- Thumbnails: light staggered entry (first appearance only), repositioning animation while reordering and removing (`animateItem`).
+- Reading mode change: crossfade.
+- Respect the system setting to reduce animations.
+
+**Snappy navigation** — measurable requirements:
+- Tapping a button gives visual feedback within one frame.
+- No I/O or rendering work on the main thread during a transition.
+- Screens show their skeleton at once (layout and placeholders); content arrives after.
+- Baseline profile for the main paths (startup, opening the viewer, edit hub).
+
+**Accessibility**: content descriptions on every icon, touch targets ≥ 48 dp, AA contrast, scrubber and drag & drop usable through alternative actions too ("move" menu).
 
 ---
 
-## 11. Documentazione del repository
+## 10. Languages, settings, about
 
-L'agente crea e **mantiene sempre aggiornati** questi file. Aggiornarli fa parte di ogni fase: una fase non è chiusa se la documentazione è indietro.
+- Italian and English, per-app selection (as in the reference projects). No hardcoded strings.
+- Settings: theme, dynamic colour, language, default reading mode, clear recents history, clear thumbnail cache.
+- About: version, open source licences of the dependencies, the signature note (§6.5), AI disclaimer (§11).
+
+---
+
+## 11. Repository documentation
+
+The agent creates these files and **always keeps them up to date**. Updating them is part of every phase: a phase isn't closed if the documentation lags behind.
 
 ### 11.1 README.md
-Lingua: la stessa del README dei progetti di riferimento.
+Language: the same as the reference projects' README.
 
-Contenuto:
-- Cos'è PdfToolkit in due o tre frasi.
-- Funzioni disponibili e funzioni pianificate (Fase 2), elenco breve.
-- Requisiti (versione minima di Android).
-- Come compilare (debug e release), dove mettere il keystore, variabili necessarie.
-- Struttura del progetto in poche righe.
-- Privacy: i file restano sul dispositivo; l'unica connessione è il controllo degli aggiornamenti su GitHub (ADR 0006).
-- Licenze delle librerie principali.
-- **Disclaimer**: l'app è stata sviluppata con l'aiuto di strumenti di intelligenza artificiale (Claude Code), con revisione e test dell'autore.
+Content:
+- What PdfToolkit is in two or three sentences.
+- Available features and planned features (Phase 2), a short list.
+- Requirements (minimum Android version).
+- How to build (debug and release), where to put the keystore, required variables.
+- Project structure in a few lines.
+- Privacy: files stay on the device; the only connection is the update check on GitHub (ADR 0006).
+- Licences of the main libraries.
+- **Disclaimer**: the app was developed with the help of artificial intelligence tools (Claude Code), with the author's review and testing.
 
 ### 11.2 CLAUDE.md
-Memoria di progetto per le sessioni future di Claude Code. Corto e operativo:
-- comandi di build, test, lint
-- architettura in breve e dove sta cosa
-- regole non ovvie (una pagina aperta per volta nel renderer, tutte le scritture passano da `PdfEditor`, overlay scritte nel content stream, evidenziazioni della ricerca solo in overlay e mai nel PDF, `INTERNET` solo per gli aggiornamenti, ADR 0006)
-- convenzioni di naming (prefisso `PT` solo dove serve a evitare collisioni)
-- **regola fissa**: a fine di ogni attività aggiornare README, CLAUDE.md e CHANGELOG se qualcosa è cambiato
-- link a questa specifica e agli ADR
+Project memory for future Claude Code sessions. Short and practical:
+- build, test, lint commands
+- architecture in brief and where things are
+- rules that aren't obvious (one page open at a time in the renderer, every write goes through `PdfEditor`, overlays written into the content stream, search highlights only as an overlay and never in the PDF, `INTERNET` only for updates, ADR 0006)
+- naming conventions (`PT` prefix only where it avoids clashes)
+- **fixed rule**: at the end of every task update README, CLAUDE.md and CHANGELOG if something changed
+- links to this specification and to the ADRs
 
 ### 11.3 CHANGELOG.md
-Formato come nei progetti di riferimento.
+Format as in the reference projects.
 
-### 11.4 Come devono essere scritti questi documenti
+### 11.4 How these documents must be written
 
-I documenti devono sembrare scritti da una persona, non generati. Regole:
-- Frasi semplici e dirette. Prima l'informazione, poi l'eventuale spiegazione.
-- Niente aperture del tipo "Benvenuto in…", "Questo progetto è una potente soluzione…".
-- Niente aggettivi promozionali (potente, innovativo, all-in-one, seamless, robusto).
-- Niente emoji nei titoli né elenchi decorativi.
-- Niente riepiloghi finali che ripetono quanto già detto.
-- Elenchi solo dove servono davvero (requisiti, comandi). Il resto in prosa breve.
-- Tono da sviluppatore che spiega il proprio progetto a un collega.
-- Il disclaimer AI è una frase, scritta in modo sobrio.
+The documents must read as written by a person, not generated. Rules:
+- Simple, direct sentences. The information first, then any explanation.
+- No openings like "Welcome to…", "This project is a powerful solution…".
+- No promotional adjectives (powerful, innovative, all-in-one, seamless, robust).
+- No emoji in headings, no decorative lists.
+- No closing summaries repeating what was already said.
+- Lists only where really needed (requirements, commands). The rest in short prose.
+- The tone of a developer explaining their project to a colleague.
+- The AI disclaimer is one sentence, written plainly.
 
 ---
 
-## 12. Architettura e organizzazione del codice
+## 12. Architecture and code organisation
 
-Segui il layering dei progetti di riferimento. Indicativamente:
+Follow the reference projects' layering. Roughly:
 
 ```
 app/
-  ui/            # schermate Compose, ViewModel, navigazione, tema
+  ui/            # Compose screens, ViewModels, navigation, theme
     home/  viewer/  search/  edithub/  merge/  pages/  images/  fillsign/  signatures/  settings/
-  domain/        # EditSession, PageItem, use case (nessuna dipendenza Android dove possibile)
-  data/          # Room, DataStore, repository, accesso file (SAF)
+  domain/        # EditSession, PageItem, use cases (no Android dependency where possible)
+  data/          # Room, DataStore, repositories, file access (SAF)
   pdf/
     render/      # PdfDocumentRenderer: PdfRenderer + mutex + cache + tiling
-    edit/        # PdfEditor (interfaccia) + PdfBoxEditor (implementazione)
-    forms/       # lettura campi AcroForm, mapping coordinate PDF ↔ schermo
-    text/        # estrazione testo con posizioni, indice di ricerca, normalizzazione
-  di/            # moduli Hilt
+    edit/        # PdfEditor (interface) + PdfBoxEditor (implementation)
+    forms/       # reading AcroForm fields, PDF ↔ screen coordinate mapping
+    text/        # text extraction with positions, search index, normalisation
+  di/            # Hilt modules
 docs/
   spec.md  plan.md
   adr/
 README.md  CLAUDE.md  CHANGELOG.md
 ```
 
-Punti da curare:
-- **Coordinate**: PDF ha origine in basso a sinistra in punti, lo schermo in alto a sinistra in pixel, con zoom, pan e rotazione pagina di mezzo. Una sola classe (`PageCoordinateMapper`) fa queste conversioni, con test unitari.
-- `PdfEditor` espone operazioni di alto livello (`applySession(session, overlays, destination)`), la UI non tocca PdfBox.
-- Gestione errori uniforme: errori tipizzati nel domain, messaggi localizzati nella UI.
+Points to take care of:
+- **Coordinates**: a PDF has its origin at the bottom left in points, the screen at the top left in pixels, with zoom, pan and page rotation in between. A single class (`PageCoordinateMapper`) does these conversions, with unit tests.
+- `PdfEditor` exposes high-level operations (`applySession(session, overlays, destination)`); the UI doesn't touch PdfBox.
+- Uniform error handling: typed errors in the domain, localised messages in the UI.
 
 ---
 
-## 13. Piano di implementazione
+## 13. Implementation plan
 
-Ogni fase: build debug verde, test della fase verdi, documentazione aggiornata, commit con messaggio chiaro.
+Every phase: debug build green, the phase's tests green, documentation up to date, a commit with a clear message.
 
-**Fase 0 — Analisi e scheletro** (Opus)
-- Lettura dei progetti di riferimento, piano scritto in `docs/plan.md` con quello che si riprende e da dove.
-- Progetto Gradle, version catalog, Hilt, tema, lingue, navigazione, drawer, Home con pulsanti (strumenti ancora vuoti), signing, CI copiata e adattata.
-- README, CLAUDE.md, CHANGELOG iniziali; ADR 0001 (viewer) e 0002 (PdfBox-Android).
-- *Accettazione*: l'app si installa, Home e drawer funzionano, tema e lingua cambiano, la CI produce l'APK debug.
+**Phase 0 — Analysis and skeleton** (Opus)
+- Reading the reference projects, a written plan in `docs/plan.md` with what is taken and from where.
+- Gradle project, version catalog, Hilt, theme, languages, navigation, drawer, Home with buttons (tools still empty), signing, CI copied and adapted.
+- Initial README, CLAUDE.md, CHANGELOG; ADR 0001 (viewer) and 0002 (PdfBox-Android).
+- *Acceptance*: the app installs, Home and drawer work, theme and language change, CI produces the debug APK.
 
-**Fase 1 — Viewer**
-- Apertura da SAF e da intent esterni, recenti, renderer con mutex/cache/tiling, modalità continua e singola, zoom, scrubber, miniature, ripresa ultima pagina, password.
-- *Accettazione*: criteri di §5, apertura da file manager e da "condividi".
+**Phase 1 — Viewer**
+- Opening from SAF and from external intents, recents, renderer with mutex/cache/tiling, continuous and single mode, zoom, scrubber, thumbnails, resuming the last page, passwords.
+- *Acceptance*: the criteria of §5, opening from a file manager and from "share".
 
-**Fase 2 — Sessione di modifica e gestione pagine**
-- `EditSession` con undo/redo, Hub modifiche con transizione dal FAB, rimozione, riordino, rotazione, salvataggio (copia e sovrascrittura) con file temporaneo.
-- *Accettazione*: rimuovere/riordinare/ruotare su un PDF di 100 pagine e salvare; il file si apre correttamente anche in un altro lettore.
+**Phase 2 — Edit session and page management**
+- `EditSession` with undo/redo, Edit hub with the transition from the FAB, removal, reordering, rotation, saving (copy and overwrite) through a temporary file.
+- *Acceptance*: remove/reorder/rotate on a 100-page PDF and save; the file opens correctly in another reader too.
 
-**Fase 3 — Aggiunta pagine e unione**
-- Da altro PDF, pagine vuote, immagini nelle due modalità, EXIF, HEIC, compressione.
-- Strumento "Unisci PDF" (§6.6) da Home e da Hub modifiche.
-- *Accettazione*: test unitari sul calcolo delle dimensioni; PDF misti (pagine A4 e Letter) gestiti come da §6.2; unione di 3 PDF con riordino dei file, risultato corretto in un altro lettore.
+**Phase 3 — Adding pages and merging**
+- From another PDF, blank pages, images in both modes, EXIF, HEIC, compression.
+- "Merge PDFs" tool (§6.6) from Home and from the Edit hub.
+- *Acceptance*: unit tests on the size computation; mixed PDFs (A4 and Letter pages) handled as in §6.2; merging 3 PDFs with the files reordered, correct result in another reader.
 
-**Fase 4 — Compila e firma**
-- Archivio firme (disegno e import), compilazione AcroForm, compilazione libera, posizionamento firma, scrittura nel content stream, flatten, nota legale.
-- *Accettazione*: firma e testo visibili dopo il salvataggio sia nell'app sia in un altro lettore; firme escluse dal backup (verificare la configurazione).
+**Phase 4 — Fill and sign**
+- Signature store (drawing and import), AcroForm filling, free filling, signature placement, writing into the content stream, flattening, legal note.
+- *Acceptance*: signature and text visible after saving both in the app and in another reader; signatures excluded from backup (check the configuration).
 
-**Fase 5 — Ricerca nel testo**
-- Estrazione con posizioni, indicizzazione progressiva, UI di ricerca, evidenziazione in overlay, normalizzazione accenti, gestione PDF senza testo (§5.1).
-- *Accettazione*: test unitari su normalizzazione e su match a cavallo di un a-capo; su un PDF di 200 pagine i primi risultati compaiono mentre l'indicizzazione è ancora in corso; risultati posizionati correttamente anche su pagine ruotate.
+**Phase 5 — Text search**
+- Extraction with positions, progressive indexing, search UI, overlay highlighting, accent normalisation, handling of PDFs without text (§5.1).
+- *Acceptance*: unit tests on normalisation and on a match across a line break; on a 200-page PDF the first results appear while indexing is still running; results placed correctly on rotated pages too.
 
-**Fase 6 — Rifinitura**
-- Animazioni secondo §9, baseline profile, accessibilità, build release con R8 testata, voci di Fase 2 disabilitate, revisione finale della documentazione.
-- *Accettazione*: build release installata e provata sui flussi principali.
-
----
-
-## 14. Fuori ambito (Fase 1)
-
-Selezione e copia del testo, annotazioni ed evidenziazione (Fase 2, §7.4), note testuali, firma digitale con certificato, cifratura/protezione con password in scrittura, compressione dei PDF esistenti, conservazione di segnalibri e campi modulo nell'unione, tutto ciò che è in §7.
+**Phase 6 — Polish**
+- Animations as in §9, baseline profile, accessibility, release build with R8 tested, Phase 2 items disabled, final documentation review.
+- *Acceptance*: release build installed and tried on the main flows.
 
 ---
 
-## 15. Fonti tecniche verificate (1 ottobre 2026)
+## 14. Out of scope (Phase 1)
 
-- Jetpack PDF (`androidx.pdf`), note di rilascio: https://developer.android.com/jetpack/androidx/releases/pdf
-- Android PDF viewer e `PdfRenderer`/`PdfRendererPreV`: https://developer.android.com/develop/ui/views/layout/pdf/pdf-viewer
+Text selection and copy, annotations and highlighting (Phase 2, §7.4), text notes, digital signature with a certificate, encryption/password protection when writing, compression of existing PDFs, keeping bookmarks and form fields when merging, everything in §7.
+
+---
+
+## 15. Technical sources checked (1 October 2026)
+
+- Jetpack PDF (`androidx.pdf`), release notes: https://developer.android.com/jetpack/androidx/releases/pdf
+- Android PDF viewer and `PdfRenderer`/`PdfRendererPreV`: https://developer.android.com/develop/ui/views/layout/pdf/pdf-viewer
 - `PdfRendererPreV` (reference): https://developer.android.com/reference/android/graphics/pdf/PdfRendererPreV
-- Android 15 DP2, novità PdfRenderer: https://android-developers.googleblog.com/2024/03/the-second-developer-preview-of-android-15.html
-- PdfBox-Android, release: https://github.com/TomRoush/PdfBox-Android/releases
-- PdfBox-Android, issue su HEIC/HEIF/AVIF (#564): https://github.com/TomRoush/PdfBox-Android/issues
+- Android 15 DP2, what's new in PdfRenderer: https://android-developers.googleblog.com/2024/03/the-second-developer-preview-of-android-15.html
+- PdfBox-Android, releases: https://github.com/TomRoush/PdfBox-Android/releases
+- PdfBox-Android, issue on HEIC/HEIF/AVIF (#564): https://github.com/TomRoush/PdfBox-Android/issues
 - ML Kit Document Scanner: https://developers.google.com/ml-kit/vision/doc-scanner
 - ML Kit Text Recognition v2: https://developers.google.com/ml-kit/vision/text-recognition/v2

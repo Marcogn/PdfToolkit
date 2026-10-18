@@ -9,6 +9,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalResources
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.marcogn.pdftoolkit.domain.model.ReadingMode
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Column
@@ -55,8 +57,9 @@ import com.marcogn.pdftoolkit.ui.theme.ThemeViewModel
 import com.marcogn.pdftoolkit.ui.theme.isDynamicColorSupported
 import com.marcogn.pdftoolkit.ui.update.UpdateViewModel
 import com.marcogn.pdftoolkit.ui.update.labelRes
+import com.marcogn.pdftoolkit.ui.common.rememberAllFilesAccessRequest
 
-/** Settings (spec §10): theme, dynamic colour, language, default reading mode, recents and thumbnail cache. */
+/** Settings (spec §10): theme, dynamic colour, language, default reading mode, recents and thumbnail cache, all files access. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -151,6 +154,7 @@ fun SettingsScreen(
                 summary = stringResource(R.string.settings_clear_thumbnails_summary),
                 onClick = { settingsViewModel.clearThumbnails { showMessage(R.string.settings_thumbnails_cleared) } },
             )
+            AllFilesAccessRow(isGranted = settingsViewModel::allFilesAccessGranted)
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
@@ -186,6 +190,23 @@ fun SettingsScreen(
             onDismiss = { confirmClearRecents = false },
         )
     }
+}
+
+/**
+ * All files access (ADR 0007): its state, read again when the screen resumes, and a way to change it in
+ * the system (Android 11+, or to turn it off below) or to ask for it (Android 8–10).
+ */
+@Composable
+private fun AllFilesAccessRow(isGranted: () -> Boolean) {
+    var granted by remember { mutableStateOf(isGranted()) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { granted = isGranted() }
+    val request = rememberAllFilesAccessRequest(onDone = { granted = isGranted() })
+    ActionRow(
+        title = stringResource(R.string.settings_all_files),
+        summary = stringResource(if (granted) R.string.settings_all_files_on else R.string.settings_all_files_off),
+        // Once on, the system page is where it is turned off.
+        onClick = { request(granted) },
+    )
 }
 
 /** How often the startup check looks for a new release (plan A); "Check for updates" in About ignores it. */
