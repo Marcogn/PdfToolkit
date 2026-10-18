@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-18
+
 - **PDFs from other apps stay in recents.** A PDF opened from a file manager or an attachment usually comes
   with access for that opening only, so after closing the app it read "no longer available" in Recents. The
   app now asks, once, for "All files access": with it on, such a file is opened by its path, reopens from
