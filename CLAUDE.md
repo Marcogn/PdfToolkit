@@ -119,7 +119,7 @@ Package `com.marcogn.pdftoolkit`, layered like the author's other apps (`docs/pl
   [claude-skill-android-kit](https://github.com/Marcogn/claude-skill-android-kit) (`@v1`): CI, Build APK,
   Release, cleanup, `@claude`, PR review; only this project's values here (`docs/ci.md`).
   `dependabot.yml` updates dependencies.
-- `.claude/`: skills (`verify`, `new-plan`, `next-phase`, `close-phase`, `self-review`, `deps-triage`, `steward`), the
+- `.claude/`: skills (`verify`, `new-plan`, `next-phase`, `close-phase`, `self-review`, `deps-triage`, `issues-triage`, `steward`), the
   `architecture-reviewer` agent, hooks (SDK, review gate, branch names), permissions: copied from the kit by `/android-kit` (version in
   `.claude/kit-version`); improve them in the kit, not here. Per project only this file and `REVIEW.md`
   (`docs/claude.md`).
