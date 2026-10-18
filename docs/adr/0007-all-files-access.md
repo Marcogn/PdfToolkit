@@ -23,17 +23,24 @@ must reopen the file where it is, and say it is unavailable once it has moved.
 `MANAGE_EXTERNAL_STORAGE`, granted by the user on a system settings page. Android 8–10, where it doesn't exist:
 `READ_EXTERNAL_STORAGE` and `WRITE_EXTERNAL_STORAGE` (`maxSdkVersion` 29) and legacy storage on Android 10.
 
-- **When it is asked**: only when a `VIEW`/`SEND` PDF comes with a grant the app can't keep. A dialog explains
+- **When it is asked**: only when a `VIEW`/`SEND` PDF comes with a grant the app can't keep, and the descriptor
+  points into shared storage outside `Android/data` and `Android/obb` (a cloud file or an attachment in the sender's
+  private storage wouldn't be reachable anyway). A dialog explains
   why; "Not now" is remembered and the dialog doesn't come back (back or a tap outside asks again next time).
   Settings has an "All files access" row with the state and a way to change it.
 - **The path**: Android has no API from a `FileProvider` URI to a path. The app opens the URI, reads the link of
   the descriptor in `/proc/self/fd`, and keeps a path only if `stat` finds the same file the descriptor has open
   (same device and inode, or same size and modification time, since FUSE and the file system under it may
   report different inodes). `/mnt/user/N/…`, `/mnt/pass_through/N/…`, `/data/media/N/…` and `/sdcard/…` are also
-  tried as `/storage/…` (`candidatePaths`). Pipes, sockets and cloud files have no path: they open as before.
+  tried as `/storage/…`, as are `/mnt/runtime/…` (Android 8–9) and `/mnt/media_rw/…` (SD cards), `/storage/…` forms first (`candidatePaths`). Pipes, sockets and cloud files have no path: they open as before.
 - **Then** the viewer opens `file://<path>`: recents store that URI, a moved or deleted file reads "File
-  unavailable", "Overwrite" is offered (`File.canWrite()`), and sharing goes through a `FileProvider`
+  unavailable", "Overwrite" is offered (`File.canWrite()`, canonical path under `/storage/`), and sharing goes through a `FileProvider`
   (`${applicationId}.files`, root `storage/`), since `file://` URIs can't be handed to other apps.
+- **If the access is turned off later**, an entry kept by path can't be read: it reads "File access off" and says
+  to turn it back on, instead of "File unavailable". Recents are checked again whenever Home or Recent files resumes.
+- The flow lives in an activity-scoped view model with each stage's URI in the saved state, so a rotation, a
+  trip to Settings or the process dying doesn't lose the PDF; the viewer opens only once the current entry is
+  resumed (the navigation guard).
 - Without the access nothing changes: the URI opens as it is, and the entry later reads "Access expired"
   (`RecentDocument.temporaryAccess`).
 

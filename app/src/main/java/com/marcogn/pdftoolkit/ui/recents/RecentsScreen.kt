@@ -102,4 +102,16 @@ private fun RecentRow(item: RecentItem, onClick: (RecentItem) -> Unit, onRemove:
 
 /** The label of an entry that can't be opened, shared with Home's recent cards. */
 @StringRes
-fun RecentItem.unavailableLabel(): Int = if (accessExpired) R.string.recent_access_expired else R.string.recent_unavailable
+fun RecentItem.unavailableLabel(): Int = when {
+    needsAllFilesAccess -> R.string.recent_needs_all_files
+    accessExpired -> R.string.recent_access_expired
+    else -> R.string.recent_unavailable
+}
+
+/** The message for a tap on an entry that can't be opened (Home). */
+@StringRes
+fun RecentItem.unavailableMessage(): Int = when {
+    needsAllFilesAccess -> R.string.home_recent_needs_all_files_message
+    accessExpired -> R.string.home_recent_expired_message
+    else -> R.string.home_recent_unavailable_message
+}

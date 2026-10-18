@@ -26,6 +26,10 @@ a user's PDF, or break one of the rules below. Style, naming and refactoring ide
   removed from the manifest (`TelemetryOffTest`); `REQUEST_INSTALL_PACKAGES` only for `ApkInstaller`. A new
   write of a user's file must be visible to `FileWriteGate` (job tagged `FILE_WRITE_WORK_TAG`, or
   `UserFileWrites.track`): installing an update ends the process. Important.
+- **All files access** (ADR 0007): `MANAGE_EXTERNAL_STORAGE` (and the storage permissions up to API 29) only to
+  open by path a `VIEW`/`SEND` PDF whose grant can't be kept (`IncomingPdfHandler`, `FilePathResolver`); no
+  other use, and every path works without it. `file://` reaches other apps only through `shareableUri`;
+  "Overwrite" on `file://` only under `/storage/`. Important.
 - **Navigation**: every `navigate()`/`popBackStack()` behind the entry's `lifecycleIsResumed()`
   guard, except from an activity result.
 - **SavedStateHandle** keys never reuse a route argument name (`uri`, `tool`, `mergeWith`,

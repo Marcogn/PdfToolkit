@@ -1,7 +1,5 @@
 package com.marcogn.pdftoolkit.ui.settings
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.AlertDialog
@@ -10,7 +8,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -54,15 +51,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcogn.pdftoolkit.R
-import com.marcogn.pdftoolkit.data.files.AllFilesAccess
-import com.marcogn.pdftoolkit.data.files.allFilesAccessSettingsIntents
 import com.marcogn.pdftoolkit.domain.model.ThemeMode
 import com.marcogn.pdftoolkit.domain.update.UpdateFrequency
 import com.marcogn.pdftoolkit.ui.theme.ThemeViewModel
 import com.marcogn.pdftoolkit.ui.theme.isDynamicColorSupported
 import com.marcogn.pdftoolkit.ui.update.UpdateViewModel
 import com.marcogn.pdftoolkit.ui.update.labelRes
-import com.marcogn.pdftoolkit.ui.viewer.launchFirst
+import com.marcogn.pdftoolkit.ui.common.rememberAllFilesAccessRequest
 
 /** Settings (spec §10): theme, dynamic colour, language, default reading mode, recents and thumbnail cache, all files access. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -203,21 +198,14 @@ fun SettingsScreen(
  */
 @Composable
 private fun AllFilesAccessRow(isGranted: () -> Boolean) {
-    val context = LocalContext.current
     var granted by remember { mutableStateOf(isGranted()) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { granted = isGranted() }
-    val settingsPage = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { granted = isGranted() }
-    val legacyPermissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted = isGranted() }
+    val request = rememberAllFilesAccessRequest(onDone = { granted = isGranted() })
     ActionRow(
         title = stringResource(R.string.settings_all_files),
         summary = stringResource(if (granted) R.string.settings_all_files_on else R.string.settings_all_files_off),
-        onClick = {
-            if (AllFilesAccess.usesSettingsPage || granted) {
-                settingsPage.launchFirst(context.allFilesAccessSettingsIntents())
-            } else {
-                legacyPermissions.launch(AllFilesAccess.LEGACY_PERMISSIONS)
-            }
-        },
+        // Once on, the system page is where it is turned off.
+        onClick = { request(granted) },
     )
 }
 

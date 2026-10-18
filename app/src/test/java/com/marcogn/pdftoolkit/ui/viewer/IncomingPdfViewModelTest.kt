@@ -2,6 +2,7 @@ package com.marcogn.pdftoolkit.ui.viewer
 
 import android.content.Context
 import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.marcogn.pdftoolkit.data.files.AllFilesAccess
@@ -25,6 +26,7 @@ class IncomingPdfViewModelTest {
 
     private var granted = false
     private var resolved: File? = onDisk
+    private var inSharedStorage = true
     private lateinit var preferences: FileAccessPreferences
     private lateinit var viewModel: IncomingPdfViewModel
 
@@ -36,8 +38,9 @@ class IncomingPdfViewModelTest {
         }
         val resolver = object : FilePathResolver {
             override fun resolve(uri: Uri) = resolved
+            override fun isInSharedStorage(uri: Uri) = inSharedStorage
         }
-        viewModel = IncomingPdfViewModel(access, resolver, preferences)
+        viewModel = IncomingPdfViewModel(context, access, resolver, preferences, SavedStateHandle())
     }
 
     @Test
@@ -66,6 +69,32 @@ class IncomingPdfViewModelTest {
         preferences.setPromptDeclined()
         assertTrue(preferences.promptDeclined.first())
         assertEquals(IncomingStep.Open(handedOver), viewModel.firstStep(handedOver, persisted = false))
+    }
+
+    @Test
+    fun aFileOutsideSharedStorageOpensWithoutAsking() = runBlocking {
+        inSharedStorage = false
+        assertEquals(IncomingStep.Open(handedOver), viewModel.firstStep(handedOver, persisted = false))
+    }
+
+    @Test
+    fun aSecondAnswerDoesNothing() {
+        val saved = SavedStateHandle(mapOf("incomingAllFilesPrompt" to handedOver.toString()))
+        val access = object : AllFilesAccess {
+            override fun isGranted() = false
+        }
+        val resolver = object : FilePathResolver {
+            override fun resolve(uri: Uri) = null
+            override fun isInSharedStorage(uri: Uri) = true
+        }
+        val asked = IncomingPdfViewModel(context, access, resolver, preferences, saved)
+        asked.answered()
+        assertEquals(null, asked.asking.value)
+        // The prompt closed at once: the second call finds nothing to answer, and the one URI goes on.
+        asked.answered()
+        assertEquals(null, asked.asking.value)
+        val goingOn = listOf(saved.get<String>("incomingResolving"), saved.get<String>("incomingToOpen"))
+        assertTrue(handedOver.toString() in goingOn)
     }
 
     @Test

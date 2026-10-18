@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.marcogn.pdftoolkit.R
 import com.marcogn.pdftoolkit.domain.model.PdfTool
 import com.marcogn.pdftoolkit.ui.recents.RecentItem
+import com.marcogn.pdftoolkit.ui.recents.unavailableMessage
 import kotlinx.coroutines.launch
 
 /** Minimum width of a tool button: three columns on a 360 dp wide phone. */
@@ -89,9 +90,7 @@ fun HomeScreen(
         if (item.accessible) {
             onRecentClick(item)
         } else {
-            val message = resources.getString(
-                if (item.accessExpired) R.string.home_recent_expired_message else R.string.home_recent_unavailable_message,
-            )
+            val message = resources.getString(item.unavailableMessage())
             scope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(message)

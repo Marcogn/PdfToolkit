@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Process
+import com.marcogn.pdftoolkit.data.files.SHARED_STORAGE
 import com.marcogn.pdftoolkit.data.save.SaveProgress
 import com.marcogn.pdftoolkit.data.save.SaveRequest
 import com.marcogn.pdftoolkit.data.save.SaveScheduler
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
+import java.io.IOException
 import java.util.UUID
 
 /**
@@ -83,6 +85,14 @@ fun Context.takeWritePermission(uri: Uri) {
 fun Context.hasWriteAccess(uri: Uri): Boolean = when (uri.scheme) {
     ContentResolver.SCHEME_CONTENT ->
         checkUriPermission(uri, Process.myPid(), Process.myUid(), Intent.FLAG_GRANT_WRITE_URI_PERMISSION) == PackageManager.PERMISSION_GRANTED
-    ContentResolver.SCHEME_FILE -> uri.path?.let { File(it).canWrite() } ?: false
+    // Only shared storage: a file:// sent in by another app could point into this app's own files.
+    ContentResolver.SCHEME_FILE -> uri.path?.let { path ->
+        val file = File(path)
+        try {
+            file.canonicalPath.startsWith(SHARED_STORAGE) && file.canWrite()
+        } catch (e: IOException) {
+            false
+        }
+    } ?: false
     else -> false
 }

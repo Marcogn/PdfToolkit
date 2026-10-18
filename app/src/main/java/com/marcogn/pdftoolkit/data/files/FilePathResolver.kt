@@ -2,6 +2,7 @@ package com.marcogn.pdftoolkit.data.files
 
 import android.content.Context
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.system.ErrnoException
 import android.system.Os
 import android.system.StructStat
@@ -18,6 +19,12 @@ import javax.inject.Singleton
  */
 interface FilePathResolver {
     fun resolve(uri: Uri): File?
+
+    /**
+     * Whether [uri] is a file in shared storage at all, which the access would let the app reach by path.
+     * Needs no permission: it only reads where the descriptor points.
+     */
+    fun isInSharedStorage(uri: Uri): Boolean
 }
 
 /**
@@ -27,12 +34,17 @@ interface FilePathResolver {
  */
 @Singleton
 class ProcFdFilePathResolver @Inject constructor(@ApplicationContext private val context: Context) : FilePathResolver {
-    override fun resolve(uri: Uri): File? = try {
-        context.contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
-            val opened = Os.fstat(descriptor.fileDescriptor)
-            val link = Os.readlink("/proc/self/fd/${descriptor.fd}")
-            candidatePaths(link).map(::File).firstOrNull { isSameFile(it, opened) }
-        }
+    override fun resolve(uri: Uri): File? = withDescriptor(uri) { descriptor ->
+        val opened = Os.fstat(descriptor.fileDescriptor)
+        candidatePaths(Os.readlink("/proc/self/fd/${descriptor.fd}")).map(::File).firstOrNull { isSameFile(it, opened) }
+    }
+
+    override fun isInSharedStorage(uri: Uri): Boolean = withDescriptor(uri) { descriptor ->
+        candidatePaths(Os.readlink("/proc/self/fd/${descriptor.fd}")).any(::isReachableWithAllFilesAccess)
+    } ?: false
+
+    private fun <T> withDescriptor(uri: Uri, block: (ParcelFileDescriptor) -> T?): T? = try {
+        context.contentResolver.openFileDescriptor(uri, "r")?.use(block)
     } catch (e: IOException) {
         null
     } catch (e: SecurityException) {
@@ -54,21 +66,36 @@ class ProcFdFilePathResolver @Inject constructor(@ApplicationContext private val
     }
 }
 
+/** Where shared storage is reached from an app: the internal one under `emulated/<user>`, SD cards by volume id. */
+const val SHARED_STORAGE = "/storage/"
+
+/** Other apps' folders, closed to all files access too (Android 11+). */
+private val OTHER_APPS_DIRS = Regex("^/storage/[^/]+(?:/\\d+)?/Android/(?:data|obb)/.*")
+
+/** Whether all files access lets the app open [path]: in shared storage, outside other apps' folders. */
+fun isReachableWithAllFilesAccess(path: String): Boolean = path.startsWith(SHARED_STORAGE) && !OTHER_APPS_DIRS.matches(path)
+
 private val MNT_USER = Regex("^/mnt/(?:user|pass_through)/\\d+/(.+)$")
+private val MNT_RUNTIME = Regex("^/mnt/runtime/(?:default|read|write|full)/(.+)$")
+private val MNT_MEDIA_RW = Regex("^/mnt/media_rw/(.+)$")
 private val DATA_MEDIA = Regex("^/data/media/(\\d+)/(.+)$")
 private val SDCARD = Regex("^/sdcard/(.+)$")
 
 /**
- * The paths a descriptor's link [target] may be reached by from this app, most likely first. The link
- * is the provider's view: `/storage/emulated/0/…`, or a mount behind it (`/mnt/user/0/…`,
- * `/data/media/0/…`). Empty for what isn't a file (`pipe:[…]`, `socket:[…]`, `anon_inode:…`) or a file
- * deleted since it was opened.
+ * The paths a descriptor's link [target] may be reached by from this app, `/storage/…` forms first (the
+ * FileProvider root, so the file can be shared), the link itself last. The link is the provider's view:
+ * `/storage/emulated/0/…`, or a mount behind it (`/mnt/user/0/…`, `/mnt/runtime/write/…` on Android 8–9,
+ * `/mnt/media_rw/<volume>/…` for an SD card, `/data/media/0/…`). Empty for what isn't a file (`pipe:[…]`,
+ * `socket:[…]`, `anon_inode:…`) or a file deleted since it was opened.
  */
 fun candidatePaths(target: String): List<String> {
     if (!target.startsWith("/") || target.endsWith(" (deleted)")) return emptyList()
-    val paths = mutableListOf(target)
-    MNT_USER.matchEntire(target)?.let { paths += "/storage/${it.groupValues[1]}" }
-    DATA_MEDIA.matchEntire(target)?.let { paths += "/storage/emulated/${it.groupValues[1]}/${it.groupValues[2]}" }
-    SDCARD.matchEntire(target)?.let { paths += "/storage/emulated/0/${it.groupValues[1]}" }
+    val paths = mutableListOf<String>()
+    MNT_USER.matchEntire(target)?.let { paths += SHARED_STORAGE + it.groupValues[1] }
+    MNT_RUNTIME.matchEntire(target)?.let { paths += SHARED_STORAGE + it.groupValues[1] }
+    MNT_MEDIA_RW.matchEntire(target)?.let { paths += SHARED_STORAGE + it.groupValues[1] }
+    DATA_MEDIA.matchEntire(target)?.let { paths += "${SHARED_STORAGE}emulated/${it.groupValues[1]}/${it.groupValues[2]}" }
+    SDCARD.matchEntire(target)?.let { paths += "${SHARED_STORAGE}emulated/0/${it.groupValues[1]}" }
+    paths += target
     return paths.distinct()
 }
