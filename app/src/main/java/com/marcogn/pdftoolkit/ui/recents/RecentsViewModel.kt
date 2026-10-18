@@ -17,19 +17,16 @@ import javax.inject.Inject
  * [accessExpired]: not openable, and it was last opened with a temporary grant only (issue #47), so the
  * grant has most likely ended rather than the file being gone.
  */
-data class RecentItem(val document: RecentDocument, val accessible: Boolean, val accessExpired: Boolean = false)
+data class RecentItem(val document: RecentDocument, val accessible: Boolean) {
+    val accessExpired: Boolean get() = !accessible && document.temporaryAccess
+}
 
 /** Recents for Home and for the "Recent files" screen. Null until the first load, so no empty-state flash. */
 @HiltViewModel
 class RecentsViewModel @Inject constructor(private val repository: RecentsRepository) : ViewModel() {
 
     val recents: StateFlow<List<RecentItem>?> = repository.recents
-        .map { documents ->
-            documents.map { document ->
-                val accessible = repository.isAccessible(document.uri)
-                RecentItem(document, accessible, accessExpired = !accessible && document.temporaryAccess)
-            }
-        }
+        .map { documents -> documents.map { RecentItem(it, repository.isAccessible(it.uri)) } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), null)
 
     fun remove(uri: String) {
