@@ -2,6 +2,7 @@ package com.marcogn.pdftoolkit.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.marcogn.pdftoolkit.data.files.AllFilesAccess
 import com.marcogn.pdftoolkit.data.recents.RecentsRepository
 import com.marcogn.pdftoolkit.data.settings.ReadingPreferences
 import com.marcogn.pdftoolkit.domain.model.ReadingMode
@@ -13,12 +14,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** Viewer-related settings (spec §10): default reading mode, clear recents, clear thumbnail cache. */
+/** Viewer-related settings (spec §10): default reading mode, clear recents, clear thumbnail cache, all files access. */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val readingPreferences: ReadingPreferences,
     private val recents: RecentsRepository,
+    private val allFilesAccess: AllFilesAccess,
 ) : ViewModel() {
+
+    /** All files access (ADR 0007), read again whenever the screen resumes: it changes in system settings. */
+    fun allFilesAccessGranted(): Boolean = allFilesAccess.isGranted()
 
     val readingMode: StateFlow<ReadingMode> = readingPreferences.readingMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), ReadingMode.CONTINUOUS)

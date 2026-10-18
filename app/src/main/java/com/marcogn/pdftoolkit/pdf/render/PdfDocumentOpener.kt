@@ -1,5 +1,6 @@
 package com.marcogn.pdftoolkit.pdf.render
 
+import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import android.os.ParcelFileDescriptor
@@ -83,6 +84,8 @@ class PdfDocumentOpener @Inject constructor(@ApplicationContext private val cont
     }
 
     private fun nameAndSize(uri: Uri): Pair<String?, Long?> {
+        // A file opened by path (ADR 0007): no provider to ask.
+        if (uri.scheme == ContentResolver.SCHEME_FILE) return uri.lastPathSegment to uri.path?.let { File(it).length() }
         var name: String? = null
         var size: Long? = null
         try {

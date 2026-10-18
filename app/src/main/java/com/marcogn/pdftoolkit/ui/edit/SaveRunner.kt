@@ -1,5 +1,6 @@
 package com.marcogn.pdftoolkit.ui.edit
 
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 import java.util.UUID
 
 /**
@@ -74,7 +76,13 @@ fun Context.takeWritePermission(uri: Uri) {
     }
 }
 
-/** Whether the app may write [uri], so "overwrite" can be offered (spec §6.7). */
-fun Context.hasWriteAccess(uri: Uri): Boolean =
-    uri.scheme == "content" &&
+/**
+ * Whether the app may write [uri], so "overwrite" can be offered (spec §6.7): a write grant, or a file
+ * opened by path with all files access (ADR 0007).
+ */
+fun Context.hasWriteAccess(uri: Uri): Boolean = when (uri.scheme) {
+    ContentResolver.SCHEME_CONTENT ->
         checkUriPermission(uri, Process.myPid(), Process.myUid(), Intent.FLAG_GRANT_WRITE_URI_PERMISSION) == PackageManager.PERMISSION_GRANTED
+    ContentResolver.SCHEME_FILE -> uri.path?.let { File(it).canWrite() } ?: false
+    else -> false
+}

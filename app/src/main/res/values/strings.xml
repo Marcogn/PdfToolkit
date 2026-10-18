@@ -128,6 +128,13 @@
     <string name="settings_recents_cleared">Cronologia cancellata</string>
     <string name="settings_clear_thumbnails">Svuota cache miniature</string>
     <string name="settings_clear_thumbnails_summary">Elimina le anteprime dei file recenti; tornano quando riapri i documenti.</string>
+    <string name="settings_all_files">Accesso a tutti i file</string>
+    <string name="settings_all_files_on">Attivo: i PDF aperti da altre app restano nei recenti e si possono sovrascrivere. Tocca per cambiarlo nelle impostazioni di sistema.</string>
+    <string name="settings_all_files_off">Non attivo: i PDF aperti da altre app (file manager, allegati) non si riaprono dai recenti. Tocca per attivarlo.</string>
+    <string name="all_files_prompt_title">Tenere questo file nei recenti?</string>
+    <string name="all_files_prompt_body">L\'app da cui l\'hai aperto dà l\'accesso al PDF solo finché PdfToolkit resta aperta: dopo, dai recenti non si riaprirebbe. Con l\'accesso a tutti i file PdfToolkit lo ritrova dove si trova e può anche sovrascriverlo. Si attiva nelle impostazioni di sistema e si può togliere quando vuoi, anche da Impostazioni. Con \"Non ora\" non te lo chiede più.</string>
+    <string name="all_files_prompt_allow">Consenti</string>
+    <string name="all_files_prompt_not_now">Non ora</string>
     <string name="settings_thumbnails_cleared">Cache svuotata</string>
 
     <!-- Edit (phase 2) -->

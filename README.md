@@ -89,7 +89,9 @@ Files stay on the phone, and text recognition runs on the phone too. Since versi
 Google, are turned off in the manifest ([ADR 0006](docs/adr/0006-internet-for-updates.md); a unit test
 guards it). The document scanner runs in Google Play services, outside the app, under Google's own rules.
 Installing an update also needs "install unknown apps" (`REQUEST_INSTALL_PACKAGES`), which Android asks for
-the first time.
+the first time. "All files access" is optional: the app asks for it only when a PDF arrives from another app
+(a file manager, an attachment) with access for that opening only, so recents can reopen it by its path; it is
+used for nothing else ([ADR 0007](docs/adr/0007-all-files-access.md)). It can be turned off in Settings.
 
 ## Libraries and licences
 
@@ -104,9 +106,9 @@ Clipper2), under the Boost Software License 1.0.
 
 ## Known limits
 
-- **Recents** can't reopen a PDF that another app (file manager, mail) handed over with access for that one
-  opening only: Android gives no lasting permission for it. The entry says "Access expired"; open the file
-  again from that app or with "Open PDF".
+- **Recents** keep a PDF that another app (file manager, mail) handed over with access for that one opening
+  only if "All files access" is on and the PDF is a file in the phone's storage (not a cloud file or a stream).
+  Otherwise the entry says "Access expired"; open the file again from that app or with "Open PDF".
 - **Protected PDFs** can be read (Android 15+) but not edited, added to another PDF or merged.
 - **Removing a page** doesn't guarantee its data leaves the file: if a bookmark or link points to it,
   its objects stay (unseen). This is not a redaction tool.

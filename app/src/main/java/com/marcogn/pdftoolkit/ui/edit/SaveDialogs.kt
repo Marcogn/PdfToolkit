@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.marcogn.pdftoolkit.R
+import com.marcogn.pdftoolkit.data.files.shareableUri
 import com.marcogn.pdftoolkit.domain.edit.SaveFailure
 
 /**
@@ -202,7 +203,7 @@ fun SavedSnackbar(onOpen: () -> Unit, onShare: () -> Unit, onDismiss: () -> Unit
 }
 
 fun shareCopy(context: android.content.Context, uri: String, title: String) {
-    val parsed = uri.toUri()
+    val parsed = context.shareableUri(uri.toUri())
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "application/pdf"
         putExtra(Intent.EXTRA_STREAM, parsed)

@@ -124,6 +124,13 @@
     <string name="settings_recents_cleared">Recent files cleared</string>
     <string name="settings_clear_thumbnails">Clear thumbnail cache</string>
     <string name="settings_clear_thumbnails_summary">Deletes the previews of recent files; they come back when you reopen the documents.</string>
+    <string name="settings_all_files">All files access</string>
+    <string name="settings_all_files_on">On: PDFs opened from other apps stay in recents and can be overwritten. Tap to change it in the system settings.</string>
+    <string name="settings_all_files_off">Off: PDFs opened from other apps (file managers, attachments) don\'t reopen from recents. Tap to turn it on.</string>
+    <string name="all_files_prompt_title">Keep this file in recents?</string>
+    <string name="all_files_prompt_body">The app you opened it from gives access to the PDF only while PdfToolkit stays open: after that it wouldn\'t reopen from recents. With all files access PdfToolkit finds it where it is and can also overwrite it. You turn it on in the system settings and can take it away at any time, also from Settings. With \"Not now\" you won\'t be asked again.</string>
+    <string name="all_files_prompt_allow">Allow</string>
+    <string name="all_files_prompt_not_now">Not now</string>
     <string name="settings_thumbnails_cleared">Cache cleared</string>
 
     <!-- Edit (phase 2) -->

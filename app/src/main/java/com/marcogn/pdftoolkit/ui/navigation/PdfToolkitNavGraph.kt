@@ -16,7 +16,6 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,6 +46,7 @@ import com.marcogn.pdftoolkit.ui.recents.RecentsScreen
 import com.marcogn.pdftoolkit.ui.recents.RecentsViewModel
 import com.marcogn.pdftoolkit.ui.settings.SettingsScreen
 import com.marcogn.pdftoolkit.ui.signatures.SignaturesScreen
+import com.marcogn.pdftoolkit.ui.viewer.IncomingPdfHandler
 import com.marcogn.pdftoolkit.ui.viewer.ViewerScreen
 import com.marcogn.pdftoolkit.ui.viewer.rememberOpenPdfLauncher
 import com.marcogn.pdftoolkit.ui.scan.rememberScanToPdf
@@ -140,13 +140,9 @@ fun PdfToolkitNavGraph(
     }
 
     val context = LocalContext.current
-    // PDF handed over by another app (VIEW / SEND): opened on top of Home, so back goes to Home.
-    LaunchedEffect(startUri) {
-        if (startUri != null) {
-            context.takePersistableAccess(startUri)
-            navController.navigate(Destination.Viewer(startUri.toString()))
-        }
-    }
+    // PDF handed over by another app (VIEW / SEND): opened on top of Home, so back goes to Home; by
+    // its path when the grant can't be kept and all files access is there (ADR 0007).
+    IncomingPdfHandler(startUri, onOpen = { navController.navigate(Destination.Viewer(it.toString())) })
 
     ModalNavigationDrawer(
         drawerState = drawerState,

@@ -119,6 +119,9 @@ decided or approved it.
   call a deleted file "expired". Entries recorded before v3 count as persisted until they are opened
   again. No copy of the file into app storage (it would duplicate users' documents;
   the author can still ask for it).
+- 2026-10-18 · All files access to keep those PDFs in recents by path (author, ADR 0007): asked only when such a
+  PDF arrives, "Not now" remembered, a row in Settings › Data. Copying into app storage and re-picking by hand
+  were ruled out by the author.
 - 2026-10-01 · Scrubber: only the thumb takes touches, linear page mapping. Drawer swipe disabled in the viewer.
 - 2026-10-04 · The app draws every annotation itself; the platform renderer draws none (ADR 0004). On API
   35+ it does draw form widgets, with the value saved in the file.

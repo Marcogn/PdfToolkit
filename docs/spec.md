@@ -92,6 +92,8 @@ As in ThePatientGamerHelper. Unless the reference project says otherwise:
 ### 3.4 File access
 
 - Opening through the Storage Access Framework (`ActivityResultContracts.OpenDocument` with `application/pdf`). No storage permission.
+
+  > **Note (2026-10-18):** all files access is asked for, optionally, when a PDF arrives from another app with a temporary grant, so recents can reopen it by its path (ADR 0007, issue #47). Opening through the picker still needs no permission.
 - Call `takePersistableUriPermission` so recent files can be reopened.
 - The app registers as a PDF viewer: an `intent-filter` for `ACTION_VIEW` with `mimeType="application/pdf"` (schemes `content` and `file`), and `ACTION_SEND` to receive a shared PDF.
 - Images: Photo Picker (`PickVisualMedia`) plus SAF for files not in the gallery.

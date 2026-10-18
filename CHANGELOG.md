@@ -6,6 +6,11 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **PDFs from other apps stay in recents.** A PDF opened from a file manager or an attachment usually comes
+  with access for that opening only, so after closing the app it read "no longer available" in Recents. The
+  app now asks, once, for "All files access": with it on, such a file is opened by its path, reopens from
+  Recents as long as it is where it was (moved or deleted: "File unavailable"), and can be overwritten.
+  "Not now" keeps the old behaviour; Settings › Data has the switch.
 - **Recents say when access has expired.** A PDF opened from another app (a file manager, a mail attachment)
   often comes with access for that one opening only, so it can't be reopened from Recents later. Such an
   entry now reads "Access expired" and, when tapped, says to open the file again from that app or with "Open
