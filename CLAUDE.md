@@ -40,8 +40,8 @@ When the author says "go on" / "next phase":
 6. End with the sub-phase's **device checks**: there is no emulator here, the author tests on a phone.
 7. Don't start the next sub-phase in the same session unless asked.
 
-Session title `<sub-phase> <Name>` (other work: `PdfToolkit <what>`), set at the start with `set_session_title`
-and again if the task changes. Branches Claude creates are `<type>/<what-and-where>` (`phase/9-scan`,
+Session title `PdfToolkit <sub-phase> <Name>` (other work: `PdfToolkit <what>`), set at the start with `set_session_title`
+and again if the task changes. Branches Claude creates are `<type>/<what-and-where>` (`phase/9-export-pdf`,
 `fix/crash-on-rotation`; `docs/claude.md`, "Names"). The cloud environment may fix the branch name: then use
 the one it gives.
 
