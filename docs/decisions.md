@@ -116,7 +116,8 @@ decided or approved it.
   unavailable" once they can't be read. Whether the grant was temporary is stored at opening
   (`RecentDocument.temporaryAccess`, Room v3: a `content://` URI with no persisted read grant), not worked out
   later: deleting a document through its provider revokes the persisted grants too, so a later check would
-  call a deleted file "expired". No copy of the file into app storage (it would duplicate users' documents;
+  call a deleted file "expired". Entries recorded before v3 count as persisted until they are opened
+  again. No copy of the file into app storage (it would duplicate users' documents;
   the author can still ask for it).
 - 2026-10-01 · Scrubber: only the thumb takes touches, linear page mapping. Drawer swipe disabled in the viewer.
 - 2026-10-04 · The app draws every annotation itself; the platform renderer draws none (ADR 0004). On API
